@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Terminal-RL Qwen3-8B dataset-selectable GRPO/DAPO baseline.
+# LightRL Slime model- and dataset-selectable GRPO/DAPO baseline.
 #
 # Defaults:
 #   * DATASET=mixed with seta:safety:agentharm = 6:2:2; supports swe-smith
@@ -18,9 +18,9 @@
 #   3. Converted dataset files available.
 #
 # Usage:
-#   DATASET=mixed ALGO=dapo bash agentic_rl/backends/slime/runtime/train_qwen3_8b.sh
-#   DATASET=swe-smith ALGO=dapo bash agentic_rl/backends/slime/runtime/train_qwen3_8b.sh
-#   DATASET=seta ALGO=grpo bash agentic_rl/backends/slime/runtime/train_qwen3_8b.sh
+#   DATASET=mixed ALGO=dapo bash agentic_rl/backends/slime/runtime/train.sh
+#   DATASET=swe-smith ALGO=dapo bash agentic_rl/backends/slime/runtime/train.sh
+#   DATASET=seta ALGO=grpo bash agentic_rl/backends/slime/runtime/train.sh
 #
 # Structured reward observability:
 #   TERMINAL_STRUCTURED_METRICS=1 writes per-rollout dataset reward breakdowns
@@ -106,7 +106,10 @@ export MEGATRON_DIR="${MEGATRON_DIR:-${REPO_ROOT}/Megatron-LM}"
 
 CUSTOM_CONFIG_PATH="${CUSTOM_CONFIG_PATH:-${REPO_ROOT}/configs/rollout/rollout_qwen3_think.yaml}"
 
-# Hardcoded Qwen3-8B (matches swe-rl v4 pattern)
+# Qwen3-8B remains the compatibility default; examples may override all model fields.
+MODEL_TAG="${MODEL_TAG:-qwen3-8b}"
+MODEL_DISPLAY_NAME="${MODEL_DISPLAY_NAME:-${MODEL_TAG}}"
+MODEL_ARGS_FILE="${MODEL_ARGS_FILE:-qwen3-8B}"
 HF_CKPT="${HF_CKPT:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B/}"
 REF_LOAD="${REF_LOAD:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B_torch_dist/}"
 
@@ -367,17 +370,17 @@ MAX_CKPT_KEEP="${MAX_CKPT_KEEP:-2}"
 SAVE_INTERVAL="${SAVE_INTERVAL:-8}"
 if [[ "${DEBUG_MODE}" == "1" ]]; then
   if [[ "${DATASET}" == "swesmith" ]]; then
-    RUN_NAME="${RUN_NAME:-terminal-rl_qwen3-8b_${NUM_GPUS}gpu_debug_swesmith_${RUN_ALGO_NAME_TAG}_think_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
+    RUN_NAME="${RUN_NAME:-terminal-rl_${MODEL_TAG}_${NUM_GPUS}gpu_debug_swesmith_${RUN_ALGO_NAME_TAG}_think_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
   else
-    RUN_NAME="${RUN_NAME:-terminal-rl_qwen3-8b_${NUM_GPUS}gpu_debug_mixed_${RUN_ALGO_NAME_TAG}_think_s${MIX_SETA_RATIO}_asb${MIX_SAFETY_RATIO}_ah${MIX_AGENTHARM_RATIO}_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
+    RUN_NAME="${RUN_NAME:-terminal-rl_${MODEL_TAG}_${NUM_GPUS}gpu_debug_mixed_${RUN_ALGO_NAME_TAG}_think_s${MIX_SETA_RATIO}_asb${MIX_SAFETY_RATIO}_ah${MIX_AGENTHARM_RATIO}_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
   fi
   # Debug mode: never save checkpoints regardless of MAX_CKPT_KEEP
   MAX_CKPT_KEEP=0
 else
   if [[ "${DATASET}" == "swesmith" ]]; then
-    RUN_NAME="${RUN_NAME:-terminal-rl_qwen3-8b_${NUM_GPUS}gpu_swesmith_${RUN_ALGO_NAME_TAG}_think_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
+    RUN_NAME="${RUN_NAME:-terminal-rl_${MODEL_TAG}_${NUM_GPUS}gpu_swesmith_${RUN_ALGO_NAME_TAG}_think_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
   else
-    RUN_NAME="${RUN_NAME:-terminal-rl_qwen3-8b_${NUM_GPUS}gpu_mixed_${RUN_ALGO_NAME_TAG}_think_s${MIX_SETA_RATIO}_asb${MIX_SAFETY_RATIO}_ah${MIX_AGENTHARM_RATIO}_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
+    RUN_NAME="${RUN_NAME:-terminal-rl_${MODEL_TAG}_${NUM_GPUS}gpu_mixed_${RUN_ALGO_NAME_TAG}_think_s${MIX_SETA_RATIO}_asb${MIX_SAFETY_RATIO}_ah${MIX_AGENTHARM_RATIO}_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
   fi
 fi
 
@@ -674,8 +677,13 @@ echo "  REF_LOAD: ${REF_LOAD}"
 echo "  MAX_CKPT_KEEP: ${MAX_CKPT_KEEP}"
 echo "========================================"
 
-# ── Model args (source qwen3-8B.sh) ──────────────────────────────────
-source "${SLIME_DIR}/scripts/models/qwen3-8B.sh"
+# ── Model args selected by MODEL_ARGS_FILE ──────────────────────────────────
+MODEL_ARGS_PATH="${SLIME_DIR}/scripts/models/${MODEL_ARGS_FILE}.sh"
+if [[ ! -f "${MODEL_ARGS_PATH}" ]]; then
+  echo "[ERROR] MODEL_ARGS_FILE=${MODEL_ARGS_FILE} not found at ${MODEL_ARGS_PATH}" >&2
+  exit 1
+fi
+source "${MODEL_ARGS_PATH}"
 
 # ── Dataset & Reward Configuration ───────────────────────────────────
 # DATASET: which data to train on
@@ -1558,9 +1566,10 @@ if [[ -n "${RESUME_LOAD}" ]]; then
 fi
 
 if [[ "${DEBUG_MODE}" == "1" ]]; then
-  NUM_ROLLOUT=4
-  ROLLOUT_BATCH_SIZE=4
-  N_SAMPLES=2
+  # Preserve DEBUG_MODE safeguards while allowing launchers to request a smaller smoke shape.
+  NUM_ROLLOUT="${NUM_ROLLOUT:-4}"
+  ROLLOUT_BATCH_SIZE="${ROLLOUT_BATCH_SIZE:-4}"
+  N_SAMPLES="${N_SAMPLES:-2}"
   MAX_TOKENS_PER_GPU=8192
 else
   NUM_ROLLOUT="${NUM_ROLLOUT:-2000}"
@@ -1755,7 +1764,7 @@ if [[ "${WANDB_MODE}" != "disabled" ]] && (( WANDB_ENABLE_RESOLVED || ${#WANDB_K
     --use-wandb
     --wandb-mode    "${WANDB_MODE}"
     --wandb-project "${WANDB_PROJECT:-terminal_rl}"
-    --wandb-group   "${WANDB_GROUP:-qwen3-8b_4gpu}"
+    --wandb-group   "${WANDB_GROUP:-${MODEL_TAG}_4gpu}"
     --wandb-dir     "${WANDB_DIR}"
   )
   if [[ -n "${WANDB_KEY_VALUE}" ]]; then
@@ -1997,7 +2006,7 @@ cat > "${RUN_DIR}/config/run_config.json" <<CFGEOF
   "dry_run": "${DRY_RUN}",
   "algo": "${ALGO}",
   "harness_option": "${HARNESS_OPTION}",
-  "model": "Qwen3-8B",
+  "model": "${MODEL_DISPLAY_NAME}",
   "hf_ckpt": "${HF_CKPT}",
   "ref_load": "${REF_LOAD}",
   "save_ckpt": "${SAVE_CKPT}",

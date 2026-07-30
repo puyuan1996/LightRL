@@ -180,8 +180,6 @@ class Tau2Env:
         self.root = Path(
             root or os.getenv("TAU2_BENCH_ROOT", _repo_default_tau2_root())
         ).resolve()
-        ensure_tau2_importable(self.root)
-
         self._task_meta: dict[str, Any] = {}
         self._task = None
         self._env = None
@@ -349,6 +347,7 @@ class Tau2Env:
         run_ctx: Any,
     ) -> tuple[str, list[dict[str, Any]]]:
         _ = task_spec
+        ensure_tau2_importable(self.root)
         self._task_meta = deepcopy(task_meta)
         self._run_ctx = run_ctx
         self._last_eval = None

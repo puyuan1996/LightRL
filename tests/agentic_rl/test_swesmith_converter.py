@@ -475,6 +475,7 @@ def test_pytest_runner_ignores_untracked_local_pytest_package(tmp_path: Path) ->
             **os.environ,
             "TEST_DIR": str(task_dir / "tests"),
             "SWESMITH_RUN_PASS_TO_PASS": "1",
+            "PYTHON_BIN": sys.executable,
             "SWESMITH_TRUSTED_TASK_COMMIT": subprocess.check_output(
                 ["git", "-C", str(repo_dir), "rev-parse", "HEAD"], text=True
             ).strip(),
@@ -1342,7 +1343,9 @@ def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
     launcher = (remote_dir / "run_pool_server_swesmith_pu.sh").read_text(
         encoding="utf-8"
     )
-    pool_server = (remote_dir / "pool_server.py").read_text(encoding="utf-8")
+    pool_server = (
+        MODULE_PATH.parents[1] / "services" / "worker" / "pool.py"
+    ).read_text(encoding="utf-8")
     assert 'WORKER_SHIM_CLEANUP_ENABLED="${WORKER_SHIM_CLEANUP_ENABLED:-0}"' in launcher
     assert 'WORKER_ORPHAN_DOCKER_SWEEP="${WORKER_ORPHAN_DOCKER_SWEEP:-1}"' in launcher
     assert 'if not _env_bool("WORKER_SHIM_CLEANUP_ENABLED", True):' in pool_server
@@ -1356,7 +1359,7 @@ def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
     assert 'data_preflight=ok format=v' in launcher
     assert 'export POOL_SERVER_VENV' in launcher
     training = (
-        MODULE_PATH.parents[1] / "backends" / "slime" / "runtime" / "train_qwen3_8b.sh"
+        MODULE_PATH.parents[1] / "backends" / "slime" / "runtime" / "train.sh"
     ).read_text(encoding="utf-8")
     smoke = (
         MODULE_PATH.parents[2] / "tools" / "dev" / "smoke_swesmith_worker.py"
@@ -1366,7 +1369,7 @@ def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
     assert "foreign_rows += 1" in training
     assert "reset_session_timeout + 600" in smoke
     assert 'if _current_pool_namespace() == "default":' in (
-        remote_dir / "terminal_env.py"
+        MODULE_PATH.parents[1] / "environments" / "terminal" / "runtime.py"
     ).read_text(encoding="utf-8")
 
 
@@ -1820,7 +1823,7 @@ def test_smoke_observes_worker_close_cleanup_failure(
     )
 
     pool_source = (
-        MODULE_PATH.parents[1] / "services" / "worker" / "app.py"
+        MODULE_PATH.parents[1] / "services" / "worker" / "pool.py"
     ).read_text(encoding="utf-8")
     assert '"recent_close_failures"' in pool_source
     assert "_record_close_failure(" in pool_source

@@ -76,6 +76,9 @@ class _FakeRouter:
         self.workers = [f"http://worker-{idx}" for idx, _ in enumerate(results)]
         self._results = results
 
+    async def maybe_reload_workers(self):
+        return None
+
     @property
     def num_workers(self):
         return len(self.workers)

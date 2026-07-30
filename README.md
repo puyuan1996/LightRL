@@ -33,9 +33,8 @@ LightRL/
 │   ├── integrations/          # optional external integrations
 │   └── cli/                   # agentic-rl command
 ├── configs/                   # composable axis/default/experiment configs
-├── experiments/               # versioned reproducible recipes
+├── examples/                  # runnable model × data × algorithm recipes
 ├── benchmarks/                # benchmark data and task environments
-├── scripts/                   # stable user-facing commands
 ├── tools/                     # analysis, evaluation, dev, world-model tools
 ├── deploy/                    # worker/cluster operations
 ├── tests/                     # package and smoke tests
@@ -45,31 +44,30 @@ LightRL/
 └── docs/                      # architecture and operations guides
 ```
 
-## DIVE-PO
+## Examples
+
+Public examples are grouped under `examples/`:
+
+```bash
+# Qwen3-8B + SETA + DAPO
+bash examples/train_qwen3_8b_seta_dapo.sh --dry-run
+
+# Mixed data + DAPO
+bash examples/train_qwen3_8b_mixed_dapo.sh --dry-run
+
+# Qwen3-8B + SETA + DIVE-PO v0716 centered gate
+bash examples/train_qwen3_8b_seta_dive_po.sh --dry-run
+
+# GLM-5.1 + SETA + DAPO integration
+bash examples/train_glm_5_1_seta_dapo.sh --dry-run
+```
 
 The maintained DIVE-PO recipe is
-`configs/experiment/dive_po_qwen3_8b_seta.yaml`. Inspect the fully composed
-configuration:
+`configs/experiment/dive_po_qwen3_8b_seta.yaml`. Site-specific cluster
+launchers, worker URL files, credentials, and scheduler settings belong under
+`local/cluster/` and are intentionally ignored by Git.
 
-```bash
-python3 -m agentic_rl.cli compose \
-  --config configs/experiment/dive_po_qwen3_8b_seta.yaml
-```
-
-Run it through the stable command:
-
-```bash
-CONFIG_PATH=configs/experiment/dive_po_qwen3_8b_seta.yaml scripts/train.sh
-```
-
-The preserved historical experiment filename is also executable:
-
-```bash
-bash experiments/dive_po/qwen3_8b_seta_v0716/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
-```
-
-Site-specific cluster launchers, worker URL files, credentials, and scheduler
-settings belong under `local/cluster/` and are intentionally ignored by Git.
+See `examples/README.md` for required runtime inputs.
 
 ## LWM
 

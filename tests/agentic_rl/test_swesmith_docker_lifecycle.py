@@ -13,11 +13,11 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 AGENTIC_RL = ROOT / "agentic_rl"
 TERMINAL_ENV = AGENTIC_RL / "environments" / "terminal" / "runtime.py"
-POOL_SERVER = AGENTIC_RL / "services" / "worker" / "app.py"
+POOL_SERVER = AGENTIC_RL / "services" / "worker" / "pool.py"
 COMPOSE_UTILS = AGENTIC_RL / "environments" / "terminal" / "docker_compose.py"
 SETA_LAUNCHER = ROOT / "deploy" / "workers" / "run_pool_server_pu_v2.sh"
 SWE_LAUNCHER = ROOT / "deploy" / "workers" / "run_pool_server_swesmith_pu.sh"
-TRAIN_LAUNCHER = AGENTIC_RL / "backends" / "slime" / "runtime" / "train_qwen3_8b.sh"
+TRAIN_LAUNCHER = AGENTIC_RL / "backends" / "slime" / "runtime" / "train.sh"
 DOWNLOADER = AGENTIC_RL / "data" / "download_swesmith.sh"
 SMOKE_CLIENT = ROOT / "tools" / "dev" / "smoke_swesmith_worker.py"
 WORKER_REQUIREMENTS = ROOT / "deploy" / "workers" / "requirements-swesmith-worker.txt"
@@ -273,3 +273,11 @@ def test_launchers_export_namespace_and_seta_cleanup_filters_ownership() -> None
     assert 'ns != "default" && $2 == ns' in seta
     assert "docker container prune" not in seta
     assert "docker network prune" not in seta
+
+
+def test_seta_worker_launcher_uses_repository_data_roots() -> None:
+    launcher = SETA_LAUNCHER.read_text(encoding="utf-8")
+
+    assert "${REPO_ROOT}/benchmarks" in launcher
+    assert "${REPO_ROOT}/build_outputs" in launcher
+    assert "${TERMINAL_RL}/dataset" not in launcher

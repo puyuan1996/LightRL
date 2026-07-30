@@ -189,7 +189,7 @@ tools/world_model/run_world_model_seta_latent.sh
 EXTRA_ALGO_ARGS="--world-model-enable \
   --world-model-use-dapo-replay-buffer \
   --world-model-replay-buffer-size 4096" \
-bash experiments/dive_po/qwen3_8b_seta_v0716/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
+bash examples/train_qwen3_8b_seta_dive_po.sh
 ```
 
 这只收集/保存 world-model replay，不开启辅助 policy loss。现有在线 default loss hook 仍只消费显式提供的 `wm_pred_latents/wm_target_latents`。

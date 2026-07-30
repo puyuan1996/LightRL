@@ -11,7 +11,7 @@
 #   ALGO=grpo|dapo
 #
 # USAGE:
-#   bash experiments/dive_po/qwen3_8b_seta_v0716/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
+#   bash examples/train_qwen3_8b_seta_dive_po.sh
 #   DATASET=safety ALGO=dapo bash ...exploration_pu.sh                   # ASB + DAPO override
 #   EXPLORATION_PROFILE=robust_dapo_lite bash ...exploration_pu.sh       # conservative DAPO exploration override
 #   EXPLORATION_PROFILE=off EXPLORE_AGENT57_LITE=0 bash ...exploration_pu.sh # baseline-style ablation
@@ -507,4 +507,4 @@ export EXPLORE_RETRY_ATTEMPTS EXPLORE_RETRY_TRAJ_GAMMA
 export TERMINAL_STRUCTURED_METRICS TERMINAL_METRICS_JSONL TERMINAL_WANDB_METRIC_PROFILE
 
 # ── 12. Execute mixed nodynamic baseline script ──
-exec bash "${SCRIPT_DIR}/train_qwen3_8b.sh" "$@"
+exec bash "${SCRIPT_DIR}/train.sh" "$@"

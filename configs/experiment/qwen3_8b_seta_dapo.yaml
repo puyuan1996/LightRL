@@ -1,0 +1,17 @@
+defaults:
+  - harness: camel_agent
+  - model: qwen3_8b
+  - algorithm: dapo
+  - environment: seta
+  - backend: slime
+  - cluster: example
+
+experiment:
+  name: qwen3_8b_seta_dapo
+
+runtime:
+  launcher: agentic_rl/backends/slime/runtime/train.sh
+  env:
+    CUSTOM_CONFIG_PATH: configs/rollout/rollout_qwen3_think.yaml
+    DAPO_DYNAMIC_SAMPLING: false
+    EXPLORATION_PROFILE: "off"

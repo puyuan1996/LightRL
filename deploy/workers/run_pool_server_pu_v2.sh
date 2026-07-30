@@ -43,7 +43,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-TERMINAL_RL="$(cd -- "${SCRIPT_DIR}/.." &>/dev/null && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." &>/dev/null && pwd)"
 
 log() { echo "[$(date +'%F %T')] $*"; }
@@ -566,7 +565,7 @@ if [[ "${CLAWSENTRY_NEEDED}" == "1" ]]; then
         log "  ❌ ClawSentry gateway NOT responding at 127.0.0.1:${CS_GATEWAY_PORT}"
         log "     This will cause safety_coef * 0 = 0 (no safety reward) in training"
         log "     Start it on GPU worker first, then re-run pool server"
-        log "     (The ClawSentry gateway is started by experiments/dive_po/qwen3_8b_seta_v0716/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh on GPU worker)"
+        log "     (The ClawSentry gateway is started by examples/train_qwen3_8b_seta_dive_po.sh on GPU worker)"
         log "  ⚠️  Continuing anyway (pool_server doesn't run ClawSentry; GPU side does)"
     fi
 else
@@ -668,8 +667,8 @@ echo ""
 # ── Start pool_server ─────────────────────────────────────────────────────────
 cd "${REPO_ROOT}"
 
-export DATASET_DIR="${DATASET_DIR:-${TERMINAL_RL}/dataset}"
-export TBENCH_OUTPUT_ROOT="${TBENCH_OUTPUT_ROOT:-${TERMINAL_RL}/build_outputs}"
+export DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/benchmarks}"
+export TBENCH_OUTPUT_ROOT="${TBENCH_OUTPUT_ROOT:-${REPO_ROOT}/build_outputs}"
 export TBENCH_DOCKER_IMAGE_SOURCE="${TBENCH_DOCKER_IMAGE_SOURCE:-build}"
 export TBENCH_DOCKER_PULL_PREFIX="${TBENCH_DOCKER_PULL_PREFIX:-}"
 export AGENT_SAFETYBENCH_ROOT="${AGENT_SAFETYBENCH_ROOT:-/mnt/shared-storage-user/puyuan/code/Agent-SafetyBench}"

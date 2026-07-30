@@ -81,10 +81,10 @@ def test_converter_emits_official_provenance_and_prediction_only_task(
     )
     service = compose["services"]["client"]
     assert service["labels"] == [
-        "agentic_rl.pool-namespace=${AGENTIC_RL_POOL_NAMESPACE:-default}"
+        "agentic_rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}"
     ]
     assert compose["networks"]["default"]["labels"] == [
-        "agentic_rl.pool-namespace=${AGENTIC_RL_POOL_NAMESPACE:-default}"
+        "agentic_rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}"
     ]
     assert converter.official_image_name(meta["swe_instance_id"]) in (
         task_dir / "Dockerfile"
@@ -110,7 +110,7 @@ def test_converter_emits_official_provenance_and_prediction_only_task(
         compile(ast.Module(body=nodes, type_ignores=[]), str(TERMINAL_ENV), "exec"),
         namespace,
     )
-    monkeypatch.setenv("AGENTIC_RL_POOL_NAMESPACE", "sweverified")
+    monkeypatch.setenv("TERMINAL_RL_POOL_NAMESPACE", "sweverified")
     assert namespace["_compose_declares_pool_namespace"](
         task_dir / "docker-compose.yaml"
     )

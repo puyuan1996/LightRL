@@ -75,8 +75,8 @@ def _restore_import_stubs(previous: dict[str, types.ModuleType | None]) -> None:
 def _import_rollout_log():
     previous = _install_rollout_log_import_stubs()
     try:
-        sys.modules.pop("rollout_log", None)
-        return importlib.import_module("rollout_log")
+        sys.modules.pop("agentic_rl.observability.rollout.entrypoint", None)
+        return importlib.import_module("agentic_rl.observability.rollout.entrypoint")
     finally:
         _restore_import_stubs(previous)
 
@@ -384,3 +384,9 @@ def test_reward_fusion_axis_metrics_expose_canonical_fields(monkeypatch):
     assert math.isclose(metrics["adv/with_penalty"], -0.015)
     assert record["intrinsic/fused"] == metrics["intrinsic/fused"]
     assert record["adv/with_penalty"] == metrics["adv/with_penalty"]
+
+
+def test_trajectory_store_exports_local_save_decision():
+    from agentic_rl.rollout.trajectory import store
+
+    assert callable(store._trajectory_save_decision)

@@ -342,7 +342,7 @@ if details is not None:
 RL 侧默认 evaluate retry 降到 1：
 
 ```bash
-# agentic_rl/backends/slime/runtime/train_qwen3_8b.sh:372
+# agentic_rl/backends/slime/runtime/train.sh:372
 ENV_EVALUATE_MAX_RETRIES="${ENV_EVALUATE_MAX_RETRIES:-1}"
 ```
 
@@ -740,7 +740,7 @@ WORKER_AUTO_SERIALIZE_UNSAFE_COMPOSE=1 且 compose 含固定 service container_n
 ```bash
 # server 语法和 Python 编译
 python -m py_compile agentic_rl/environments/terminal/runtime.py agentic_rl/services/worker/app.py agentic_rl/environments/client.py agentic_rl/services/router/app.py
-bash -n deploy/workers/start_server.sh deploy/workers/run_pool_server_pu_v2.sh agentic_rl/backends/slime/runtime/train_qwen3_8b.sh
+bash -n deploy/workers/start_server.sh deploy/workers/run_pool_server_pu_v2.sh agentic_rl/backends/slime/runtime/train.sh
 
 # 运行日志关键字
 grep -E "Reset exceeds|WORKER_RESET_TIMEOUT|Forced container recreation|eval_timeout|eval_parse_failed|eval_no_results|Timed out closing|Docker cleanup detached|Docker compose down finished|fixed task service|Periodic orphan Docker sweep|Idle orphan reap|Reset-storm orphan reap|RUN_SLOTS_EXHAUSTED" cpu_pool.log

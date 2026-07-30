@@ -15,12 +15,35 @@ from agentic_rl.services.router.service import (
     _format_error,
     _retryable_allocate_failure,
     _status_from_payload,
-    _worker_unreachable,
 )
 
 logger = logging.getLogger("lightrl.env.router.app")
 app = FastAPI()
 ROUTER: Router | None = None
+
+
+
+def _worker_unreachable(
+    *,
+    worker_idx: int,
+    worker_url: str,
+    path: str,
+    exc: BaseException,
+    lease_id: str | None = None,
+    task_key: str | None = None,
+) -> JSONResponse:
+    payload: dict[str, Any] = {
+        "ok": False,
+        "error": f"Worker unreachable: {_format_error(exc)}",
+        "worker_idx": worker_idx,
+        "worker_url": worker_url,
+        "path": path,
+    }
+    if lease_id:
+        payload["lease_id"] = lease_id
+    if task_key:
+        payload["task_key"] = task_key
+    return JSONResponse(payload, status_code=502)
 
 @app.get("/healthz")
 async def healthz() -> dict[str, Any]:

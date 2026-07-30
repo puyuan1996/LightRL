@@ -56,7 +56,6 @@ from agentic_rl.rollout.trajectory.policy import (
     _trajectory_env_int,
     _trajectory_reward_strata,
     _trajectory_reward_value,
-    _trajectory_save_decision,
     _trajectory_save_interval,
     _trajectory_save_policy,
     _trajectory_step_value,

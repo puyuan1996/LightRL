@@ -173,7 +173,7 @@ def test_pressure_guard_rejects_allocate_on_low_pids_headroom(monkeypatch):
     monkeypatch.setenv("WORKER_PIDS_PAUSE_ALLOCATE_PCT", "99")
     monkeypatch.setenv("WORKER_PIDS_MIN_FREE_ALLOCATE", "6000")
     monkeypatch.setattr(
-        pool_server,
+        importlib.import_module("agentic_rl.services.worker.admission"),
         "worker_pressure_stats",
         lambda *args, **kwargs: {
             "procs": 100,
@@ -206,7 +206,7 @@ def test_pressure_guard_rejects_reset_on_low_pids_headroom(monkeypatch):
     monkeypatch.setenv("WORKER_PIDS_REJECT_RESET_PCT", "99")
     monkeypatch.setenv("WORKER_PIDS_MIN_FREE_RESET", "4000")
     monkeypatch.setattr(
-        pool_server,
+        importlib.import_module("agentic_rl.services.worker.admission"),
         "worker_pressure_stats",
         lambda *args, **kwargs: {
             "procs": 100,
@@ -1195,7 +1195,9 @@ def test_cancelled_orphan_sweep_joins_bounded_worker_thread(monkeypatch, tmp_pat
             return 0
 
         monkeypatch.setattr(
-            pool_server, "force_remove_orphan_docker_objects", _blocking_sweep
+            importlib.import_module("agentic_rl.services.worker.pool"),
+            "force_remove_orphan_docker_objects",
+            _blocking_sweep,
         )
         pool = _new_pool(pool_server, _DummyEnv(), tmp_path)
         sweep_request = asyncio.create_task(
@@ -1234,7 +1236,9 @@ def test_orphan_sweep_builtin_timeout_is_classified_on_python310(
             raise TimeoutError("deadline")
 
         monkeypatch.setattr(
-            pool_server, "force_remove_orphan_docker_objects", _timed_out_sweep
+            importlib.import_module("agentic_rl.services.worker.pool"),
+            "force_remove_orphan_docker_objects",
+            _timed_out_sweep,
         )
         pool = _new_pool(pool_server, _DummyEnv(), tmp_path)
         monkeypatch.setattr(pool, "_record_orphan_sweep_failure", reasons.append)

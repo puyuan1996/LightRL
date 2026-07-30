@@ -55,7 +55,7 @@ Then on the GPU worker:
 
 ```bash
 export WORKER_URLS="http://<this-cpu-worker-ip>:18081"
-bash experiments/dive_po/qwen3_8b_seta_v0716/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
+bash examples/train_qwen3_8b_seta_dive_po.sh
 ```
 
 For first-time setup and recovery, follow [`../../docs/operations/cpu_workers.md`](../../docs/operations/cpu_workers.md).

@@ -10,7 +10,7 @@ TERMINAL_RL_DIR = Path(__file__).resolve().parents[2] / "agentic_rl"
 if str(TERMINAL_RL_DIR) not in sys.path:
     sys.path.insert(0, str(TERMINAL_RL_DIR))
 
-from agentic_rl.algorithms.dive_po.rewards import postprocess
+from agentic_rl.algorithms.dive_po.rewards import postprocess as reward_postprocess
 
 
 class DummySample:

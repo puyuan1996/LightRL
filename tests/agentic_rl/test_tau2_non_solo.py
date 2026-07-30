@@ -139,7 +139,15 @@ def test_tau2_env_non_solo_only_exposes_agent_tools():
     ]
 
 
-def test_tau2_env_non_solo_generates_follow_up_user_message():
+def test_tau2_env_non_solo_generates_follow_up_user_message(monkeypatch):
+    message_mod = types.ModuleType("tau2.data_model.message")
+    message_mod.AssistantMessage = lambda **kwargs: types.SimpleNamespace(**kwargs)
+    message_mod.MultiToolMessage = lambda **kwargs: types.SimpleNamespace(**kwargs)
+    message_mod.ToolMessage = lambda **kwargs: types.SimpleNamespace(**kwargs)
+    monkeypatch.setitem(sys.modules, "tau2", types.ModuleType("tau2"))
+    monkeypatch.setitem(sys.modules, "tau2.data_model", types.ModuleType("tau2.data_model"))
+    monkeypatch.setitem(sys.modules, "tau2.data_model.message", message_mod)
+
     env = Tau2Env()
     env._task_meta = {"tau2_mode": "non_solo"}
     env._task = types.SimpleNamespace(initial_state=None, id="task_1")
