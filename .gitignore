@@ -37,7 +37,6 @@ nohup.out
 /local/cluster/
 /configs/site/local.yaml
 /agentic_rl/worker_urls*.txt
-!/agentic_rl/worker_urls.example.txt
 swe.pem
 
 # Generated agentic datasets

@@ -22,5 +22,7 @@ bash examples/train_glm_5_1_seta_dapo.sh --dry-run
 ```
 
 Real SETA runs require reachable workers via `WORKER_URLS` or
-`WORKER_URLS_FILE`. The GLM entry also requires `HF_CKPT`, `REF_LOAD`, and a
+`WORKER_URLS_FILE`. Copy `configs/site/worker_urls.example.txt` to the ignored
+`local/cluster/worker_urls.txt` and replace its placeholder when using the
+default file location. The GLM entry also requires `HF_CKPT`, `REF_LOAD`, and a
 compatible `MODEL_ARGS_FILE` present under `slime/scripts/models/`.
