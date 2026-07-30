@@ -21,27 +21,13 @@ nvidia-smi --query-gpu=index,name,memory.used,memory.total,utilization.gpu \
 free -h
 df -h / "${REPO_ROOT}"
 
-if ! docker info >/dev/null 2>&1; then
-  if ! command -v dockerd >/dev/null 2>&1; then
-    echo "[ERROR] Docker server is unavailable and dockerd is not installed." >&2
-    exit 1
-  fi
-  DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT:-/tmp/lightrl-docker}"
-  mkdir -p "${DOCKER_DATA_ROOT}"
-  dockerd --data-root "${DOCKER_DATA_ROOT}" \
-    >"${RUN_DIR}/docker_server.log" 2>&1 &
-  DOCKER_PID=$!
-  for _ in $(seq 1 30); do
-    docker info >/dev/null 2>&1 && break
-    sleep 1
-  done
-  if ! docker info >/dev/null 2>&1; then
-    echo "[ERROR] Docker server failed to start (pid=${DOCKER_PID})." >&2
-    tail -100 "${RUN_DIR}/docker_server.log" || true
-    exit 1
-  fi
+if docker info >/dev/null 2>&1; then
+  echo "[rjob] Docker server ready"
+else
+  # SETA task containers are owned by WORKER_URLS. The trainer itself does not
+  # need privileged Docker access; local Docker availability is diagnostic.
+  echo "[rjob] Docker unavailable in trainer; using remote SETA worker"
 fi
-echo "[rjob] Docker server ready"
 
 python3 - "${REPO_ROOT}/benchmarks/seta_env_convert/train.jsonl" \
   "${SMOKE_DATA}" "${SMOKE_TASK_NAME}" <<'PY'
