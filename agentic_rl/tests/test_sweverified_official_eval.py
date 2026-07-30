@@ -14,23 +14,20 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TERMINAL_RL = ROOT / "terminal-rl"
+AGENTIC_RL = ROOT / "agentic_rl"
 CONVERTER_PATH = (
-    TERMINAL_RL / "data_utils" / "convert_sweverified_to_terminal_rl.py"
+    AGENTIC_RL / "data_utils" / "convert_sweverified.py"
 )
-REPORT_PATH = TERMINAL_RL / "swebench_report.py"
-SMOKE_PATH = TERMINAL_RL / "scripts" / "smoke_swe_worker.py"
-SWE_UTILS_PATH = TERMINAL_RL / "remote" / "swe_task_utils.py"
-WORKER = TERMINAL_RL / "remote" / "run_pool_server_sweverified_pu.sh"
-EVAL_LAUNCHER = (
-    TERMINAL_RL / "scripts" / "run_sweverified_qwen3_8b_base_think_eval.sh"
-)
+REPORT_PATH = AGENTIC_RL / "swebench_report.py"
+SMOKE_PATH = AGENTIC_RL / "scripts" / "dev" / "smoke_swe_worker.py"
+SWE_UTILS_PATH = AGENTIC_RL / "remote" / "swe_task_utils.py"
+WORKER = AGENTIC_RL / "remote" / "run_pool_server_sweverified_pu.sh"
 OFFICIAL_HARNESS = (
-    TERMINAL_RL / "scripts" / "run_swebench_verified_official_harness.sh"
+    AGENTIC_RL / "scripts" / "evaluation" / "run_swebench_verified_official_harness.sh"
 )
-TERMINAL_ENV = TERMINAL_RL / "remote" / "terminal_env.py"
-WATCHDOG = TERMINAL_RL / "remote" / "docker_watchdog_v2.sh"
-POOL_LAUNCHER = TERMINAL_RL / "remote" / "run_pool_server_pu_v2.sh"
+TERMINAL_ENV = AGENTIC_RL / "remote" / "terminal_env.py"
+WATCHDOG = AGENTIC_RL / "remote" / "docker_watchdog_v2.sh"
+POOL_LAUNCHER = AGENTIC_RL / "remote" / "run_pool_server_pu_v2.sh"
 
 
 def _load_module(name: str, path: Path):
@@ -41,7 +38,7 @@ def _load_module(name: str, path: Path):
     return module
 
 
-converter = _load_module("convert_sweverified_to_terminal_rl", CONVERTER_PATH)
+converter = _load_module("convert_sweverified", CONVERTER_PATH)
 report = _load_module("swebench_report", REPORT_PATH)
 swe_utils = _load_module("swe_task_utils", SWE_UTILS_PATH)
 
@@ -84,10 +81,10 @@ def test_converter_emits_official_provenance_and_prediction_only_task(
     )
     service = compose["services"]["client"]
     assert service["labels"] == [
-        "terminal-rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}"
+        "agentic_rl.pool-namespace=${AGENTIC_RL_POOL_NAMESPACE:-default}"
     ]
     assert compose["networks"]["default"]["labels"] == [
-        "terminal-rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}"
+        "agentic_rl.pool-namespace=${AGENTIC_RL_POOL_NAMESPACE:-default}"
     ]
     assert converter.official_image_name(meta["swe_instance_id"]) in (
         task_dir / "Dockerfile"
@@ -113,7 +110,7 @@ def test_converter_emits_official_provenance_and_prediction_only_task(
         compile(ast.Module(body=nodes, type_ignores=[]), str(TERMINAL_ENV), "exec"),
         namespace,
     )
-    monkeypatch.setenv("TERMINAL_RL_POOL_NAMESPACE", "sweverified")
+    monkeypatch.setenv("AGENTIC_RL_POOL_NAMESPACE", "sweverified")
     assert namespace["_compose_declares_pool_namespace"](
         task_dir / "docker-compose.yaml"
     )
@@ -223,9 +220,8 @@ def test_prediction_artifacts_have_official_schema_and_complete_coverage(
         report.write_official_artifacts([samples[0], samples[0]])
 
 
-def test_launchers_pin_formal_dataset_model_and_official_harness() -> None:
+def test_worker_and_harness_pin_official_inputs() -> None:
     worker = WORKER.read_text(encoding="utf-8")
-    launcher = EVAL_LAUNCHER.read_text(encoding="utf-8")
     harness = OFFICIAL_HARNESS.read_text(encoding="utf-8")
 
     assert "OFFICIAL_INSTANCE_COUNT" in worker
@@ -235,16 +231,9 @@ def test_launchers_pin_formal_dataset_model_and_official_harness() -> None:
     assert "SWEVERIFIED_REQUIRE_PINNED_WORKER_DEPS" in worker
     assert "requirements-swesmith-worker.txt" in worker
     assert ".venv-swesmith-worker/bin/python" in worker
-    assert 'import_module("terminal-rl.remote.pool_server")' in worker
-    assert worker.count('import_module("terminal-rl.remote.pool_server")') == 2
+    assert 'import_module("agentic_rl.remote.pool_server")' in worker
+    assert worker.count('import_module("agentic_rl.remote.pool_server")') == 2
     assert "pool_server Python dependency preflight failed" in worker
-    assert "require_env WORKER_URLS" in launcher
-    assert "require_env HF_CKPT" in launcher
-    assert "require_env REF_LOAD" in launcher
-    assert 'export INIT_CKPT="${INIT_CKPT:-${REF_LOAD}}"' in launcher
-    assert "EVAL_N_SAMPLES=1" in launcher
-    assert "ROLLOUT_NUM_GPUS_PER_ENGINE" in launcher
-    assert "Qwen/Qwen3-8B" in launcher
     assert converter.SWEBENCH_COMMIT in harness
     assert converter.DATASET_NAME in harness
     assert "swebench.harness.run_evaluation" in harness

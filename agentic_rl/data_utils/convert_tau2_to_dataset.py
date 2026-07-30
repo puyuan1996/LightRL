@@ -222,7 +222,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("terminal-rl/dataset/tau2_telecom_train_solo"),
+        default=Path("agentic_rl/dataset/tau2_telecom_train_solo"),
     )
     args = parser.parse_args()
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cleanup_docker_cache.sh — 清理 docker build cache + 停止的容器 + 悬空 image
-# 用法: bash terminal-rl/remote/cleanup_docker_cache.sh
+# 用法: bash agentic_rl/remote/cleanup_docker_cache.sh
 # 安全: 不会删除正在运行的容器，不会删除有 tag 的 image
 
 set -uo pipefail
@@ -15,7 +15,7 @@ echo
 
 if ! timeout 10 docker info >/dev/null 2>&1; then
     echo "[ERROR] docker daemon is not responding. Run:"
-    echo "        sudo bash terminal-rl/remote/fix_dockerd_and_proxy.sh"
+    echo "        sudo bash agentic_rl/remote/fix_dockerd_and_proxy.sh"
     exit 1
 fi
 

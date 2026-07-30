@@ -445,7 +445,7 @@ stop_pool_server_for_pressure() {
         pid="${proc_dir##*/}"
         cmdline="$(proc_cmdline_text "${proc_dir}")"
         case "${cmdline}" in
-            *terminal-rl.remote.pool_server*|*remote.pool_server*|*pool_server.py*)
+            *agentic_rl.remote.pool_server*|*remote.pool_server*|*pool_server.py*)
                 log "PRESSURE: stopping pool_server pid=${pid} reason=${reason}"
                 kill "${pid}" 2>/dev/null || true
                 killed=$((killed + 1))
@@ -472,7 +472,7 @@ stop_pool_server_for_pressure() {
         pid="${proc_dir##*/}"
         cmdline="$(proc_cmdline_text "${proc_dir}")"
         case "${cmdline}" in
-            *terminal-rl.remote.pool_server*|*remote.pool_server*|*pool_server.py*)
+            *agentic_rl.remote.pool_server*|*remote.pool_server*|*pool_server.py*)
                 pids="${pids} ${pid}"
                 ;;
             *run_pool_server_pu_v2.sh*)

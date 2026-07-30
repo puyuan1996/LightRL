@@ -55,7 +55,7 @@ def _install_import_stubs(monkeypatch):
     aiohttp_mod.ClientTimeout = _ClientTimeout
     aiohttp_mod.TCPConnector = _TCPConnector
 
-    request_utils_mod = types.ModuleType("terminal-rl.request_utils")
+    request_utils_mod = types.ModuleType("agentic_rl.request_utils")
 
     async def _json_payload(_request):
         return {}
@@ -66,9 +66,9 @@ def _install_import_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "fastapi", fastapi_mod)
     monkeypatch.setitem(sys.modules, "fastapi.responses", responses_mod)
     monkeypatch.setitem(sys.modules, "aiohttp", aiohttp_mod)
-    monkeypatch.setitem(sys.modules, "terminal-rl.request_utils", request_utils_mod)
-    sys.modules.pop("terminal-rl.router_server", None)
-    return importlib.import_module("terminal-rl.router_server")
+    monkeypatch.setitem(sys.modules, "agentic_rl.request_utils", request_utils_mod)
+    sys.modules.pop("agentic_rl.router_server", None)
+    return importlib.import_module("agentic_rl.router_server")
 
 
 class _FakeRouter:

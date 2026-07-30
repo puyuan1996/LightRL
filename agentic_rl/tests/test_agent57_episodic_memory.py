@@ -9,7 +9,7 @@ TERMINAL_RL_DIR = Path(__file__).resolve().parents[1]
 if str(TERMINAL_RL_DIR) not in sys.path:
     sys.path.insert(0, str(TERMINAL_RL_DIR))
 
-from agent57_episodic_memory import (  # noqa: E402
+from agentic_rl.agent57_episodic_memory import (  # noqa: E402
     CountBasedEpisodicMemory,
     CountBasedEpisodicMemoryConfig,
     SimHashKNNEpisodicMemory,

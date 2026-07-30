@@ -75,7 +75,7 @@ echo "[sweverified-data] mode=${MODE}"
 echo "[sweverified-data] output=${OUTPUT_DIR}/test.jsonl"
 echo "[sweverified-data] env_dir=${ENV_DIR}"
 
-"${PYTHON_BIN}" "${SCRIPT_DIR}/convert_sweverified_to_terminal_rl.py" \
+"${PYTHON_BIN}" "${SCRIPT_DIR}/convert_sweverified.py" \
   --output-dir "${OUTPUT_DIR}" \
   --env-dir "${ENV_DIR}" \
   --create-env-dirs \

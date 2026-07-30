@@ -1,0 +1,3 @@
+name: camel_agent
+max_turns: 16
+timeout_sec: 900

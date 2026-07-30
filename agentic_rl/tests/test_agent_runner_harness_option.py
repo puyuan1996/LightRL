@@ -5,25 +5,24 @@ import sys
 import types
 from pathlib import Path
 
-TERMINAL_RL_DIR = Path(__file__).resolve().parents[1]
-ROOT_DIR = TERMINAL_RL_DIR.parent
-if str(TERMINAL_RL_DIR) not in sys.path:
-    sys.path.insert(0, str(TERMINAL_RL_DIR))
+AGENTIC_RL_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = AGENTIC_RL_DIR.parent
+if str(AGENTIC_RL_DIR) not in sys.path:
+    sys.path.insert(0, str(AGENTIC_RL_DIR))
 if str(ROOT_DIR / "slime") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "slime"))
 
-from agent_runner import AgentRunner, create_agent_runner, normalize_harness_option
-from custom_types import Interaction, TurnResult
+from agentic_rl.agent_runner import AgentRunner, create_agent_runner, normalize_harness_option
+from agentic_rl.custom_types import Interaction, TurnResult
 
 
 def test_normalize_harness_option_aliases():
     assert normalize_harness_option(None) == "camel-agent"
     assert normalize_harness_option("camel-agent") == "camel-agent"
     assert normalize_harness_option("camel_agent") == "camel-agent"
-    assert normalize_harness_option("a3s-code") == "a3s-code"
-    assert normalize_harness_option("a3s_code") == "a3s-code"
     assert normalize_harness_option("claude_code") == "claude-code"
     assert normalize_harness_option("claude-code") == "claude-code"
+
 
 
 def test_create_agent_runner_keeps_camel_agent_env_optional(monkeypatch):
@@ -51,9 +50,9 @@ def test_create_agent_runner_keeps_camel_agent_env_optional(monkeypatch):
         def finalize_response(self, model_response):
             return model_response
 
-    fake_module = types.ModuleType("agent.camel_agent")
+    fake_module = types.ModuleType("agentic_rl.harnesses.camel_agent")
     fake_module.CamelAgent = FakeCamelAgent
-    monkeypatch.setitem(sys.modules, "agent.camel_agent", fake_module)
+    monkeypatch.setitem(sys.modules, "agentic_rl.harnesses.camel_agent", fake_module)
 
     runner = create_agent_runner(
         agent_type="camel_agent",
@@ -93,9 +92,9 @@ def test_create_agent_runner_routes_claude_code(monkeypatch):
         def finalize_response(self, model_response):
             return model_response
 
-    fake_module = types.ModuleType("agent.claude_code_agent")
+    fake_module = types.ModuleType("agentic_rl.harnesses.claude_code_agent")
     fake_module.ClaudeCodeAgent = FakeClaudeCodeAgent
-    monkeypatch.setitem(sys.modules, "agent.claude_code_agent", fake_module)
+    monkeypatch.setitem(sys.modules, "agentic_rl.harnesses.claude_code_agent", fake_module)
 
     runner = create_agent_runner(
         agent_type="claude_code",

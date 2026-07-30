@@ -102,23 +102,23 @@ def _install_import_stubs(monkeypatch):
     responses_mod.JSONResponse = _JSONResponse
     responses_mod.Response = _Response
 
-    custom_types_mod = types.ModuleType("terminal-rl.custom_types")
+    custom_types_mod = types.ModuleType("agentic_rl.custom_types")
     custom_types_mod.TaskSpec = _TaskSpec
     custom_types_mod.RunContext = _RunContext
     custom_types_mod.TaskTimeouts = _TaskTimeouts
 
-    request_utils_mod = types.ModuleType("terminal-rl.request_utils")
+    request_utils_mod = types.ModuleType("agentic_rl.request_utils")
 
     async def _json_payload(_request):
         return {}
 
     request_utils_mod.json_payload = _json_payload
 
-    terminal_env_mod = types.ModuleType("terminal-rl.remote.terminal_env")
+    terminal_env_mod = types.ModuleType("agentic_rl.remote.terminal_env")
     terminal_env_mod.TerminalEnv = _DummyEnv
     terminal_env_mod.force_remove_orphan_docker_objects = lambda **_kwargs: 0
 
-    docker_compose_utils_mod = types.ModuleType("terminal-rl.remote.docker_compose_utils")
+    docker_compose_utils_mod = types.ModuleType("agentic_rl.remote.docker_compose_utils")
 
     class DockerImageBuildError(RuntimeError):
         pass
@@ -142,14 +142,14 @@ def _install_import_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "uvicorn", types.ModuleType("uvicorn"))
     monkeypatch.setitem(sys.modules, "fastapi", fastapi_mod)
     monkeypatch.setitem(sys.modules, "fastapi.responses", responses_mod)
-    monkeypatch.setitem(sys.modules, "terminal-rl.custom_types", custom_types_mod)
-    monkeypatch.setitem(sys.modules, "terminal-rl.request_utils", request_utils_mod)
-    monkeypatch.setitem(sys.modules, "terminal-rl.remote.terminal_env", terminal_env_mod)
+    monkeypatch.setitem(sys.modules, "agentic_rl.custom_types", custom_types_mod)
+    monkeypatch.setitem(sys.modules, "agentic_rl.request_utils", request_utils_mod)
+    monkeypatch.setitem(sys.modules, "agentic_rl.remote.terminal_env", terminal_env_mod)
     monkeypatch.setitem(
-        sys.modules, "terminal-rl.remote.docker_compose_utils", docker_compose_utils_mod
+        sys.modules, "agentic_rl.remote.docker_compose_utils", docker_compose_utils_mod
     )
-    sys.modules.pop("terminal-rl.remote.pool_server", None)
-    return importlib.import_module("terminal-rl.remote.pool_server")
+    sys.modules.pop("agentic_rl.remote.pool_server", None)
+    return importlib.import_module("agentic_rl.remote.pool_server")
 
 
 def _new_pool(pool_server_mod, env: _DummyEnv, tmp_path: Path):

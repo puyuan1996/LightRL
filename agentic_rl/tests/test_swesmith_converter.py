@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "data_utils" / "convert_swesmith_to_terminal_rl.py"
-SPEC = importlib.util.spec_from_file_location("convert_swesmith_to_terminal_rl", MODULE_PATH)
+MODULE_PATH = Path(__file__).resolve().parents[1] / "data_utils" / "convert_swesmith.py"
+SPEC = importlib.util.spec_from_file_location("convert_swesmith", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 converter = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(converter)
@@ -52,10 +52,10 @@ def test_task_dir_checks_out_instance_ref_and_uses_format_marker(
     dockerfile = (task_dir / "Dockerfile").read_text(encoding="utf-8")
     assert f"checkout --force {item['metadata']['task_name']}" in dockerfile
     assert "branch --show-current" in dockerfile
-    assert "refs/terminal-rl/swesmith-task-stage" in dockerfile
-    assert "refs/terminal-rl/swesmith-bug-stage" in dockerfile
+    assert "refs/agentic_rl/swesmith-task-stage" in dockerfile
+    assert "refs/agentic_rl/swesmith-bug-stage" in dockerfile
     compose = (task_dir / "docker-compose.yaml").read_text(encoding="utf-8")
-    assert compose.count("terminal-rl.pool-namespace") == 2
+    assert compose.count("agentic_rl.pool-namespace") == 2
     marker = (task_dir / converter.TASK_FORMAT_MARKER).read_text(encoding="utf-8")
     marker_payload = json.loads(marker)
     assert marker_payload["format_version"] == converter.TASK_FORMAT_VERSION
@@ -160,11 +160,11 @@ def test_run_tests_executes_pass_to_pass_after_failing_test(tmp_path: Path) -> N
     subprocess.run(["git", "-C", str(repo_dir), "add", "."], check=True)
     subprocess.run(["git", "-C", str(repo_dir), "commit", "-qm", "Remove F2P Tests"], check=True)
     subprocess.run(
-        ["git", "-C", str(repo_dir), "update-ref", "refs/terminal-rl/swesmith-task-stage", "HEAD"],
+        ["git", "-C", str(repo_dir), "update-ref", "refs/agentic_rl/swesmith-task-stage", "HEAD"],
         check=True,
     )
     subprocess.run(
-        ["git", "-C", str(repo_dir), "update-ref", "refs/terminal-rl/swesmith-bug-stage", "HEAD^"],
+        ["git", "-C", str(repo_dir), "update-ref", "refs/agentic_rl/swesmith-bug-stage", "HEAD^"],
         check=True,
     )
     task_commit = subprocess.check_output(
@@ -178,7 +178,7 @@ def test_run_tests_executes_pass_to_pass_after_failing_test(tmp_path: Path) -> N
     # Simulate an agent moving the writable refs. The host-captured SHAs must
     # remain authoritative during evaluation.
     subprocess.run(
-        ["git", "-C", str(repo_dir), "update-ref", "refs/terminal-rl/swesmith-bug-stage", "HEAD"],
+        ["git", "-C", str(repo_dir), "update-ref", "refs/agentic_rl/swesmith-bug-stage", "HEAD"],
         check=True,
     )
     subprocess.run(
@@ -370,7 +370,7 @@ def test_run_tests_requires_host_captured_commits(tmp_path: Path) -> None:
             "-C",
             str(repo_dir),
             "update-ref",
-            "refs/terminal-rl/swesmith-task-stage",
+            "refs/agentic_rl/swesmith-task-stage",
             "HEAD",
         ],
         check=True,
@@ -381,7 +381,7 @@ def test_run_tests_requires_host_captured_commits(tmp_path: Path) -> None:
             "-C",
             str(repo_dir),
             "update-ref",
-            "refs/terminal-rl/swesmith-bug-stage",
+            "refs/agentic_rl/swesmith-bug-stage",
             "HEAD^",
         ],
         check=True,
@@ -1076,7 +1076,7 @@ def test_non_default_destructive_cleanup_requires_matching_labels(
         "deadline=deadline )"
         in compact
     )
-    assert source.count('Label "terminal-rl.pool-namespace"') >= 5
+    assert source.count('Label "agentic_rl.pool-namespace"') >= 5
 
 
 def test_non_default_pool_requires_labels_on_all_compose_objects(
@@ -1157,13 +1157,13 @@ def test_non_default_pool_requires_labels_on_all_compose_objects(
         "services:\n"
         "  client:\n"
         "    labels:\n"
-        "      - terminal-rl.pool-namespace=swesmith\n"
+        "      - agentic_rl.pool-namespace=swesmith\n"
         "    volumes:\n"
         "      - /anonymous\n"
         "networks:\n"
         "  default:\n"
         "    labels:\n"
-        "      - terminal-rl.pool-namespace=swesmith\n",
+        "      - agentic_rl.pool-namespace=swesmith\n",
         encoding="utf-8",
     )
     assert not declares_namespace(compose_path)
@@ -1172,13 +1172,13 @@ def test_non_default_pool_requires_labels_on_all_compose_objects(
         "services:\n"
         "  client:\n"
         "    labels:\n"
-        "      - terminal-rl.pool-namespace=swesmith\n"
+        "      - agentic_rl.pool-namespace=swesmith\n"
         "    volumes:\n"
         "      - cache:/cache\n"
         "networks:\n"
         "  default:\n"
         "    labels:\n"
-        "      - terminal-rl.pool-namespace=swesmith\n"
+        "      - agentic_rl.pool-namespace=swesmith\n"
         "volumes:\n"
         "  cache: {}\n",
         encoding="utf-8",
@@ -1189,7 +1189,7 @@ def test_non_default_pool_requires_labels_on_all_compose_objects(
     compose_path.write_text(
         compose_path.read_text(encoding="utf-8").replace(
             "networks:\n  default:\n    labels:\n"
-            "      - terminal-rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}\n",
+            "      - agentic_rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}\n",
             "networks:\n  default: {}\n",
         ),
         encoding="utf-8",
@@ -1356,10 +1356,10 @@ def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
     assert 'data_preflight=ok format=v' in launcher
     assert 'export POOL_SERVER_VENV' in launcher
     training = (
-        MODULE_PATH.parents[1] / "terminal-rl_qwen3-8b_mixed_dapo_nodynamic_pu.sh"
+        MODULE_PATH.parents[1] / "backends" / "slime_runtime" / "train_qwen3_8b.sh"
     ).read_text(encoding="utf-8")
     smoke = (
-        MODULE_PATH.parents[1] / "scripts" / "smoke_swesmith_worker.py"
+        MODULE_PATH.parents[1] / "scripts" / "dev" / "smoke_swesmith_worker.py"
     ).read_text(encoding="utf-8")
     assert 'ROUTER_FORWARD_TIMEOUT:-5100' in training
     assert 'ENV_RESET_HTTP_TIMEOUT:-5400' in training
@@ -1562,7 +1562,7 @@ def test_formal_artifact_manifest_binds_canonical_full_jsonl(
 def test_smoke_close_failure_is_not_reported_as_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    smoke_path = MODULE_PATH.parents[1] / "scripts" / "smoke_swesmith_worker.py"
+    smoke_path = MODULE_PATH.parents[1] / "scripts" / "dev" / "smoke_swesmith_worker.py"
     smoke_spec = importlib.util.spec_from_file_location("smoke_swesmith_worker", smoke_path)
     assert smoke_spec is not None and smoke_spec.loader is not None
     smoke = importlib.util.module_from_spec(smoke_spec)
@@ -1599,7 +1599,7 @@ def test_smoke_close_failure_is_not_reported_as_success(
 def test_smoke_zero_score_requires_expected_evaluation_reason(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    smoke_path = MODULE_PATH.parents[1] / "scripts" / "smoke_swesmith_worker.py"
+    smoke_path = MODULE_PATH.parents[1] / "scripts" / "dev" / "smoke_swesmith_worker.py"
     smoke_spec = importlib.util.spec_from_file_location("smoke_swesmith_worker", smoke_path)
     assert smoke_spec is not None and smoke_spec.loader is not None
     smoke = importlib.util.module_from_spec(smoke_spec)
@@ -1650,7 +1650,7 @@ def test_smoke_zero_score_requires_expected_evaluation_reason(
 def test_smoke_rejects_expectations_when_evaluate_is_skipped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    smoke_path = MODULE_PATH.parents[1] / "scripts" / "smoke_swesmith_worker.py"
+    smoke_path = MODULE_PATH.parents[1] / "scripts" / "dev" / "smoke_swesmith_worker.py"
     smoke_spec = importlib.util.spec_from_file_location("smoke_swesmith_worker", smoke_path)
     assert smoke_spec is not None and smoke_spec.loader is not None
     smoke = importlib.util.module_from_spec(smoke_spec)
@@ -1676,7 +1676,7 @@ def test_smoke_rejects_expectations_when_evaluate_is_skipped(
 def test_smoke_rejects_non_finite_or_non_numeric_response_scores(
     raw_score: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    smoke_path = MODULE_PATH.parents[1] / "scripts" / "smoke_swesmith_worker.py"
+    smoke_path = MODULE_PATH.parents[1] / "scripts" / "dev" / "smoke_swesmith_worker.py"
     smoke_spec = importlib.util.spec_from_file_location(
         "smoke_swesmith_worker", smoke_path
     )
@@ -1727,7 +1727,7 @@ def test_smoke_rejects_non_finite_or_non_numeric_response_scores(
 def test_smoke_rejects_non_finite_expected_score(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    smoke_path = MODULE_PATH.parents[1] / "scripts" / "smoke_swesmith_worker.py"
+    smoke_path = MODULE_PATH.parents[1] / "scripts" / "dev" / "smoke_swesmith_worker.py"
     smoke_spec = importlib.util.spec_from_file_location(
         "smoke_swesmith_worker", smoke_path
     )
@@ -1754,7 +1754,7 @@ def test_smoke_rejects_non_finite_expected_score(
 def test_smoke_requires_binary_score_even_without_expectation(
     evaluate_body: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    smoke_path = MODULE_PATH.parents[1] / "scripts" / "smoke_swesmith_worker.py"
+    smoke_path = MODULE_PATH.parents[1] / "scripts" / "dev" / "smoke_swesmith_worker.py"
     smoke_spec = importlib.util.spec_from_file_location(
         "smoke_swesmith_worker", smoke_path
     )
@@ -1794,7 +1794,7 @@ def test_smoke_requires_binary_score_even_without_expectation(
 def test_smoke_observes_worker_close_cleanup_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    smoke_path = MODULE_PATH.parents[1] / "scripts" / "smoke_swesmith_worker.py"
+    smoke_path = MODULE_PATH.parents[1] / "scripts" / "dev" / "smoke_swesmith_worker.py"
     smoke_spec = importlib.util.spec_from_file_location(
         "smoke_swesmith_worker", smoke_path
     )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from clawsentry_client import CSDecision, CSSummary
+from agentic_rl.clawsentry_client import CSDecision, CSSummary
 
 
 DEFAULT_ZERO_THRESHOLD = 1.5

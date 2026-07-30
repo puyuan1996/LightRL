@@ -304,7 +304,7 @@ def _docker_object_pool_namespace_state(
             "--type",
             "container",
             "--format",
-            '{{ index .Config.Labels "terminal-rl.pool-namespace" }}',
+            '{{ index .Config.Labels "agentic_rl.pool-namespace" }}',
             object_ref,
         ]
     elif object_kind == "network":
@@ -313,7 +313,7 @@ def _docker_object_pool_namespace_state(
             "network",
             "inspect",
             "--format",
-            '{{ index .Labels "terminal-rl.pool-namespace" }}',
+            '{{ index .Labels "agentic_rl.pool-namespace" }}',
             object_ref,
         ]
     elif object_kind == "volume":
@@ -322,7 +322,7 @@ def _docker_object_pool_namespace_state(
             "volume",
             "inspect",
             "--format",
-            '{{ index .Labels "terminal-rl.pool-namespace" }}',
+            '{{ index .Labels "agentic_rl.pool-namespace" }}',
             object_ref,
         ]
     else:
@@ -380,7 +380,7 @@ def _compose_project_pool_namespace_state(
             "--filter",
             f"label=com.docker.compose.project={project}",
             "--format",
-            '{{.Label "terminal-rl.pool-namespace"}}',
+            '{{.Label "agentic_rl.pool-namespace"}}',
         ],
         [
             "docker",
@@ -389,7 +389,7 @@ def _compose_project_pool_namespace_state(
             "--filter",
             f"label=com.docker.compose.project={project}",
             "--format",
-            '{{.Label "terminal-rl.pool-namespace"}}',
+            '{{.Label "agentic_rl.pool-namespace"}}',
         ],
         [
             "docker",
@@ -398,7 +398,7 @@ def _compose_project_pool_namespace_state(
             "--filter",
             f"label=com.docker.compose.project={project}",
             "--format",
-            '{{.Label "terminal-rl.pool-namespace"}}',
+            '{{.Label "agentic_rl.pool-namespace"}}',
         ],
     )
     observed: list[str] = []
@@ -453,7 +453,7 @@ def _container_compose_project_state(
                 "--type",
                 "container",
                 "--format",
-                '{{ index .Config.Labels "terminal-rl.pool-namespace" }}\t'
+                '{{ index .Config.Labels "agentic_rl.pool-namespace" }}\t'
                 '{{ index .Config.Labels "com.docker.compose.project" }}',
                 container_ref,
             ],
@@ -491,7 +491,7 @@ def _remove_owned_container_for_reset(container_name: str, *, timeout: float) ->
                 "--type",
                 "container",
                 "--format",
-                '{{ index .Config.Labels "terminal-rl.pool-namespace" }}\t{{.Id}}',
+                '{{ index .Config.Labels "agentic_rl.pool-namespace" }}\t{{.Id}}',
                 container_name,
             ],
             timeout=timeout,
@@ -602,12 +602,12 @@ def _compose_declares_pool_namespace(compose_path: Path) -> bool:
             return False
         labels = config.get("labels")
         if isinstance(labels, dict):
-            if set(labels) != {"terminal-rl.pool-namespace"}:
+            if set(labels) != {"agentic_rl.pool-namespace"}:
                 return False
-            value = labels.get("terminal-rl.pool-namespace")
+            value = labels.get("agentic_rl.pool-namespace")
             return str(value) in expected_values
         if isinstance(labels, list):
-            prefix = "terminal-rl.pool-namespace="
+            prefix = "agentic_rl.pool-namespace="
             return len(labels) == 1 and any(
                 isinstance(label, str)
                 and label.startswith(prefix)
@@ -734,8 +734,8 @@ for candidate in . /testbed /workspace; do
   fi
 done
 test -n "${repo_dir}"
-task_commit="$(git -C "${repo_dir}" rev-parse refs/terminal-rl/swesmith-task-stage^{commit})"
-bug_commit="$(git -C "${repo_dir}" rev-parse refs/terminal-rl/swesmith-bug-stage^{commit})"
+task_commit="$(git -C "${repo_dir}" rev-parse refs/agentic_rl/swesmith-task-stage^{commit})"
+bug_commit="$(git -C "${repo_dir}" rev-parse refs/agentic_rl/swesmith-bug-stage^{commit})"
 test "$(git -C "${repo_dir}" rev-parse "${task_commit}^")" = "${bug_commit}"
 test "$(git -C "${repo_dir}" diff --name-only --diff-filter=D "${bug_commit}" "${task_commit}" | wc -l)" -gt 0
 printf '__SWESMITH_COMMITS__=%s %s\n' "${task_commit}" "${bug_commit}"
@@ -951,7 +951,7 @@ def _remove_fixed_task_services_without_running_clients(
                 "ps",
                 "-a",
                 "--format",
-                "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Label \"terminal-rl.pool-namespace\"}}",
+                "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Label \"agentic_rl.pool-namespace\"}}",
             ],
             capture_output=True,
             text=True,
@@ -1068,7 +1068,7 @@ def _remove_inactive_compose_resources(
             "network",
             "ls",
             "--format",
-            "{{.ID}}\t{{.Name}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Label \"terminal-rl.pool-namespace\"}}",
+            "{{.ID}}\t{{.Name}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Label \"agentic_rl.pool-namespace\"}}",
         ]
         rm_cmd_prefix = ["docker", "network", "rm"]
         use_id = True
@@ -1078,7 +1078,7 @@ def _remove_inactive_compose_resources(
             "volume",
             "ls",
             "--format",
-            "{{.Name}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Label \"terminal-rl.pool-namespace\"}}",
+            "{{.Name}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Label \"agentic_rl.pool-namespace\"}}",
         ]
         rm_cmd_prefix = ["docker", "volume", "rm"]
         use_id = False
@@ -1291,7 +1291,7 @@ def _force_remove_docker_objects_impl(
                 "-a",
                 "--format",
                 "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t"
-                '{{.Label "terminal-rl.pool-namespace"}}',
+                '{{.Label "agentic_rl.pool-namespace"}}',
             ]
         )
     except _DockerCleanupDeadlineExceeded:
@@ -1379,7 +1379,7 @@ def _force_remove_docker_objects_impl(
                 "ls",
                 "--format",
                 "{{.ID}}\t{{.Name}}\t"
-                '{{.Label "terminal-rl.pool-namespace"}}',
+                '{{.Label "agentic_rl.pool-namespace"}}',
             ]
         )
     except _DockerCleanupDeadlineExceeded:
@@ -1422,7 +1422,7 @@ def _force_remove_docker_objects_impl(
                 "ls",
                 "--format",
                 "{{.Name}}\t{{.Label \"com.docker.compose.project\"}}\t"
-                '{{.Label "terminal-rl.pool-namespace"}}',
+                '{{.Label "agentic_rl.pool-namespace"}}',
             ]
         )
     except _DockerCleanupDeadlineExceeded:
@@ -1614,7 +1614,7 @@ def force_remove_orphan_docker_objects(
                 "ps",
                 "-a",
                 "--format",
-                "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Label \"terminal-rl.pool-namespace\"}}",
+                "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Label \"agentic_rl.pool-namespace\"}}",
             ],
             capture_output=True,
             text=True,
@@ -1952,7 +1952,7 @@ class TerminalEnv:
                 f"task_path escapes DATASET_DIR: {self._task_spec.task_path!r}"
             ) from exc
         if self._data_source == "swesmith":
-            from ..data_utils.convert_swesmith_to_terminal_rl import (
+            from ..data_utils.convert_swesmith import (
                 expected_swesmith_task_path,
                 validate_task_dir_fingerprint,
             )
@@ -1974,7 +1974,7 @@ class TerminalEnv:
                     f"{task_path}"
                 )
         elif self._data_source == "sweverified":
-            from ..data_utils.convert_sweverified_to_terminal_rl import (
+            from ..data_utils.convert_sweverified import (
                 DATASET_NAME,
                 DATASET_REVISION,
                 SWEBENCH_COMMIT,

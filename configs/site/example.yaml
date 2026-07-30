@@ -1,0 +1,2 @@
+# Copy to configs/site/local.yaml and fill in site-local paths.
+artifact_root: /path/to/lightrl/artifacts

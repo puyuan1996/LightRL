@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-DATASET_DIR = Path(os.getenv("DATASET_DIR", "./terminal-rl/dataset"))
+DATASET_DIR = Path(os.getenv("DATASET_DIR", "./agentic_rl/dataset"))
 
 
 def _download_github_folder(

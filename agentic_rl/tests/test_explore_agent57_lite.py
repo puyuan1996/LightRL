@@ -12,7 +12,7 @@ if str(TERMINAL_RL_DIR) not in sys.path:
 if str(ROOT_DIR / "slime") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "slime"))
 
-import explore_agent57_lite as a57
+from agentic_rl import explore_agent57_lite as a57
 
 
 def _reset_local_agent57_state():

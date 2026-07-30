@@ -11,15 +11,16 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TERMINAL_ENV = ROOT / "terminal-rl" / "remote" / "terminal_env.py"
-POOL_SERVER = ROOT / "terminal-rl" / "remote" / "pool_server.py"
-COMPOSE_UTILS = ROOT / "terminal-rl" / "remote" / "docker_compose_utils.py"
-SETA_LAUNCHER = ROOT / "terminal-rl" / "remote" / "run_pool_server_pu_v2.sh"
-SWE_LAUNCHER = ROOT / "terminal-rl" / "remote" / "run_pool_server_swesmith_pu.sh"
-TRAIN_LAUNCHER = ROOT / "terminal-rl" / "terminal-rl_qwen3-8b_mixed_dapo_nodynamic_pu.sh"
-DOWNLOADER = ROOT / "terminal-rl" / "data_utils" / "download_swesmith.sh"
-SMOKE_CLIENT = ROOT / "terminal-rl" / "scripts" / "smoke_swesmith_worker.py"
-WORKER_REQUIREMENTS = ROOT / "terminal-rl" / "remote" / "requirements-swesmith-worker.txt"
+AGENTIC_RL = ROOT / "agentic_rl"
+TERMINAL_ENV = AGENTIC_RL / "remote" / "terminal_env.py"
+POOL_SERVER = AGENTIC_RL / "remote" / "pool_server.py"
+COMPOSE_UTILS = AGENTIC_RL / "remote" / "docker_compose_utils.py"
+SETA_LAUNCHER = AGENTIC_RL / "remote" / "run_pool_server_pu_v2.sh"
+SWE_LAUNCHER = AGENTIC_RL / "remote" / "run_pool_server_swesmith_pu.sh"
+TRAIN_LAUNCHER = AGENTIC_RL / "backends" / "slime_runtime" / "train_qwen3_8b.sh"
+DOWNLOADER = AGENTIC_RL / "data_utils" / "download_swesmith.sh"
+SMOKE_CLIENT = AGENTIC_RL / "scripts" / "dev" / "smoke_swesmith_worker.py"
+WORKER_REQUIREMENTS = AGENTIC_RL / "remote" / "requirements-swesmith-worker.txt"
 
 
 COMPOSE = """services:
@@ -34,14 +35,14 @@ COMPOSE = """services:
       - TEST_DIR=${T_BENCH_TEST_DIR}
       - SWESMITH_RUN_PASS_TO_PASS
     labels:
-      - terminal-rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}
+      - agentic_rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}
     volumes:
       - ${T_BENCH_TASK_LOGS_PATH}:${T_BENCH_CONTAINER_LOGS_PATH}
       - ${T_BENCH_TASK_AGENT_LOGS_PATH}:${T_BENCH_CONTAINER_AGENT_LOGS_PATH}
 networks:
   default:
     labels:
-      - terminal-rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}
+      - agentic_rl.pool-namespace=${TERMINAL_RL_POOL_NAMESPACE:-default}
 """
 
 
@@ -255,7 +256,7 @@ def test_launchers_export_namespace_and_seta_cleanup_filters_ownership() -> None
     assert 'export TERMINAL_RL_POOL_NAMESPACE="${TERMINAL_RL_POOL_NAMESPACE:-default}"' in seta
     assert 'export TERMINAL_RL_POOL_NAMESPACE="${TERMINAL_RL_POOL_NAMESPACE:-swesmith}"' in swe
     assert 'export WORKER_SHIM_CLEANUP_ENABLED="${WORKER_SHIM_CLEANUP_ENABLED:-0}"' in seta
-    assert "terminal-rl.pool-namespace" in seta
+    assert "agentic_rl.pool-namespace" in seta
     assert "{{.Names}}" in seta
     assert "{{.Image}}" in seta
     assert "com.docker.compose.project" in seta

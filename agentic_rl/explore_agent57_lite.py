@@ -15,7 +15,7 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from agent57_episodic_memory import resolve_episodic_backend_name
+from agentic_rl.agent57_episodic_memory import resolve_episodic_backend_name
 
 
 def _env_bool(name: str, default: bool = False) -> bool:

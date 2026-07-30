@@ -12,7 +12,7 @@
 #   Extra: ClawSentry gateway liveness check (if CLAWSENTRY_NEEDED=1)
 #
 # Usage (on CPU/docker worker):
-#   bash terminal-rl/remote/run_pool_server_pu_v2.sh
+#   bash agentic_rl/remote/run_pool_server_pu_v2.sh
 #
 # Key env vars:
 #   WORKER_MAX_TASKS            (default 16)   — pool_server --max-tasks
@@ -330,7 +330,7 @@ if [[ "${WORKER_CLEANUP_LEGACY_UNLABELED}" != "0" && "${WORKER_CLEANUP_LEGACY_UN
 fi
 
 task_container_lines() {
-    docker ps --format '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Label "terminal-rl.pool-namespace"}}' 2>/dev/null \
+    docker ps --format '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Label "agentic_rl.pool-namespace"}}' 2>/dev/null \
         | awk -F '\t' -v ns="${TERMINAL_RL_POOL_NAMESPACE}" \
             -v legacy="${WORKER_CLEANUP_LEGACY_UNLABELED}" \
             -v name_re="${TASK_CONTAINER_REGEX}" -v image_re="${TASK_IMAGE_REGEX}" \
@@ -343,7 +343,7 @@ task_container_ids() {
 
 stopped_pool_container_ids() {
     docker ps -a --filter "status=exited" --filter "status=dead" \
-        --format '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Label "terminal-rl.pool-namespace"}}' 2>/dev/null \
+        --format '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Label "agentic_rl.pool-namespace"}}' 2>/dev/null \
         | awk -F '\t' -v ns="${TERMINAL_RL_POOL_NAMESPACE}" \
             -v legacy="${WORKER_CLEANUP_LEGACY_UNLABELED}" \
             -v name_re="${TASK_CONTAINER_REGEX}" -v image_re="${TASK_IMAGE_REGEX}" \
@@ -353,7 +353,7 @@ stopped_pool_container_ids() {
 
 dangling_pool_network_ids() {
     docker network ls --filter "dangling=true" \
-        --format '{{.ID}}\t{{.Label "terminal-rl.pool-namespace"}}\t{{.Label "com.docker.compose.project"}}' 2>/dev/null \
+        --format '{{.ID}}\t{{.Label "agentic_rl.pool-namespace"}}\t{{.Label "com.docker.compose.project"}}' 2>/dev/null \
         | awk -F '\t' -v ns="${TERMINAL_RL_POOL_NAMESPACE}" \
             -v legacy="${WORKER_CLEANUP_LEGACY_UNLABELED}" \
             -v project_re="${TASK_CONTAINER_REGEX}" \
@@ -459,9 +459,9 @@ preflight_disk_guard() {
        || "${free_gb}" -lt "${WORKER_MIN_DOCKER_FREE_GB}" \
        || "${inode_pct}" -gt "${WORKER_MAX_DOCKER_INODE_PCT}" ]]; then
         log "  ❌ Refusing to start pool_server under Docker disk pressure."
-        log "     Preview: DOCKER_GC_DRY_RUN=1 python3 terminal-rl/remote/docker_storage_gc.py"
-        log "     Run:     python3 terminal-rl/remote/docker_storage_gc.py"
-        log "     Legacy:  AGGRESSIVE=1 PRUNE_VOLUMES=1 bash terminal-rl/remote/fix_docker_overlay2_no_space.sh"
+        log "     Preview: DOCKER_GC_DRY_RUN=1 python3 agentic_rl/remote/docker_storage_gc.py"
+        log "     Run:     python3 agentic_rl/remote/docker_storage_gc.py"
+        log "     Legacy:  AGGRESSIVE=1 PRUNE_VOLUMES=1 bash agentic_rl/remote/fix_docker_overlay2_no_space.sh"
         log "     If Docker objects are empty but /data is still full, use PURGE_DOCKER_ROOT_WHEN_EMPTY=1."
         exit 1
     fi
@@ -473,8 +473,8 @@ preflight_disk_guard() {
 log "Pre-flight [1/6]: Docker daemon health check"
 if ! timeout 10 docker info >/dev/null 2>&1; then
     log "  ❌ Docker daemon not responding!"
-    log "  Run repair: sudo bash terminal-rl/remote/fix_dockerd_and_proxy.sh"
-    log "  Or force restart only: sudo bash terminal-rl/remote/restart_docker_force.sh"
+    log "  Run repair: sudo bash agentic_rl/remote/fix_dockerd_and_proxy.sh"
+    log "  Or force restart only: sudo bash agentic_rl/remote/restart_docker_force.sh"
     exit 1
 fi
 log "  ✅ Docker daemon OK"
@@ -566,7 +566,7 @@ if [[ "${CLAWSENTRY_NEEDED}" == "1" ]]; then
         log "  ❌ ClawSentry gateway NOT responding at 127.0.0.1:${CS_GATEWAY_PORT}"
         log "     This will cause safety_coef * 0 = 0 (no safety reward) in training"
         log "     Start it on GPU worker first, then re-run pool server"
-        log "     (The ClawSentry gateway is started by terminal-rl_qwen3-8b_pu.sh on GPU worker)"
+        log "     (The ClawSentry gateway is started by agentic_rl/experiments/dive_po/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh on GPU worker)"
         log "  ⚠️  Continuing anyway (pool_server doesn't run ClawSentry; GPU side does)"
     fi
 else
@@ -814,7 +814,7 @@ start_pool_server_child() {
   # Use stdbuf for line-buffered output (real-time log visibility). Do not use
   # exec here: the launcher owns cleanup traps and must survive the child process.
   stdbuf -oL -eL \
-      "${POOL_SERVER_PYTHON}" -m terminal-rl.remote.pool_server \
+      "${POOL_SERVER_PYTHON}" -m agentic_rl.remote.pool_server \
       --host 0.0.0.0 \
       --port "${ENV_SERVER_PORT}" \
       --max-tasks "${WORKER_MAX_TASKS}" \

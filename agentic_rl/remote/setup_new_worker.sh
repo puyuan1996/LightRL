@@ -9,7 +9,7 @@
 #   - Can reach GPU worker on port 18081 (pool_server listen port)
 #
 # Usage:
-#   sudo env DOCKER_DATA_ROOT=/data bash terminal-rl/remote/setup_new_worker.sh
+#   sudo env DOCKER_DATA_ROOT=/data bash agentic_rl/remote/setup_new_worker.sh
 #
 # Environment variables (optional):
 #   PROXY_URL          - HTTP proxy for dockerd/pip/builds. Auto-detected on pjlab.
@@ -782,17 +782,17 @@ echo "=== 9. Verify Docker Build ==="
 if [ "${SKIP_VERIFY}" = "1" ]; then
   echo "  [SKIP] SKIP_VERIFY=1"
 else
-  export DATASET_DIR="terminal-rl/dataset"
+  export DATASET_DIR="agentic_rl/dataset"
   echo "  Building task 100 (simple task)..."
   BUILD_LOG="$(mktemp)"
   if timeout 300 docker compose -p test_build \
-    -f terminal-rl/dataset/seta_env/100/docker-compose.yaml build > "${BUILD_LOG}" 2>&1; then
+    -f agentic_rl/dataset/seta_env/100/docker-compose.yaml build > "${BUILD_LOG}" 2>&1; then
     tail -5 "${BUILD_LOG}"
     echo "  [OK] Build succeeded"
-    timeout 60 docker compose -p test_build -f terminal-rl/dataset/seta_env/100/docker-compose.yaml down 2>/dev/null || true
+    timeout 60 docker compose -p test_build -f agentic_rl/dataset/seta_env/100/docker-compose.yaml down 2>/dev/null || true
   else
     tail -20 "${BUILD_LOG}"
-    echo "  [WARN] Build failed - run: sudo bash terminal-rl/remote/fix_dockerd_and_proxy.sh"
+    echo "  [WARN] Build failed - run: sudo bash agentic_rl/remote/fix_dockerd_and_proxy.sh"
   fi
   rm -f "${BUILD_LOG}"
 fi
@@ -813,9 +813,9 @@ echo " Compose V2: ${COMPOSE_VERSION_SUMMARY:-unknown}"
 echo ""
 echo " To start pool_server:"
 echo "   cd $REPO_ROOT"
-echo "   bash terminal-rl/remote/run_pool_server_pu_v2.sh"
+echo "   bash agentic_rl/remote/run_pool_server_pu_v2.sh"
 echo ""
 echo " Then on GPU worker, set:"
 echo "   export WORKER_URLS=\"http://${MY_IP}:18081\""
-echo "   bash terminal-rl/terminal-rl_qwen3-8b_pu.sh"
+echo "   bash agentic_rl/experiments/dive_po/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh"
 echo "============================================================"

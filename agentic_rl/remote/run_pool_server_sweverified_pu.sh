@@ -68,7 +68,7 @@ if [[ -z "${POOL_SERVER_PYTHON}" ]]; then
        timeout 60 env \
          "PYTHONPATH=${TERMINAL_RL_DIR}/..${PYTHONPATH:+:${PYTHONPATH}}" \
          "${candidate}" -c \
-         'import importlib; module = importlib.import_module("terminal-rl.remote.pool_server"); assert module.app is not None' \
+         'import importlib; module = importlib.import_module("agentic_rl.remote.pool_server"); assert module.app is not None' \
          >/dev/null 2>&1; then
       POOL_SERVER_PYTHON="${candidate}"
       break
@@ -82,9 +82,9 @@ fi
 if ! timeout 60 env \
   "PYTHONPATH=${TERMINAL_RL_DIR}/..${PYTHONPATH:+:${PYTHONPATH}}" \
   "${POOL_SERVER_PYTHON}" -c \
-  'import importlib; module = importlib.import_module("terminal-rl.remote.pool_server"); assert module.app is not None'; then
+  'import importlib; module = importlib.import_module("agentic_rl.remote.pool_server"); assert module.app is not None'; then
   echo "[ERROR] pool_server Python dependency preflight failed for ${POOL_SERVER_PYTHON}." >&2
-  echo "        Install terminal-rl/remote/requirements-swesmith-worker.txt in that environment." >&2
+  echo "        Install agentic_rl/remote/requirements-swesmith-worker.txt in that environment." >&2
   exit 2
 fi
 export POOL_SERVER_PYTHON
@@ -149,7 +149,7 @@ print(
 if strict and mismatches:
     raise SystemExit(
         "[ERROR] SWE-Verified worker dependencies do not match "
-        "terminal-rl/remote/requirements-swesmith-worker.txt: "
+        "agentic_rl/remote/requirements-swesmith-worker.txt: "
         + "; ".join(mismatches)
     )
 PY
@@ -182,7 +182,7 @@ from pathlib import Path
 prompt_path = Path(sys.argv[1])
 env_dir = Path(sys.argv[2])
 sys.path.insert(0, sys.argv[3])
-from data_utils.convert_sweverified_to_terminal_rl import (
+from data_utils.convert_sweverified import (
     DATASET_NAME,
     DATASET_REVISION,
     OFFICIAL_INSTANCE_COUNT,

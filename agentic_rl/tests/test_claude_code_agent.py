@@ -13,8 +13,8 @@ if str(TERMINAL_RL_DIR) not in sys.path:
 if str(ROOT_DIR / "slime") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "slime"))
 
-import agent.claude_code_agent as claude_agent_module
-from agent.claude_code_qwen_gateway import ClaudeCodeQwenGateway
+import agentic_rl.harnesses.claude_code_agent as claude_agent_module
+from agentic_rl.harnesses.claude_code_qwen_gateway import ClaudeCodeQwenGateway
 
 
 class DummyTokenizer:

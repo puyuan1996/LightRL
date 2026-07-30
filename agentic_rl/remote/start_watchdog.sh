@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_ROOT="${REPO_ROOT:-/mnt/shared-storage-user/puyuan/code/OpenClaw-RL}"
+REPO_ROOT="${REPO_ROOT:-/mnt/shared-storage-user/puyuan/code/LightRL}"
 RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 if [[ -n "${RUN_DIR:-}" ]]; then
     DEFAULT_REMOTE_LOG_ROOT="${RUN_DIR}/remote_logs"
@@ -83,4 +83,4 @@ echo "  docker_gc:  enabled=${WATCHDOG_DOCKER_STORAGE_GC} trigger=${DOCKER_GC_TR
 echo "  resetstorm: repair=${POOL_RESET_STORM_REPAIR} min_resetting=${POOL_RESET_STORM_MIN_RESETTING} ratio=${POOL_RESET_STORM_RATIO_PCT}% min_age=${POOL_RESET_STORM_MIN_AGE}s checks=${POOL_RESET_STORM_STUCK_CHECKS}"
 echo "========================================"
 
-exec bash terminal-rl/remote/docker_watchdog_v2.sh
+exec bash agentic_rl/remote/docker_watchdog_v2.sh

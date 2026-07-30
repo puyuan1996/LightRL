@@ -1,12 +1,12 @@
 [Unit]
-Description=Docker Watchdog for OpenClaw-RL pool_server (long-run hardened)
-Documentation=file:///mnt/shared-storage-user/puyuan/code/OpenClaw-RL/terminal-rl/remote/start_watchdog.sh
+Description=Docker Watchdog for LightRL pool_server (long-run hardened)
+Documentation=file:///mnt/shared-storage-user/puyuan/code/LightRL/agentic_rl/remote/start_watchdog.sh
 After=docker.service network-online.target
 Wants=docker.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/bash /mnt/shared-storage-user/puyuan/code/OpenClaw-RL/terminal-rl/remote/start_watchdog.sh
+ExecStart=/usr/bin/bash /mnt/shared-storage-user/puyuan/code/LightRL/agentic_rl/remote/start_watchdog.sh
 
 # Self-protection
 Restart=always

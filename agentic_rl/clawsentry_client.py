@@ -108,7 +108,8 @@ class ClawSentryClient:
             },
         }
         try:
-            r = await self._client.post(f"{self.base_url}/ahp/a3s", json=req)
+            endpoint = os.getenv("CLAWSENTRY_AHP_ENDPOINT", "/ahp/event")
+            r = await self._client.post(f"{self.base_url}{endpoint}", json=req)
             r.raise_for_status()
             body = r.json()
             result = body.get("result") or {}

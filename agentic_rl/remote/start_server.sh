@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# CPU-worker pool_server launcher for SetA/terminal-rl.
+# CPU-worker pool_server launcher for SetA/agentic_rl.
 #
 # Runs in the foreground. Start it inside tmux/screen or redirect it from the
 # caller if you want it detached.
 
 set -euo pipefail
 
-REPO_ROOT="${REPO_ROOT:-/mnt/shared-storage-user/puyuan/code/OpenClaw-RL}"
+REPO_ROOT="${REPO_ROOT:-/mnt/shared-storage-user/puyuan/code/LightRL}"
 cd "${REPO_ROOT}"
 
 RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
@@ -182,4 +182,4 @@ echo "  capacity_auto_repair: enabled=${WORKER_AUTO_REPAIR_ON_CAPACITY} close_mi
 echo "  build_dedup:          enabled=${WORKER_DOCKER_BUILD_DEDUP} skip_existing=${WORKER_DOCKER_BUILD_SKIP_EXISTING} failed_ttl=${WORKER_DOCKER_BUILD_FAILED_TTL}s blacklist_ttl=${WORKER_DOCKER_TASK_BLACKLIST_TTL}s precheck=${WORKER_DOCKERFILE_PRECHECK}"
 echo "========================================"
 
-exec bash terminal-rl/remote/run_pool_server_pu_v2.sh
+exec bash agentic_rl/remote/run_pool_server_pu_v2.sh

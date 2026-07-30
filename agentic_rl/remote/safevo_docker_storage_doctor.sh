@@ -2,10 +2,10 @@
 # Diagnose and conservatively repair Docker data-root pressure on safevo/rlinfra.
 #
 # Default mode is read-only:
-#   DOCKER_DATA_ROOT=/data bash terminal-rl/remote/safevo_docker_storage_doctor.sh
+#   DOCKER_DATA_ROOT=/data bash agentic_rl/remote/safevo_docker_storage_doctor.sh
 #
 # Conservative repair mode, still preserving tagged images:
-#   MODE=repair APPLY=1 DOCKER_DATA_ROOT=/data bash terminal-rl/remote/safevo_docker_storage_doctor.sh
+#   MODE=repair APPLY=1 DOCKER_DATA_ROOT=/data bash agentic_rl/remote/safevo_docker_storage_doctor.sh
 #
 # This script intentionally does not delete tagged images. Image deletion is a
 # separate, explicit operation in docker_storage_gc.py with

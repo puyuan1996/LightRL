@@ -335,7 +335,7 @@ def _assign_agent57_arms(
     if evaluation or not _agent57_lite_enabled():
         return []
     try:
-        from explore_agent57_lite import assign_group_arms
+        from agentic_rl.explore_agent57_lite import assign_group_arms
 
         return assign_group_arms(group_size, evaluation=evaluation, dataset=dataset)
     except Exception as exc:

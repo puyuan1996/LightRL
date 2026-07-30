@@ -1,0 +1,2 @@
+name: slime
+train_entrypoint: slime/train_async.py

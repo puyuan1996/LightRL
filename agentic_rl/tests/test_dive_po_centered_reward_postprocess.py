@@ -10,7 +10,7 @@ TERMINAL_RL = Path(__file__).resolve().parents[1]
 if str(TERMINAL_RL) not in sys.path:
     sys.path.insert(0, str(TERMINAL_RL))
 
-from runs.rjob import dive_po_centered_reward_postprocess as centered  # noqa: E402
+from agentic_rl.algorithms.dive_po import centered_reward_postprocess as centered  # noqa: E402
 
 
 class DummySample:

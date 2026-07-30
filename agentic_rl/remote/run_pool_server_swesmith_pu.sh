@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SWE-smith Docker worker launcher.
 #
-# Run on a CPU/docker worker that shares the OpenClaw-RL filesystem with the GPU
+# Run on a CPU/docker worker that shares the LightRL filesystem with the GPU
 # trainer. It delegates to run_pool_server_pu_v2.sh but pins conservative
 # defaults for SWE-smith image build/start latency.
 set -euo pipefail
@@ -69,7 +69,7 @@ export WORKER_DOCKER_BUILD_DEDUP="${WORKER_DOCKER_BUILD_DEDUP:-1}"
 # Coexistence mode: this script is commonly launched on the same Docker host as
 # an existing SETA pool server. Host-wide cleanup stays disabled. Final and
 # child-exit cleanup are safe because the shared launcher selects only Docker
-# objects whose terminal-rl.pool-namespace label exactly matches `swesmith`.
+# objects whose agentic_rl.pool-namespace label exactly matches `swesmith`.
 export SKIP_PREFLIGHT_CLEANUP="${SKIP_PREFLIGHT_CLEANUP:-1}"
 export PREFLIGHT_KILL_ORPHAN_RUNNING="${PREFLIGHT_KILL_ORPHAN_RUNNING:-0}"
 export PREFLIGHT_DISK_CLEANUP="${PREFLIGHT_DISK_CLEANUP:-0}"
@@ -212,7 +212,7 @@ print(
 if strict and mismatches:
     raise SystemExit(
         "[ERROR] SWE-smith worker dependencies do not match "
-        "terminal-rl/remote/requirements-swesmith-worker.txt: "
+        "agentic_rl/remote/requirements-swesmith-worker.txt: "
         + "; ".join(mismatches)
     )
 PY
@@ -253,7 +253,7 @@ sys.path.insert(0, sys.argv[3])
 require_full = sys.argv[4] == "1"
 stats_path = Path(sys.argv[5]) if sys.argv[5] else prompt_path.with_name("convert_stats.json")
 expected_samples = int(sys.argv[6]) if sys.argv[6] else None
-from data_utils.convert_swesmith_to_terminal_rl import (
+from data_utils.convert_swesmith import (
     OFFICIAL_TEST_COMMANDS,
     TASK_FORMAT_MARKER,
     TASK_FORMAT_VERSION,

@@ -11,7 +11,7 @@ from tqdm import tqdm
 import sys
 from load_tasks import TBenchTrainingTask, load_terminal_bench_tasks
 
-DATASET_DIR = Path(os.getenv("DATASET_DIR", "./terminal-rl/dataset"))
+DATASET_DIR = Path(os.getenv("DATASET_DIR", "./agentic_rl/dataset"))
 
 
 def convert_tasks(

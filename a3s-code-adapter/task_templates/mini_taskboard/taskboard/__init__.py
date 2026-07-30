@@ -1,2 +1,0 @@
-"""Mini taskboard package."""
-

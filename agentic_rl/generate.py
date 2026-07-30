@@ -20,9 +20,9 @@ import asyncio
 from slime.rollout.sglang_rollout import GenerateState
 from slime.utils.types import Sample
 
-from agent.prm_agent import TerminalPRMAgent
-from clawsentry_client import ClawSentryClient
-from custom_types import (
+from agentic_rl.harnesses.prm_agent import TerminalPRMAgent
+from agentic_rl.clawsentry_client import ClawSentryClient
+from agentic_rl.custom_types import (
     Interaction,
     RunContext,
     TaskSpec,
@@ -30,11 +30,11 @@ from custom_types import (
     TurnContext,
     TurnResult,
 )
-from inference_client import SGLangTurnClient
-from agent_runner import create_agent_runner, normalize_harness_option
-from env_client import TerminalEnvClient
-from agent57_episodic_memory import create_episodic_memory_backend
-from explore_agent57_lite import (
+from agentic_rl.inference_client import SGLangTurnClient
+from agentic_rl.agent_runner import create_agent_runner, normalize_harness_option
+from agentic_rl.env_client import TerminalEnvClient
+from agentic_rl.agent57_episodic_memory import create_episodic_memory_backend
+from agentic_rl.explore_agent57_lite import (
     coarse_observation_fingerprint as _agent57_coarse_observation_fingerprint,
     coarse_observation_label as _agent57_coarse_observation_label,
     compute_ngu_lite_bonus as _agent57_compute_ngu_lite_bonus,
@@ -43,7 +43,7 @@ from explore_agent57_lite import (
     exit_code_bucket as _agent57_exit_code_bucket,
     record_arm_event as _agent57_record_arm_event,
 )
-from safety_reward import (
+from agentic_rl.safety_reward import (
     DEFAULT_ZERO_THRESHOLD as _SAFETY_ZERO_THRESHOLD,
     broadcast_to_turns as _safety_broadcast,
     per_turn_score as _safety_per_turn_score,
@@ -3530,7 +3530,7 @@ async def generate(
                 for call in _jsonable(sdk_tool_calls):
                     if isinstance(call, dict):
                         normalized_call = dict(call)
-                        normalized_call.setdefault("source", "a3s-code-sdk")
+                        normalized_call.setdefault("source", "harness-sdk")
                         current_turn_record["tool_calls"].append(normalized_call)
             turn_records.append(current_turn_record)
 

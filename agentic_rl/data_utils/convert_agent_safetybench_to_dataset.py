@@ -65,7 +65,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("terminal-rl/dataset/agent_safetybench_convert"),
+        default=Path("agentic_rl/dataset/agent_safetybench_convert"),
     )
     parser.add_argument(
         "--include-tools-in-prompt",

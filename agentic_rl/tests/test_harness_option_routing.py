@@ -4,49 +4,41 @@ from pathlib import Path
 
 import yaml
 
+
 ROOT = Path(__file__).resolve().parents[2]
-TERMINAL_RL = ROOT / "terminal-rl"
+AGENTIC_RL = ROOT / "agentic_rl"
 
 
 def test_rollout_configs_default_to_camel_agent():
     for name in ("rollout_qwen3.yaml", "rollout_qwen3_think.yaml"):
-        cfg = yaml.safe_load((TERMINAL_RL / "configs" / name).read_text())
-        assert cfg["harness_option"] == "camel-agent"
+        config = yaml.safe_load((AGENTIC_RL / "configs" / name).read_text())
+        assert config["harness_option"] == "camel-agent"
 
 
-def test_training_script_routes_harness_without_polluting_camel_runtime():
-    script = (TERMINAL_RL / "terminal-rl_qwen3-8b_mixed_dapo_nodynamic_pu.sh").read_text()
+def test_slime_runtime_routes_registered_harnesses():
+    script = (
+        AGENTIC_RL / "backends" / "slime_runtime" / "train_qwen3_8b.sh"
+    ).read_text()
     assert 'HARNESS_OPTION="${HARNESS_OPTION:-camel-agent}"' in script
     assert 'cfg["harness_option"] = harness_option' in script
-    assert 'if [[ "${HARNESS_OPTION}" == "a3s-code" && "${DRY_RUN}" != "1" ]]' in script
-    assert 'if [[ "${HARNESS_OPTION}" == "a3s-code" ]]; then' in script
-    assert 'claude-code|claude_code)' in script
-    assert 'if [[ "${HARNESS_OPTION}" == "claude-code" && "${DRY_RUN}" != "1" ]]' in script
-    assert 'CLAUDE_CODE_MARK_NON_TRAINABLE' in script
-    assert 'CLAUDE_CODE_LOCAL_RUN_ROOT="${CLAUDE_CODE_LOCAL_RUN_ROOT:-${CLAUDE_CODE_WORKSPACE_ROOT:-${RUN_LOG_DIR}/claude_code_cli}}"' in script
-    assert '\\"CLAUDE_CODE_LOCAL_RUN_ROOT\\": \\"${CLAUDE_CODE_LOCAL_RUN_ROOT}\\"' in script
+    assert "claude-code|claude_code)" in script
     assert "mcp__terminal_rl__read_file" in script
     assert "mcp__terminal_rl__write_file" in script
     assert "mcp__terminal_rl__list_dir" in script
     assert '\\"HARNESS_OPTION\\": \\"${HARNESS_OPTION}\\"' in script
-    assert '-- "${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"' in script
 
 
-def test_claude_code_wrapper_delegates_to_nodynamic_base():
+def test_experiment_config_selects_harness_without_wrapper_script():
+    config = yaml.safe_load(
+        (ROOT / "configs" / "experiment" / "dive_po_qwen3_8b_seta.yaml").read_text()
+    )
+    assert config["extends"] == "../config.yaml"
+    assert "HARNESS_OPTION" not in config["runtime"]["env"]
+
+
+def test_dive_po_runtime_accepts_claude_code_alias():
     script = (
-        TERMINAL_RL / "terminal-rl_qwen3-8b_seta_dapo_nodynamic_claude_code_pu.sh"
-    ).read_text()
-    assert 'HARNESS_OPTION="${HARNESS_OPTION:-claude_code}"' in script
-    assert 'CLAUDE_CODE_LLM_BACKEND="${CLAUDE_CODE_LLM_BACKEND:-sglang}"' in script
-    assert 'CLAUDE_CODE_MARK_NON_TRAINABLE="0"' in script
-    assert 'CLAUDE_CODE_MARK_NON_TRAINABLE="1"' in script
-    assert 'DAPO_DYNAMIC_SAMPLING="${DAPO_DYNAMIC_SAMPLING:-0}"' in script
-    assert 'terminal-rl_qwen3-8b_mixed_dapo_nodynamic_pu.sh' in script
-
-
-def test_exploration_script_accepts_claude_code_harness_alias():
-    script = (
-        TERMINAL_RL / "terminal-rl_qwen3-8b_mixed_dapo_nodynamic_exploration_pu.sh"
+        AGENTIC_RL / "backends" / "slime_runtime" / "dive_po_qwen3_8b.sh"
     ).read_text()
     assert "claude-code|claude_code)" in script
-    assert "Use: camel-agent|a3s-code|claude_code" in script
+    assert "Use: camel-agent|claude_code" in script

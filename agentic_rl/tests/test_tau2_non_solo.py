@@ -14,9 +14,9 @@ for path in (str(TERMINAL_RL_ROOT), str(REPO_ROOT), str(SLIME_ROOT)):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from agent_runner import AgentRunner
-from env_client import TerminalEnvClient
-from remote.tau2_env import Tau2Env
+from agentic_rl.agent_runner import AgentRunner
+from agentic_rl.env_client import TerminalEnvClient
+from agentic_rl.remote.tau2_env import Tau2Env
 
 
 class DummyRolloutAgent:

@@ -23,7 +23,7 @@
 #   Phase 7  restart docker-watchdog (if it was running)
 #
 # Usage (CPU worker, as root):
-#   sudo bash terminal-rl/remote/fix_dockerd_and_proxy.sh
+#   sudo bash agentic_rl/remote/fix_dockerd_and_proxy.sh
 #
 # Env vars (all optional):
 #   PROXY_URL         default: http://httpproxy-headless.kubebrain.svc.pjlab.local:3128
@@ -47,7 +47,7 @@ SKIP_VERIFY="${SKIP_VERIFY:-0}"
 DOCKER_START_WAIT_SECONDS="${DOCKER_START_WAIT_SECONDS:-600}"
 FORCE_RESTART_CONTAINERD="${FORCE_RESTART_CONTAINERD:-1}"
 DOCKER_RUNTIME_RETRY="${DOCKER_RUNTIME_RETRY:-1}"
-SETA="${SETA:-/mnt/shared-storage-user/puyuan/code/OpenClaw-RL/terminal-rl/dataset/seta_env/0}"
+SETA="${SETA:-/mnt/shared-storage-user/puyuan/code/LightRL/agentic_rl/dataset/seta_env/0}"
 
 USERS_TO_CONFIGURE=("root")
 id puyuan >/dev/null 2>&1 && USERS_TO_CONFIGURE+=("puyuan")
@@ -437,12 +437,12 @@ Next steps on this CPU worker:
 
   1) Source proxy env then start pool_server:
        set -a; . /etc/seta_build_proxy.env; set +a
-       cd /mnt/shared-storage-user/puyuan/code/OpenClaw-RL
-       bash terminal-rl/remote/run_pool_server_pu_v2.sh
+       cd /mnt/shared-storage-user/puyuan/code/LightRL
+       bash agentic_rl/remote/run_pool_server_pu_v2.sh
 
   2) On GPU worker, set WORKER_URLS and start training:
        export WORKER_URLS="http://$(hostname -I | awk '{print $1}'):18081"
-       bash terminal-rl/terminal-rl_qwen3-8b_pu.sh
+       bash agentic_rl/experiments/dive_po/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
 
   3) Watchdog status:
        sudo systemctl status docker-watchdog

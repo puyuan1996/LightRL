@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Low-memory SWE-smith downloader + converter for terminal-rl.
+# Low-memory SWE-smith downloader + converter for agentic_rl.
 #
 # Default mode creates a small smoke subset for path validation. Formal full
 # conversion must opt in with MODE=full ALLOW_FULL=1.
@@ -274,7 +274,7 @@ echo "[DL] source=${INPUT_JSONL:-${DATASET_NAME}/${SPLIT}} revision=${DATASET_RE
 echo "[DL] output=${OUT_PATH}"
 echo "[DL] backend=${SOURCE_BACKEND} max_samples=${MAX_SAMPLES:-all} min_test_count=${MIN_TEST_COUNT}"
 
-"${PYTHON_BIN}" "${SCRIPT_DIR}/convert_swesmith_to_terminal_rl.py" \
+"${PYTHON_BIN}" "${SCRIPT_DIR}/convert_swesmith.py" \
   --dataset-name "${DATASET_NAME}" \
   --split "${SPLIT}" \
   --revision "${DATASET_REVISION}" \
@@ -294,7 +294,7 @@ if [[ ! -f "${TMP_OUT_PATH}" || ! -f "${TMP_STATS_PATH}" ]] ||
   exit 1
 fi
 
-"${PYTHON_BIN}" - "${TMP_STATS_PATH}" "${TMP_OUT_PATH}" "${OUT_PATH}" "${MODE}" "${DATASET_REVISION}" "${SCRIPT_DIR}/convert_swesmith_to_terminal_rl.py" "${ENV_PATH}" <<'PY'
+"${PYTHON_BIN}" - "${TMP_STATS_PATH}" "${TMP_OUT_PATH}" "${OUT_PATH}" "${MODE}" "${DATASET_REVISION}" "${SCRIPT_DIR}/convert_swesmith.py" "${ENV_PATH}" <<'PY'
 import hashlib
 import json
 import sys
@@ -331,7 +331,7 @@ if int(stats.get("converted", -1)) != rows:
 stats_path.write_text(json.dumps(stats, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 if mode == "full":
     sys.path.insert(0, str(converter_path.parent))
-    from convert_swesmith_to_terminal_rl import validate_swesmith_artifact_manifest
+    from convert_swesmith import validate_swesmith_artifact_manifest
 
     validate_swesmith_artifact_manifest(
         artifact_path,

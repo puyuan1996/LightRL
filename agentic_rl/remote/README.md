@@ -50,14 +50,14 @@ From the repo root:
 
 ```bash
 # The launcher auto-sources /etc/seta_build_proxy.env when present.
-bash terminal-rl/remote/run_pool_server_pu_v2.sh
+bash agentic_rl/remote/run_pool_server_pu_v2.sh
 ```
 
 Then on the GPU worker:
 
 ```bash
 export WORKER_URLS="http://<this-cpu-worker-ip>:18081"
-bash terminal-rl/terminal-rl_qwen3-8b_pu.sh
+bash agentic_rl/experiments/dive_po/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
 ```
 
 For first-time setup and recovery, follow [`../docs/cpu_worker_docker_ops.md`](../docs/cpu_worker_docker_ops.md).
@@ -65,8 +65,8 @@ For first-time setup and recovery, follow [`../docs/cpu_worker_docker_ops.md`](.
 For a failed training run, start with a log-aware diagnosis:
 
 ```bash
-bash terminal-rl/remote/docker_worker_doctor.sh diagnose \
-  --train-log /mnt/shared-storage-user/puyuan/code/OpenClaw-RL/runs/<run>/logs/train.log
+bash agentic_rl/remote/docker_worker_doctor.sh diagnose \
+  --train-log /mnt/shared-storage-user/puyuan/code/LightRL/runs/<run>/logs/train.log
 ```
 
 ---
@@ -75,8 +75,8 @@ bash terminal-rl/remote/docker_worker_doctor.sh diagnose \
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATASET_DIR` | `terminal-rl/dataset` | Path to the task dataset directory |
-| `TBENCH_OUTPUT_ROOT` | `terminal-rl/build_outputs` | Root for build/output artifacts |
+| `DATASET_DIR` | `agentic_rl/dataset` | Path to the task dataset directory |
+| `TBENCH_OUTPUT_ROOT` | `agentic_rl/build_outputs` | Root for build/output artifacts |
 | `ENV_SERVER_PORT` | `18081` | Port the pool server listens on |
 | `WORKER_MAX_TASKS` | `16` | Max tasks allocated per worker |
 | `WORKER_MAX_RUNS_PER_TASK` | `8` | Max concurrent runs per task |

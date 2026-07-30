@@ -1,0 +1,3 @@
+name: seta
+dataset: agentic_rl/dataset/mixed_seta_safety.filtered.jsonl
+max_turn: 16

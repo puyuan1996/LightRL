@@ -1,0 +1,5 @@
+name: dive_po
+base: dapo
+centered_gate: true
+quality_blend: 1.0
+reward_processor: agentic_rl.algorithms.dive_po.centered_reward_postprocess.post_process_rewards

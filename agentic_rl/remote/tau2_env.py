@@ -174,7 +174,7 @@ def task_instruction(task: Any) -> str:
 
 
 class Tau2Env:
-    """Local solo-mode tau2 backend for terminal-rl."""
+    """Local solo-mode tau2 backend for agentic_rl."""
 
     def __init__(self, root: str | None = None) -> None:
         self.root = Path(

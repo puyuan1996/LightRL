@@ -28,7 +28,7 @@
 #   Re-run this script if base images get re-pulled.
 #
 # Usage:
-#   sudo bash terminal-rl/remote/prebuild_proxied_base_images.sh
+#   sudo bash agentic_rl/remote/prebuild_proxied_base_images.sh
 #
 # Env:
 #   PROXY_URL       default: pjlab proxy
@@ -153,7 +153,7 @@ if [ "${FAIL}" -gt 0 ]; then
   exit 3
 fi
 log "  All shadow images built. Now retry seta_env/0 build:"
-log "    cd /mnt/shared-storage-user/puyuan/code/OpenClaw-RL"
+log "    cd /mnt/shared-storage-user/puyuan/code/LightRL"
 log "    set -a; . /etc/seta_build_proxy.env; set +a"
 log "    DOCKER_BUILDKIT=0 COMPOSE_DOCKER_CLI_BUILD=0 \\"
-log "      docker compose -p t0 -f terminal-rl/dataset/seta_env/0/docker-compose.yaml build"
+log "      docker compose -p t0 -f agentic_rl/dataset/seta_env/0/docker-compose.yaml build"

@@ -3,8 +3,8 @@ from __future__ import annotations
 import inspect
 from typing import Any, Dict, List, Optional, Protocol
 
-from custom_types import TurnContext, TurnResult
-from inference_client import SGLangTurnClient
+from agentic_rl.custom_types import TurnContext, TurnResult
+from agentic_rl.inference_client import SGLangTurnClient
 import logging
 
 
@@ -34,16 +34,12 @@ class RolloutAgent(Protocol):
 
 
 def normalize_harness_option(value: str | None) -> str:
-    """Normalize legacy and CLI spellings for terminal rollout harnesses."""
+    """Normalize legacy and CLI spellings for agentic rollout harnesses."""
     text = str(value or "camel-agent").strip().lower().replace("_", "-")
     aliases = {
         "camel": "camel-agent",
         "camel-agent": "camel-agent",
         "camelagent": "camel-agent",
-        "a3s": "a3s-code",
-        "a3s-code": "a3s-code",
-        "a3s-code-agent": "a3s-code",
-        "a3s-code-harness": "a3s-code",
         "claude": "claude-code",
         "claude-code": "claude-code",
         "claude-code-cli": "claude-code",
@@ -54,7 +50,7 @@ def normalize_harness_option(value: str | None) -> str:
     except KeyError as exc:
         raise ValueError(
             f"Unsupported harness option: {value!r}. "
-            "Expected one of: camel-agent, camel_agent, a3s-code, claude_code."
+            "Expected one of: camel-agent, camel_agent, claude_code."
         ) from exc
 
 
@@ -201,7 +197,7 @@ def create_agent_runner(
 ) -> AgentRunner:
     harness = normalize_harness_option(agent_type)
     if harness == "camel-agent":
-        from agent.camel_agent import CamelAgent
+        from agentic_rl.harnesses.camel_agent import CamelAgent
 
         rollout_agent = CamelAgent(
             model_type=model_type,
@@ -209,21 +205,8 @@ def create_agent_runner(
             non_think_mode=non_think_mode,
             max_total_tokens=max_total_tokens,
         )
-    elif harness == "a3s-code":
-        from agent.a3s_code_agent import A3SCodeAgent
-
-        rollout_agent = A3SCodeAgent(
-            model_type=model_type,
-            sglang_client=sglang_client,
-            env_client=env_client,
-            lease_id=lease_id,
-            run_context=run_context,
-            task_meta=task_meta or {},
-            non_think_mode=non_think_mode,
-            max_total_tokens=max_total_tokens,
-        )
     elif harness == "claude-code":
-        from agent.claude_code_agent import ClaudeCodeAgent
+        from agentic_rl.harnesses.claude_code_agent import ClaudeCodeAgent
 
         rollout_agent = ClaudeCodeAgent(
             model_type=model_type,
