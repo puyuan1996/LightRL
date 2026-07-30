@@ -8,8 +8,6 @@ and writes:
   <run_dir>/metrics/analysis/case_analysis.md
 
 Usage:
-  python -m terminal_rl.scripts.analyze_trajectories --run-dir <run_dir>
-  # or directly:
   python tools/analysis/analyze_trajectories.py --run-dir runs/<run_id>
 
 Optional:

@@ -7,6 +7,6 @@ Scripts are grouped by responsibility:
 - `world_model/`: LWM dataset, probe, candidate, and latent-training workflows.
 - `dev/`: worker smoke tests used during development.
 
-Training entrypoints do not live here. Stable user commands are in the
-repository-level `scripts/`, while versioned recipes are under
-`experiments/`.
+Training entrypoints do not live here. Stable user commands are in
+repository-level `examples/`, while composed recipes are under
+`configs/experiment/`.
