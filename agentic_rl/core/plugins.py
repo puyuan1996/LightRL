@@ -6,4 +6,4 @@ from agentic_rl.core.registry import REGISTRY
 
 
 def resolve_plugin(group: str, name: str) -> Any:
-    return REGISTRY[group][name]
+    return REGISTRY.load(group, name)

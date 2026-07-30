@@ -31,7 +31,7 @@ class DivePOConfig:
     centered_gate: bool = True
     quality_blend: float = 1.0
     reward_processor: str = (
-        "agentic_rl.algorithms.dive_po.centered_reward_postprocess."
+        "agentic_rl.algorithms.dive_po.rewards.centered_gate."
         "post_process_rewards"
     )
 

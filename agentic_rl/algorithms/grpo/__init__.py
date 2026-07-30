@@ -1,0 +1,1 @@
+"""GRPO algorithm extension point."""

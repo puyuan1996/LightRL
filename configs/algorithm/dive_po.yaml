@@ -1,5 +1,15 @@
 name: dive_po
-base: dapo
-centered_gate: true
-quality_blend: 1.0
-reward_processor: agentic_rl.algorithms.dive_po.centered_reward_postprocess.post_process_rewards
+base:
+  name: dapo
+  clip_ratio: 0.2
+  dynamic_sampling: false
+dive_po:
+  enabled: true
+  centered_gate: true
+  quality_blend: 1.0
+  reward_processor: agentic_rl.algorithms.dive_po.rewards.centered_gate.post_process_rewards
+lwm:
+  enabled: false
+  encoder: hash
+  use_dapo_replay_buffer: false
+  loss_coef: 0.0

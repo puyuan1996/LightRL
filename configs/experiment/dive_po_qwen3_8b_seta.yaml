@@ -1,4 +1,7 @@
-extends: ../config.yaml
+extends: ../defaults.yaml
+
+experiment:
+  name: dive_po_qwen3_8b_seta_v0716
 
 runtime:
   launcher: agentic_rl/algorithms/dive_po/runtime_defaults.sh
@@ -45,4 +48,4 @@ runtime:
     EXPLORE_TRUNCATION_PENALTY_OUTCOME_AWARE: true
     DIVE_PO_CENTERED_GATE_ENABLED: true
     DIVE_PO_GATE_QUALITY_BLEND: 1.0
-    CUSTOM_REWARD_POST_PROCESS_PATH: agentic_rl.algorithms.dive_po.centered_reward_postprocess.post_process_rewards
+    CUSTOM_REWARD_POST_PROCESS_PATH: agentic_rl.algorithms.dive_po.rewards.centered_gate.post_process_rewards

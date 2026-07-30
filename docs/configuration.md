@@ -7,8 +7,8 @@ override only the values that differ.
 Configuration layers are:
 
 1. typed global defaults in `agentic_rl/config/schema.py`;
-2. repository defaults in `configs/config.yaml`;
-3. dimension configs under `configs/{harness,model,algorithm,environment,backend}`;
+2. repository defaults in `configs/defaults.yaml`;
+3. dimension configs under `configs/{harness,model,algorithm,environment,backend,cluster}`;
 4. an experiment recipe under `configs/experiment/`;
 5. command-line dotted overrides such as `cluster.num_gpus=4`.
 

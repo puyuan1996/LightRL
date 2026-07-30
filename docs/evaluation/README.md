@@ -1,6 +1,6 @@
 # Evaluation utilities
 
-Evaluation utilities are grouped under `agentic_rl/scripts/evaluation/`.
+Evaluation utilities are grouped under `tools/evaluation/`.
 
 - Safety: input preparation, official evaluation orchestration, summaries,
   backend validation, and reward-scale validation.

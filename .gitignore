@@ -32,6 +32,8 @@ export/
 nohup.out
 
 # Local infrastructure and secrets
+/experiments/**/rjob/
+/experiments/**/*rjob*.sh
 /local/cluster/
 /configs/site/local.yaml
 /agentic_rl/worker_urls*.txt
@@ -39,12 +41,12 @@ nohup.out
 swe.pem
 
 # Generated agentic datasets
-/agentic_rl/dataset/swesmith_convert/
-/agentic_rl/dataset/swesmith_env/
-/agentic_rl/dataset/swesmith_smoke/
-/agentic_rl/dataset/sweverified_convert/
-/agentic_rl/dataset/sweverified_env/
-/agentic_rl/dataset/.sweverified_artifact.lock
+/benchmarks/swesmith_convert/
+/benchmarks/swesmith_env/
+/benchmarks/swesmith_smoke/
+/benchmarks/sweverified_convert/
+/benchmarks/sweverified_env/
+/benchmarks/.sweverified_artifact.lock
 
 # Local scratch and historical exports
 /agentic_rl/archive/

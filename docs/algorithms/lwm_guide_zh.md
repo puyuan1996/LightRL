@@ -153,7 +153,7 @@ WM_USE_DAPO_REPLAY_BUFFER=1 \
 WM_MAX_TRAJECTORIES=2 \
 WM_MAX_TRANSITIONS=8 \
 WM_EPOCHS=1 \
-agentic_rl/scripts/world_model/run_world_model_seta_latent.sh
+tools/world_model/run_world_model_seta_latent.sh
 ```
 
 默认 `hash` hidden 仅验证数据/replay/AdaLN/loss/prediction 闭环。输出包含 `hidden_cache.pt`、可选 `dapo_replay.pt`、`latent_world_model.pt`、`predictions.jsonl` 和 `run_summary.json`。
@@ -166,7 +166,7 @@ WM_HF_MODEL=/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B \
 WM_MAX_TRAJECTORIES=100 \
 WM_MAX_TRANSITIONS=1000 \
 WM_OUTPUT_DIR=runs/world_model_seta_latent/qwen_frozen \
-agentic_rl/scripts/world_model/run_world_model_seta_latent.sh
+tools/world_model/run_world_model_seta_latent.sh
 ```
 
 ### 7.3 开启 LLM 梯度
@@ -178,7 +178,7 @@ WM_SAVE_UPDATED_LLM=1 \
 WM_LLM_LR=1e-6 \
 WM_HF_MODEL=/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B \
 WM_OUTPUT_DIR=runs/world_model_seta_latent/qwen_e2e \
-agentic_rl/scripts/world_model/run_world_model_seta_latent.sh
+tools/world_model/run_world_model_seta_latent.sh
 ```
 
 建议先减小 batch/context，并使用 `--llm-lr 1e-6` 或更低。8B 全参数端到端训练需要明显多于冻结模式的显存。
@@ -189,7 +189,7 @@ agentic_rl/scripts/world_model/run_world_model_seta_latent.sh
 EXTRA_ALGO_ARGS="--world-model-enable \
   --world-model-use-dapo-replay-buffer \
   --world-model-replay-buffer-size 4096" \
-bash agentic_rl/experiments/dive_po/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
+bash experiments/dive_po/qwen3_8b_seta_v0716/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
 ```
 
 这只收集/保存 world-model replay，不开启辅助 policy loss。现有在线 default loss hook 仍只消费显式提供的 `wm_pred_latents/wm_target_latents`。
@@ -217,4 +217,4 @@ bash agentic_rl/experiments/dive_po/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v
 | `slime/slime/world_model/modules.py` | shared latent、AdaLN predictor、loss/head |
 | `slime/slime/world_model/replay_buffer.py` | DAPO world-model replay |
 | `slime/slime/world_model/train_latent.py` | 训练、预测和 checkpoint 入口 |
-| `agentic_rl/scripts/world_model/run_world_model_seta_latent.sh` | 指定 SETA 轨迹的一键入口 |
+| `tools/world_model/run_world_model_seta_latent.sh` | 指定 SETA 轨迹的一键入口 |

@@ -15,35 +15,34 @@ Harness × Model × Algorithm
 
 ```text
 LightRL/
-├── agentic_rl/
-│   ├── harnesses/             # agent/harness integrations
-│   ├── models/                # model-family integration points
-│   ├── algorithms/
-│   │   ├── dive_po/           # DIVE-PO defaults and reward processing
-│   │   └── lwm/               # LWM integration boundary (WIP)
-│   ├── backends/
-│   │   └── slime_runtime/     # maintained Slime launch implementation
-│   ├── experiments/
-│   │   └── dive_po/           # runnable, versioned experiment entrypoints
-│   ├── scripts/
-│   │   ├── analysis/
-│   │   ├── evaluation/
-│   │   ├── world_model/
-│   │   └── dev/
-│   ├── data_utils/
-│   ├── dataset/
-│   └── tests/
-├── configs/
-│   ├── harness/
-│   ├── model/
-│   ├── algorithm/
-│   ├── environment/
-│   ├── backend/
-│   └── experiment/
-├── slime/                     # training backend
-├── Megatron-LM/               # model-training backend
+├── agentic_rl/                # installable framework package
+│   ├── harnesses/             # Camel / Claude Code / PRM adapters
+│   ├── models/                # model profiles and family metadata
+│   ├── algorithms/            # GRPO / DAPO / DIVE-PO / LWM extension points
+│   ├── rollout/               # orchestration, admission, sampling, trajectories
+│   ├── environments/          # terminal and benchmark runtimes
+│   ├── inference/             # inference client factories
+│   ├── rewards/               # shared reward primitives
+│   ├── backends/slime/        # LightRL-to-Slime adapter and launch runtime
+│   ├── services/              # router and worker services
+│   ├── observability/         # rollout logging and sinks
+│   ├── config/                # composition, schema, validation, snapshots
+│   ├── core/                  # protocols, types, lazy plugin registry
+│   ├── data/                  # dataset conversion utilities
+│   ├── evaluation/            # evaluation/report adapters
+│   ├── integrations/          # optional external integrations
+│   └── cli/                   # agentic-rl command
+├── configs/                   # composable axis/default/experiment configs
+├── experiments/               # versioned reproducible recipes
+├── benchmarks/                # benchmark data and task environments
 ├── scripts/                   # stable user-facing commands
-└── docs/
+├── tools/                     # analysis, evaluation, dev, world-model tools
+├── deploy/                    # worker/cluster operations
+├── tests/                     # package and smoke tests
+├── artifacts/baselines/       # metadata for preserved reference runs
+├── slime/                     # maintained training backend, including LWM WIP
+├── Megatron-LM/               # vendorized model-training backend
+└── docs/                      # architecture and operations guides
 ```
 
 ## DIVE-PO
@@ -66,7 +65,7 @@ CONFIG_PATH=configs/experiment/dive_po_qwen3_8b_seta.yaml scripts/train.sh
 The preserved historical experiment filename is also executable:
 
 ```bash
-bash agentic_rl/experiments/dive_po/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
+bash experiments/dive_po/qwen3_8b_seta_v0716/run_terminal-rl_qwen3-8b_seta_dapo_dive_po_v0716_centered_gate.sh
 ```
 
 Site-specific cluster launchers, worker URL files, credentials, and scheduler
@@ -77,6 +76,6 @@ settings belong under `local/cluster/` and are intentionally ignored by Git.
 LWM is marked WIP. Its algorithm integration boundary is
 `agentic_rl/algorithms/lwm/`; the implementation imported from the `lwm`
 branch lives in `slime/slime/world_model/`, with operational scripts grouped
-under `agentic_rl/scripts/world_model/`.
+under `tools/world_model/`.
 
 See `docs/architecture.md` and `docs/configuration.md` for extension guidance.

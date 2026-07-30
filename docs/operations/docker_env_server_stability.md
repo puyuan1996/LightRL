@@ -34,10 +34,10 @@
 
 ### 根因分析
 
-关键定位点在 `agentic_rl/remote/docker_compose_utils.py:522`：
+关键定位点在 `agentic_rl/environments/terminal/docker_compose.py:522`：
 
 ```python
-# agentic_rl/remote/docker_compose_utils.py:522
+# agentic_rl/environments/terminal/docker_compose.py:522
 container = compose_manager._client.containers.get(container_name)
 ```
 
@@ -48,7 +48,7 @@ container = compose_manager._client.containers.get(container_name)
 在每次 `TerminalEnv.reset()` 创建新 trial 前，先按精确容器名强制移除旧容器，避免复用长期运行容器。
 
 ```python
-# agentic_rl/remote/terminal_env.py:439, TerminalEnv.reset()
+# agentic_rl/environments/terminal/runtime.py:439, TerminalEnv.reset()
 def _sync_reset() -> tuple[str, list[dict[str, Any]]]:
     container_name = f"{self._task_spec.task_name}.{self._run_ctx.uid}.slime-run"
     try:
@@ -89,7 +89,7 @@ RuntimeError: cannot reuse already awaited coroutine
 
 涉及模块：
 
-- `agentic_rl/remote/pool_server.py`
+- `agentic_rl/services/worker/pool.py`
 - `WorkerPool._run_reset_once()`
 
 ### 解决方案
@@ -97,7 +97,7 @@ RuntimeError: cannot reuse already awaited coroutine
 把 reset coroutine 显式包装成 `asyncio.Task`，warning 阶段只等待 task 是否完成，真正超时阶段用 `asyncio.shield(reset_task)`，避免 `wait_for` 直接消费裸 coroutine。
 
 ```python
-# agentic_rl/remote/pool_server.py:1185, WorkerPool._run_reset_once()
+# agentic_rl/services/worker/pool.py:1185, WorkerPool._run_reset_once()
 reset_task = asyncio.create_task(
     run_slot.env.reset(
         task_meta=task_meta,
@@ -118,7 +118,7 @@ user_msg, tool_schemas = await asyncio.wait_for(
 超时后显式 cancel，并注册 callback 消费取消异常，避免后台 task 异常泄漏：
 
 ```python
-# agentic_rl/remote/pool_server.py:1231
+# agentic_rl/services/worker/pool.py:1231
 except asyncio.TimeoutError as exc:
     if reset_task.done():
         raise
@@ -157,7 +157,7 @@ timeout 需要同时覆盖：
 worker 端对关键 timeout override 设置 floor，避免旧客户端把 `ensure_image`/`reset_session` 降到不合理的小值。
 
 ```python
-# agentic_rl/remote/pool_server.py:28, _parse_timeout_overrides()
+# agentic_rl/services/worker/pool.py:28, _parse_timeout_overrides()
 def _pick(key: str, default: float, *, minimum: float | None = None) -> float:
     ...
     if minimum is not None and value < minimum:
@@ -180,7 +180,7 @@ return TaskTimeouts(
 启动脚本把 reset 预算调大，且使 stale repair 晚于 reset operation timeout：
 
 ```bash
-# agentic_rl/remote/start_server.sh:52
+# deploy/workers/start_server.sh:52
 export ENSURE_IMAGE_TIMEOUT="${ENSURE_IMAGE_TIMEOUT:-1200}"
 export RESET_SESSION_TIMEOUT="${RESET_SESSION_TIMEOUT:-600}"
 export WORKER_RESET_OPERATION_TIMEOUT="${WORKER_RESET_OPERATION_TIMEOUT:-1920}"
@@ -190,7 +190,7 @@ export WORKER_RESETTING_TTL="${WORKER_RESETTING_TTL:-2100}"
 RL 端 HTTP reset timeout 也按阶段预算加 buffer：
 
 ```python
-# agentic_rl/generate.py:2225
+# agentic_rl/rollout/entrypoint.py:2225
 default_reset_http_timeout = (
     float(timeouts.ensure_image) + float(timeouts.reset_session) + 300.0
 )
@@ -222,7 +222,7 @@ reset_http_timeout = _env_float("ENV_RESET_HTTP_TIMEOUT", default_reset_http_tim
 当前 P0 优化将 close timeout 拆成 queue/session 两段，并在 `/status` 暴露。
 
 ```python
-# agentic_rl/remote/pool_server.py:543, WorkerPool.__init__()
+# agentic_rl/services/worker/pool.py:543, WorkerPool.__init__()
 legacy_close_task_timeout = _env_float(
     "WORKER_CLOSE_TASK_TIMEOUT",
     max(30.0, float(default_timeouts.close_session) + 30.0),
@@ -238,7 +238,7 @@ self.close_task_timeout = self.close_queue_timeout + self.close_session_timeout
 ```
 
 ```python
-# agentic_rl/remote/pool_server.py:753
+# agentic_rl/services/worker/pool.py:753
 await asyncio.wait_for(
     self._close_sem.acquire(), timeout=self.close_queue_timeout
 )
@@ -251,7 +251,7 @@ await asyncio.wait_for(
 启动脚本同步默认值：
 
 ```bash
-# agentic_rl/remote/start_server.sh:48
+# deploy/workers/start_server.sh:48
 export WORKER_CLOSE_TASK_TIMEOUT="${WORKER_CLOSE_TASK_TIMEOUT:-45}"
 export WORKER_CLOSE_QUEUE_TIMEOUT="${WORKER_CLOSE_QUEUE_TIMEOUT:-${WORKER_CLOSE_TASK_TIMEOUT}}"
 export WORKER_CLOSE_SESSION_TIMEOUT="${WORKER_CLOSE_SESSION_TIMEOUT:-60}"
@@ -274,8 +274,8 @@ export WORKER_CLOSE_SESSION_TIMEOUT="${WORKER_CLOSE_SESSION_TIMEOUT:-60}"
 
 涉及模块：
 
-- `agentic_rl/remote/terminal_env.py`
-- `agentic_rl/remote/pool_server.py`
+- `agentic_rl/environments/terminal/runtime.py`
+- `agentic_rl/services/worker/pool.py`
 - `agentic_rl/env_client.py`
 
 ### 解决方案
@@ -283,7 +283,7 @@ export WORKER_CLOSE_SESSION_TIMEOUT="${WORKER_CLOSE_SESSION_TIMEOUT:-60}"
 当前 P0 优化把 terminal test eval 的可预期失败降级成 `score=0.0`，并通过 `details.reason` 标注原因。
 
 ```python
-# agentic_rl/remote/terminal_env.py:671, TerminalEnv.evaluate()
+# agentic_rl/environments/terminal/runtime.py:671, TerminalEnv.evaluate()
 except TimeoutError as exc:
     logger.warning(
         "Evaluation tests timed out for task=%s after %.1fs.",
@@ -304,7 +304,7 @@ except TimeoutError as exc:
 parser 失败和无结果同样返回 0 分：
 
 ```python
-# agentic_rl/remote/terminal_env.py:690
+# agentic_rl/environments/terminal/runtime.py:690
 except Exception as exc:
     self._last_eval = {
         "mode": "terminal_tests",
@@ -332,7 +332,7 @@ if not parser_results:
 `pool_server` 会把 details 返回给 RL client：
 
 ```python
-# agentic_rl/remote/pool_server.py:2815
+# agentic_rl/services/worker/pool.py:2815
 score, details = await POOL.evaluate(str(lease_id), trajectory)
 payload: dict[str, Any] = {"ok": True, "score": score}
 if details is not None:
@@ -342,7 +342,7 @@ if details is not None:
 RL 侧默认 evaluate retry 降到 1：
 
 ```bash
-# agentic_rl/backends/slime_runtime/train_qwen3_8b.sh:372
+# agentic_rl/backends/slime/runtime/train_qwen3_8b.sh:372
 ENV_EVALUATE_MAX_RETRIES="${ENV_EVALUATE_MAX_RETRIES:-1}"
 ```
 
@@ -375,7 +375,7 @@ watchdog 新增两类保守回收：
 2. idle orphan reap：running task containers 显著多于 pool active/protected 时，清理老的 unprotected idle 容器。
 
 ```bash
-# agentic_rl/remote/docker_watchdog_v2.sh:1577
+# deploy/workers/docker_watchdog_v2.sh:1577
 reap_reset_storm_orphan_task_containers() {
     [ "${WATCHDOG_RESET_STORM_ORPHAN_REAP_ENABLED}" = "1" ] || return 0
     pool_status_is_fresh || return 0
@@ -392,7 +392,7 @@ reap_reset_storm_orphan_task_containers() {
 ```
 
 ```bash
-# agentic_rl/remote/docker_watchdog_v2.sh:1613
+# deploy/workers/docker_watchdog_v2.sh:1613
 reap_idle_orphan_task_containers() {
     [ "${WATCHDOG_IDLE_REAP_ENABLED}" = "1" ] || return 0
     pool_status_is_fresh || return 0
@@ -483,7 +483,7 @@ RL 端最后并未表现为生成服务崩溃。`train.log` tail 仍有 SGLang `
 `TerminalEnv.close()` 在 `TERMINAL_ENV_FAST_CLOSE=1` 时优先执行 Docker 物理清理：
 
 ```python
-# agentic_rl/remote/terminal_env.py
+# agentic_rl/environments/terminal/runtime.py
 if fast_close and terminal is not None:
     await _run_force_cleanup("fast_close")
 ```
@@ -507,7 +507,7 @@ if toolkit is not None:
 Docker 删除不再走默认 `asyncio.to_thread` executor，而是走专用线程池：
 
 ```python
-# agentic_rl/remote/terminal_env.py
+# agentic_rl/environments/terminal/runtime.py
 def _docker_cleanup_executor() -> ThreadPoolExecutor:
     workers = max(1, _env_int("TERMINAL_ENV_DOCKER_CLEANUP_WORKERS", 8))
     return ThreadPoolExecutor(
@@ -550,7 +550,7 @@ docker ps -a --format "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"
 `WorkerPool.periodic_reap()` 每轮调用：
 
 ```python
-# agentic_rl/remote/pool_server.py
+# agentic_rl/services/worker/pool.py
 await self._maybe_cleanup_orphan_docker_containers()
 ```
 
@@ -574,7 +574,7 @@ TERMINAL_ENV_DOCKER_CLEANUP_WORKERS=8
 修复后，如果 reset future 已成功完成但 lease 已被 close 移除，直接返回 reset 结果，不再把它反报为 500：
 
 ```python
-# agentic_rl/remote/pool_server.py
+# agentic_rl/services/worker/pool.py
 except KeyError:
     logger.info(
         "Reset completed after lease=%s was already removed; "
@@ -588,7 +588,7 @@ except KeyError:
 
 ### 启动脚本默认值
 
-`agentic_rl/remote/start_server.sh` 和 `agentic_rl/remote/run_pool_server_pu_v2.sh` 已同步导出：
+`deploy/workers/start_server.sh` 和 `deploy/workers/run_pool_server_pu_v2.sh` 已同步导出：
 
 ```bash
 TERMINAL_ENV_DOCKER_CLEANUP_WORKERS="${TERMINAL_ENV_DOCKER_CLEANUP_WORKERS:-8}"
@@ -739,8 +739,8 @@ WORKER_AUTO_SERIALIZE_UNSAFE_COMPOSE=1 且 compose 含固定 service container_n
 
 ```bash
 # server 语法和 Python 编译
-python -m py_compile agentic_rl/remote/terminal_env.py agentic_rl/remote/pool_server.py agentic_rl/env_client.py agentic_rl/router_server.py
-bash -n agentic_rl/remote/start_server.sh agentic_rl/remote/run_pool_server_pu_v2.sh agentic_rl/backends/slime_runtime/train_qwen3_8b.sh
+python -m py_compile agentic_rl/environments/terminal/runtime.py agentic_rl/services/worker/app.py agentic_rl/environments/client.py agentic_rl/services/router/app.py
+bash -n deploy/workers/start_server.sh deploy/workers/run_pool_server_pu_v2.sh agentic_rl/backends/slime/runtime/train_qwen3_8b.sh
 
 # 运行日志关键字
 grep -E "Reset exceeds|WORKER_RESET_TIMEOUT|Forced container recreation|eval_timeout|eval_parse_failed|eval_no_results|Timed out closing|Docker cleanup detached|Docker compose down finished|fixed task service|Periodic orphan Docker sweep|Idle orphan reap|Reset-storm orphan reap|RUN_SLOTS_EXHAUSTED" cpu_pool.log

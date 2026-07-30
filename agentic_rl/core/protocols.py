@@ -1,18 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 
-@dataclass
-class RunContext:
-    run_id: str
-    run_name: str
-
-
-class Harness(Protocol):
-    def run(self, context: RunContext) -> None: ...
+class HarnessFactory(Protocol):
+    def __call__(self, **kwargs: Any) -> Any: ...
 
 
 class Algorithm(Protocol):
-    def configure(self) -> dict: ...
+    def configure(self) -> dict[str, Any]: ...
