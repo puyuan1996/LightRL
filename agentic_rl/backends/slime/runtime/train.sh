@@ -392,9 +392,17 @@ RUN_ID="${RUN_ID:-${RUN_NAME}}"
 RUN_DIR="${RUNS_ROOT}/${RUN_ID}"
 
 # Create directory structure via run_paths.py
+# A dry-run must be executable on a login/debug node where the production
+# checkpoint mount is intentionally unavailable or read-only.  Keep the real
+# CKPT_ROOT untouched for normal training, but direct path initialization to a
+# disposable directory under the run directory while validating the launcher.
+RUN_PATHS_CKPT_ROOT="${CKPT_ROOT}"
+if [[ "${DRY_RUN}" == "1" ]]; then
+  RUN_PATHS_CKPT_ROOT="${RUN_DIR}/checkpoints"
+fi
 MAX_CKPT_KEEP="${MAX_CKPT_KEEP}" python3 "${REPO_ROOT}/agentic_rl/runtime/paths.py" init \
   --runs-root "${RUNS_ROOT}" \
-  --ckpt-root "${CKPT_ROOT}" \
+  --ckpt-root "${RUN_PATHS_CKPT_ROOT}" \
   --run-id "${RUN_ID}" > /dev/null
 
 # Derive all paths from RUN_DIR

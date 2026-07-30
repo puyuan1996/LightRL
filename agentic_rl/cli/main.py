@@ -87,8 +87,13 @@ def _launch(config: dict[str, Any], dry_run: bool) -> int:
     if not launcher.is_file():
         raise FileNotFoundError(f"Training launcher not found: {launcher}")
 
+    # Config files provide reproducible defaults, while environment variables
+    # remain the supported operational override surface for the launch scripts
+    # (for example NUM_GPUS=4 on a debug rjob).  Overwriting the parent
+    # environment here made those safety-critical overrides ineffective.
     env = os.environ.copy()
-    env.update(_runtime_env(config))
+    for key, value in _runtime_env(config).items():
+        env.setdefault(key, value)
     command = ["bash", str(launcher)]
     if dry_run:
         print(
