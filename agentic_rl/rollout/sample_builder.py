@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from slime.utils.types import Sample
 
 from agentic_rl.core.types import Interaction, TaskSpec
-from agentic_rl.rollout.trajectory.store import _optional_int
+from agentic_rl.rollout.trajectory_store import _optional_int
 
 
 def _extract_task_meta(sample: Sample) -> Dict[str, Any]:

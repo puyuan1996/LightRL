@@ -116,7 +116,7 @@ from agentic_rl.algorithms.dive_po.exploration.rollout_bonus import (
     _summarize_turn_uncertainty,
     _turn_uncertainty_metrics,
 )
-from agentic_rl.rollout.trajectory.store import (
+from agentic_rl.rollout.trajectory_store import (
     _jsonable,
     _optional_int,
     _sample_or_env_int,

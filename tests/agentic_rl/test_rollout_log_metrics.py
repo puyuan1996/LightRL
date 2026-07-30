@@ -387,6 +387,6 @@ def test_reward_fusion_axis_metrics_expose_canonical_fields(monkeypatch):
 
 
 def test_trajectory_store_exports_local_save_decision():
-    from agentic_rl.rollout.trajectory import store
+    from agentic_rl.rollout import trajectory_store
 
-    assert callable(store._trajectory_save_decision)
+    assert callable(trajectory_store._trajectory_save_decision)
