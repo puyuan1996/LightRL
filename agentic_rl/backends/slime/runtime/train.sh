@@ -736,7 +736,8 @@ AGENTHARM_ROOT="${AGENTHARM_ROOT:-/mnt/shared-storage-user/puyuan/code/inspect_e
 SETA_DATA="${REPO_ROOT}/benchmarks/seta_env_convert/train.jsonl"
 SAFETY_DATA="${REPO_ROOT}/benchmarks/agent_safetybench_convert/train.jsonl"
 AGENTHARM_RAW_DIR="${REPO_ROOT}/benchmarks/agentharm"
-AGENTHARM_DATA="${REPO_ROOT}/benchmarks/agentharm_convert/train.jsonl"
+AGENTHARM_OUTPUT_DIR="${RUN_DIR}/config/agentharm"
+AGENTHARM_DATA="${AGENTHARM_OUTPUT_DIR}/train.jsonl"
 SWESMITH_DATA="${REPO_ROOT}/benchmarks/swesmith_convert/train.jsonl"
 SWESMITH_ENV_DIR="${SWESMITH_ENV_DIR:-${REPO_ROOT}/benchmarks/swesmith_env}"
 SWESMITH_REQUIRE_FULL_DATA="${SWESMITH_REQUIRE_FULL_DATA:-1}"
@@ -762,7 +763,7 @@ ensure_agentharm_dataset() {
   fi
   python3 "${REPO_ROOT}/agentic_rl/data/convert_agentharm_to_dataset.py" \
     --input-dir "${AGENTHARM_RAW_DIR}" \
-    --output-dir "${REPO_ROOT}/benchmarks/agentharm_convert"
+    --output-dir "${AGENTHARM_OUTPUT_DIR}"
 }
 
 ensure_swesmith_env_dirs() {

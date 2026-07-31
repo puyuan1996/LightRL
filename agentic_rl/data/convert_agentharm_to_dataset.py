@@ -16,14 +16,14 @@ RAW_SPLITS: dict[str, tuple[str, str]] = {
     "chat_test_public.jsonl": ("chat", "test_public"),
 }
 
-DEFAULT_TRAIN_FILES = {
-    "harmful_test_public.jsonl",
+DEFAULT_TRAIN_FILES = (
     "harmless_benign_test_public.jsonl",
-}
-DEFAULT_VAL_FILES = {
+    "harmful_test_public.jsonl",
+)
+DEFAULT_VAL_FILES = (
     "harmful_validation.jsonl",
     "harmless_benign_validation.jsonl",
-}
+)
 
 
 def _safe_id(value: Any) -> str:
@@ -118,10 +118,10 @@ def main() -> None:
     if not converted:
         raise FileNotFoundError(f"No AgentHarm JSONL files found in {args.input_dir}")
 
-    train_files = set(DEFAULT_TRAIN_FILES)
+    train_files = list(DEFAULT_TRAIN_FILES)
     if args.include_chat_train:
-        train_files.add("chat_test_public.jsonl")
-    val_files = set(DEFAULT_VAL_FILES)
+        train_files.append("chat_test_public.jsonl")
+    val_files = list(DEFAULT_VAL_FILES)
 
     train = [record for name in train_files for record in converted.get(name, [])]
     val = [record for name in val_files for record in converted.get(name, [])]
