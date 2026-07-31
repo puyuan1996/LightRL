@@ -24,6 +24,51 @@ a71ba399 refactor: flatten the private trajectory store
 仓库当前已有若干与本轮无关的 untracked 文件；不要用
 `git clean`、`git reset --hard` 或其他批量清理命令。
 
+## 一键入口
+
+开发机启动 Docker daemon 和 LightRL CPU pool server：
+
+```bash
+cd "$LIGHTRL_REPO"
+bash tools/validation/start_local_docker_server.sh
+```
+
+脚本以前台方式运行；保持这个终端开启。它会打印供 rjob 使用的
+`WORKER_URLS=http://<CPU_WORKER_IP>:18081`。
+
+进入已经 Running 的 4-GPU rjob 后，一键执行完整验证：
+
+```bash
+cd "$LIGHTRL_REPO"
+
+WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
+  bash tools/validation/run_4gpu_seta_dapo_validation.sh
+```
+
+该脚本依次检查 4-GPU 拓扑、CPU/内存/磁盘、Python 静态编译、imports、相关
+pytest、CLI dry-run、worker `/healthz`，然后真实运行 task 307 的 3 个
+SETA+DAPO rollout，并检查 fatal error signature 和 `metrics.jsonl`。增加验证
+长度时只需覆盖：
+
+```bash
+WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
+NUM_ROLLOUT=10 \
+  bash tools/validation/run_4gpu_seta_dapo_validation.sh
+```
+
+仅重跑训练、跳过已经通过的静态和 pytest 阶段：
+
+```bash
+WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
+RUN_STATIC_CHECKS=0 \
+RUN_IMPORT_SMOKE=0 \
+RUN_RELEVANT_TESTS=0 \
+RUN_CLI_DRY_RUN=0 \
+  bash tools/validation/run_4gpu_seta_dapo_validation.sh
+```
+
+以下章节保留等价的分步命令和排障方法。
+
 ## 方案一：本地开发机 + Docker server
 
 ### 1. 检查并启动宿主机 Docker daemon
