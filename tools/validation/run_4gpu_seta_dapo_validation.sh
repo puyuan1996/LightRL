@@ -177,6 +177,7 @@ run_training() {
 
 post_training_checks() {
   local metrics_path="${RUN_DIR}/logs/metrics.jsonl"
+  local train_log_path="${RUN_DIR}/logs/train.log"
   local fatal_pattern='ModuleNotFoundError|NameError:|CUDA out of memory|RayActorError'
   local fatal_found=1
   if command -v rg >/dev/null 2>&1; then
@@ -189,13 +190,18 @@ post_training_checks() {
   fi
   [[ -s "${metrics_path}" ]] \
     || die "training exited without a non-empty ${metrics_path}"
-  python3 - "${metrics_path}" "${NUM_ROLLOUT}" <<'PY'
+  [[ -s "${train_log_path}" ]] \
+    || die "training exited without a non-empty ${train_log_path}"
+  python3 - "${metrics_path}" "${train_log_path}" "${NUM_ROLLOUT}" <<'PY'
+import ast
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
+train_log_path = Path(sys.argv[2])
 records = [
     json.loads(line)
     for line in path.read_text(encoding="utf-8").splitlines()
@@ -203,7 +209,7 @@ records = [
 ]
 if not records:
     raise SystemExit("metrics file contains no JSON records")
-expected_rollouts = int(sys.argv[2])
+expected_rollouts = int(sys.argv[3])
 if len(records) < expected_rollouts:
     raise SystemExit(
         f"expected at least {expected_rollouts} metric records, found {len(records)}"
@@ -221,11 +227,38 @@ max_trainable = max(int(record.get("trainable_count") or 0) for record in record
 if max_trainable <= 0:
     raise SystemExit("all metric records have trainable_count=0")
 
+train_records = []
+for match in re.finditer(
+    r"train-step\s+\d+:\s+(\{[^\n]+\})",
+    train_log_path.read_text(encoding="utf-8", errors="replace"),
+):
+    try:
+        train_records.append(ast.literal_eval(match.group(1)))
+    except (SyntaxError, ValueError):
+        pass
+if len(train_records) < expected_rollouts:
+    raise SystemExit(
+        f"expected at least {expected_rollouts} actor train-step records, "
+        f"found {len(train_records)}"
+    )
+nonzero_updates = [
+    record
+    for record in train_records
+    if math.isfinite(float(record.get("train/loss", float("nan"))))
+    and math.isfinite(float(record.get("train/grad_norm", float("nan"))))
+    and abs(float(record["train/loss"])) > 0.0
+    and abs(float(record["train/grad_norm"])) > 0.0
+]
+if not nonzero_updates:
+    raise SystemExit("actor train steps contain no finite non-zero loss/grad update")
+
 print(
     "TRAINING_METRICS_OK",
     f"records={len(records)}",
     f"finite_numeric_values={finite_numeric}",
     f"max_trainable_count={max_trainable}",
+    f"actor_train_steps={len(train_records)}",
+    f"nonzero_actor_updates={len(nonzero_updates)}",
 )
 print("LAST_METRICS_RECORD", json.dumps(records[-1], sort_keys=True))
 PY
