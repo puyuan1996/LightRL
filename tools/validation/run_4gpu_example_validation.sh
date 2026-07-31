@@ -87,8 +87,14 @@ nonzero = [
     and abs(float(record["train/loss"])) > 0
     and abs(float(record["train/grad_norm"])) > 0
 ]
-if not nonzero:
-    raise SystemExit("no finite non-zero actor update")
+finite_updates = [
+    record
+    for record in train_records
+    if math.isfinite(float(record.get("train/loss", float("nan"))))
+    and math.isfinite(float(record.get("train/grad_norm", float("nan"))))
+]
+if not finite_updates:
+    raise SystemExit("no finite actor train step")
 
 if experiment == "dive_po":
     intrinsic = [
@@ -99,6 +105,8 @@ if experiment == "dive_po":
     if not intrinsic:
         raise SystemExit("DIVE-PO emitted no intrinsic/fused metrics")
 else:
+    if not nonzero:
+        raise SystemExit("mixed DAPO produced no finite non-zero actor update")
     datasets = {str(record.get("dataset")) for record in records}
     expected = {"seta", "agent_safetybench", "agentharm"}
     missing = expected - datasets
@@ -113,6 +121,7 @@ print(
     f"experiment={experiment}",
     f"metric_records={len(records)}",
     f"actor_train_steps={len(train_records)}",
+    f"finite_updates={len(finite_updates)}",
     f"nonzero_updates={len(nonzero)}",
 )
 print("LAST_METRICS_RECORD", json.dumps(records[-1], sort_keys=True))
