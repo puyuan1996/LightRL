@@ -158,9 +158,14 @@ run_training() {
 
 post_training_checks() {
   local metrics_path="${RUN_DIR}/logs/metrics.jsonl"
-  if rg -n \
-    'ModuleNotFoundError|NameError:.*trajectory|CUDA out of memory|RayActorError' \
-    "${RUN_DIR}"; then
+  local fatal_pattern='ModuleNotFoundError|NameError:.*trajectory|CUDA out of memory|RayActorError'
+  local fatal_found=1
+  if command -v rg >/dev/null 2>&1; then
+    rg -n "${fatal_pattern}" "${RUN_DIR}" && fatal_found=0
+  else
+    grep -R -I -n -E "${fatal_pattern}" "${RUN_DIR}" && fatal_found=0
+  fi
+  if (( fatal_found == 0 )); then
     die "fatal error signature found under ${RUN_DIR}"
   fi
   [[ -s "${metrics_path}" ]] \
