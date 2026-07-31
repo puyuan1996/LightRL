@@ -11,6 +11,7 @@ RUN_DIR="${REPO_ROOT}/runs/${RUN_ID}"
 OUTER_LOG="${RUN_DIR}/rjob_outer.log"
 SMOKE_TASK_NAME="${SMOKE_TASK_NAME:-307}"
 SMOKE_DATA="${RUN_DIR}/config/seta_smoke_${SMOKE_TASK_NAME}.jsonl"
+WORKER_URLS_FILE="${WORKER_URLS_FILE:-${RUN_DIR}/config/worker_urls.txt}"
 
 mkdir -p "${RUN_DIR}/config"
 exec > >(tee -a "${OUTER_LOG}") 2>&1
@@ -69,7 +70,8 @@ export MAX_TURN="${MAX_TURN:-10}"
 export ROLLOUT_MAX_RESPONSE_LEN="${ROLLOUT_MAX_RESPONSE_LEN:-4096}"
 export ROLLOUT_MAX_CONTEXT_LEN="${ROLLOUT_MAX_CONTEXT_LEN:-8192}"
 export ROLLOUT_PROMPT_DATA="${ROLLOUT_PROMPT_DATA:-${SMOKE_DATA}}"
-export WORKER_URLS="${WORKER_URLS:-http://100.96.29.69:18081}"
+export WORKER_URLS="${WORKER_URLS:-http://100.96.26.133:18081}"
+export WORKER_URLS_FILE
 export WANDB_MODE="${WANDB_MODE:-disabled}"
 export MAX_CKPT_KEEP="${MAX_CKPT_KEEP:-0}"
 export SAVE_CKPT="${SAVE_CKPT:-}"
