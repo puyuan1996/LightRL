@@ -118,6 +118,8 @@ from agentic_rl.algorithms.dive_po.exploration.rollout_bonus import (
     _EXPLORE_LPRND_SCHEDULE,
     _EXPLORE_SAFETY_FILTER_ENABLED,
     _EXPLORE_SCORE_BONUS_COMPONENTS,
+    _agent57_last_episodic_by_turn,
+    _agent57_last_episodic_stats,
     _explore_cde_actor_metrics,
     _explore_debug_metrics,
     _explore_episode_signature_novelty,
@@ -1101,7 +1103,7 @@ async def generate(
                     ),
                 )
                 _agent57_metrics.update(_agent57_ngu_metrics)
-                _agent57_metrics.update(_AGENT57_LAST_EPISODIC_STATS)
+                _agent57_metrics.update(_agent57_last_episodic_stats())
                 _agent57_bonus = float(
                     _agent57_ngu_metrics.get("explore_agent57_ngu_bonus", 0.0)
                     or 0.0
@@ -1223,7 +1225,7 @@ async def generate(
                         except (TypeError, ValueError):
                             _turn_idx = -1
                         _turn_episodic = float(
-                            _AGENT57_LAST_EPISODIC_BY_TURN.get(_turn_idx, 0.0)
+                            _agent57_last_episodic_by_turn().get(_turn_idx, 0.0)
                         )
                         _turn_life_mod = float(
                             _agent57_metrics.get("explore_agent57_ngu_life_mod", 1.0)

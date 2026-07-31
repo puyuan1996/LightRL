@@ -101,6 +101,16 @@ _CMD_COUNTER: Dict[str, int] = {}  # process-level counter for command novelty
 _AGENT57_LAST_EPISODIC_STATS: Dict[str, float] = {}
 _AGENT57_LAST_EPISODIC_BY_TURN: Dict[int, float] = {}
 
+
+def _agent57_last_episodic_stats() -> Dict[str, float]:
+    """Return the latest episode summary without exposing mutable module state."""
+    return dict(_AGENT57_LAST_EPISODIC_STATS)
+
+
+def _agent57_last_episodic_by_turn() -> Dict[int, float]:
+    """Return the latest per-turn novelty values."""
+    return dict(_AGENT57_LAST_EPISODIC_BY_TURN)
+
 # ── Exploration: LP-RND lifelong novelty (草案 C, zero-extra-param) ───────────
 # Reuses the rollout_log_probs already computed by slime (no extra forward pass).
 # Bonus is proportional to how surprised the *current* policy is by the trajectory:

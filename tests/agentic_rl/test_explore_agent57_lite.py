@@ -13,6 +13,7 @@ if str(ROOT_DIR / "slime") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "slime"))
 
 from agentic_rl.algorithms.dive_po.exploration.agent57 import controller as a57
+from agentic_rl.algorithms.dive_po.exploration import rollout_bonus
 
 
 def _reset_local_agent57_state():
@@ -24,6 +25,19 @@ def _reset_local_agent57_state():
     a57._LOCAL_LIFE_RAW_MEAN = 0.0
     a57._LOCAL_LIFE_RAW_M2 = 0.0
     a57._reset_ucb_rng_for_tests()
+
+
+def test_rollout_bonus_exposes_latest_episodic_state_without_stale_aliases():
+    rollout_bonus._AGENT57_LAST_EPISODIC_STATS = {"action_count": 2.0}
+    rollout_bonus._AGENT57_LAST_EPISODIC_BY_TURN = {0: 0.5}
+
+    stats = rollout_bonus._agent57_last_episodic_stats()
+    by_turn = rollout_bonus._agent57_last_episodic_by_turn()
+    stats["action_count"] = -1.0
+    by_turn[0] = -1.0
+
+    assert rollout_bonus._agent57_last_episodic_stats() == {"action_count": 2.0}
+    assert rollout_bonus._agent57_last_episodic_by_turn() == {0: 0.5}
 
 
 def test_agent57_config_defaults_preserve_additive_mode(monkeypatch):
