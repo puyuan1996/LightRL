@@ -21,7 +21,9 @@ DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT:-}"
 PROXY_URL="${PROXY_URL:-http://httpproxy-headless.kubebrain.svc.pjlab.local:3128}"
 SKIP_PREFLIGHT_CLEANUP="${SKIP_PREFLIGHT_CLEANUP:-1}"
 FINAL_DOCKER_CLEANUP="${FINAL_DOCKER_CLEANUP:-0}"
-TERMINAL_RL_POOL_NAMESPACE="${TERMINAL_RL_POOL_NAMESPACE:-lightrl-validation}"
+# The legacy SETA compose files are shared with the known-good backup and do
+# not carry the strict namespace labels required by generated SWE tasks.
+TERMINAL_RL_POOL_NAMESPACE="${TERMINAL_RL_POOL_NAMESPACE:-default}"
 
 log() {
   printf '[local-docker-validation] %s\n' "$*"
