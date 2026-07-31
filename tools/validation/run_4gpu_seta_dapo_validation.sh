@@ -17,6 +17,7 @@ DEFAULT_WORKER_URLS="${DEFAULT_WORKER_URLS:-http://100.96.26.133:18081}"
 WORKER_URLS="${WORKER_URLS:-${DEFAULT_WORKER_URLS}}"
 WORKER_HEALTH_TIMEOUT="${WORKER_HEALTH_TIMEOUT:-10}"
 MIN_REPO_FREE_GB="${MIN_REPO_FREE_GB:-10}"
+LIGHTRFT_PY312_BIN="${LIGHTRFT_PY312_BIN:-/mnt/shared-storage-user/puyuan/conda_envs/lightrft_py312/bin}"
 
 RUN_TIMESTAMP="${RUN_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
 RUN_ID="${RUN_ID:-lightrl-4gpu-seta-dapo-validation-${RUN_TIMESTAMP}}"
@@ -206,6 +207,11 @@ PY
 main() {
   [[ -d "${REPO_ROOT}/agentic_rl" ]] || die "LightRL repo not found: ${REPO_ROOT}"
   cd "${REPO_ROOT}"
+  if [[ -x "${LIGHTRFT_PY312_BIN}/python3" ]]; then
+    export PATH="${LIGHTRFT_PY312_BIN}:${PATH}"
+  else
+    die "training Python environment is unavailable: ${LIGHTRFT_PY312_BIN}"
+  fi
   export PYTHONPATH="${REPO_ROOT}/slime:${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
   mkdir -p "${RUN_DIR}"
   exec > >(tee -a "${VALIDATION_LOG}") 2>&1
