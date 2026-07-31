@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Small, reproducible SETA+DAPO validation run for a single 4-GPU rjob.
+# Internal bounded SETA+DAPO run used by validate_4gpu_seta_dapo.sh.
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/mnt/shared-storage-user/puyuan/code/LightRL}"

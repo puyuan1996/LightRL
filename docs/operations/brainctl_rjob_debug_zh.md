@@ -70,7 +70,7 @@ cd /mnt/shared-storage-user/puyuan/code/LightRL
 
 WORKER_URLS=http://100.96.26.133:18081 \
 NUM_ROLLOUT=3 \
-  bash tools/validation/run_4gpu_seta_dapo_validation.sh
+  bash examples/validation/validate_4gpu_seta_dapo.sh
 ```
 
 验证成功应同时出现：
@@ -103,7 +103,7 @@ brainctl -n ailab-narmodel \
         RUN_ID="$RUN_ID" \
         WORKER_URLS=http://100.96.26.133:18081 \
         NUM_ROLLOUT=3 \
-        bash tools/validation/run_4gpu_seta_dapo_validation.sh \
+        bash examples/validation/validate_4gpu_seta_dapo.sh \
         >"$RUN_DIR/launcher.log" 2>&1 </dev/null &
       echo $! >"$RUN_DIR/launcher.pid"
       echo "RUN_ID=$RUN_ID PID=$! LOG=$RUN_DIR/launcher.log"
@@ -230,4 +230,3 @@ curl --noproxy '*' --fail --max-time 10 \
 重点关注 GPU 显存、内存 available、共享盘和 Docker data root 空间、worker
 active runs/pending closes。资源接近上限时优先减小 `NUM_ROLLOUT`、batch 或
 并发，不要在同一 4-GPU Replica 上重复启动训练。
-

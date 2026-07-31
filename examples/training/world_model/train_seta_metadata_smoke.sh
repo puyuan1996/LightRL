@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 cd "${REPO_ROOT}"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
@@ -11,7 +11,7 @@ WM_SMOKE_ALGO="${WM_SMOKE_ALGO:-dapo}"
 WM_SMOKE_OUT_ROOT="${WM_SMOKE_OUT_ROOT:-${REPO_ROOT}/runs/world_model_smoke/${STAMP}_${WM_SMOKE_ALGO}}"
 WM_SMOKE_METADATA_DIR="${WM_SMOKE_METADATA_DIR:-${WM_SMOKE_OUT_ROOT}/metadata}"
 WM_SMOKE_RUN_ID="${WM_SMOKE_RUN_ID:-wm_metadata_${WM_SMOKE_ALGO}_${STAMP}}"
-WM_TRAIN_SCRIPT="${WM_TRAIN_SCRIPT:-examples/train_qwen3_8b_seta_dive_po.sh}"
+WM_TRAIN_SCRIPT="${WM_TRAIN_SCRIPT:-examples/training/train_qwen3_8b_seta_dive_po.sh}"
 if [[ "${WM_TRAIN_SCRIPT}" != /* ]]; then
   WM_TRAIN_SCRIPT="${REPO_ROOT}/${WM_TRAIN_SCRIPT}"
 fi

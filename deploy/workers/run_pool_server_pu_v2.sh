@@ -565,7 +565,7 @@ if [[ "${CLAWSENTRY_NEEDED}" == "1" ]]; then
         log "  ❌ ClawSentry gateway NOT responding at 127.0.0.1:${CS_GATEWAY_PORT}"
         log "     This will cause safety_coef * 0 = 0 (no safety reward) in training"
         log "     Start it on GPU worker first, then re-run pool server"
-        log "     (The ClawSentry gateway is started by examples/train_qwen3_8b_seta_dive_po.sh on GPU worker)"
+        log "     (The ClawSentry gateway is started by examples/training/train_qwen3_8b_seta_dive_po.sh on GPU worker)"
         log "  ⚠️  Continuing anyway (pool_server doesn't run ClawSentry; GPU side does)"
     fi
 else

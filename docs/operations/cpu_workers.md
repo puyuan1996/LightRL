@@ -150,7 +150,7 @@ export WORKER_URLS="http://<cpu-worker-ip>:18081"
 DATASET=mixed \
 MIX_SETA_RATIO=1 \
 MIX_SAFETY_RATIO=1 \
-bash /mnt/shared-storage-user/puyuan/code/LightRL/examples/train_qwen3_8b_seta_dive_po.sh
+bash /mnt/shared-storage-user/puyuan/code/LightRL/examples/training/train_qwen3_8b_seta_dive_po.sh
 ```
 
 ## 场景 B：Docker 服务挂掉后的修复

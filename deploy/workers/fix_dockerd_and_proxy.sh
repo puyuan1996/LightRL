@@ -442,7 +442,7 @@ Next steps on this CPU worker:
 
   2) On GPU worker, set WORKER_URLS and start training:
        export WORKER_URLS="http://$(hostname -I | awk '{print $1}'):18081"
-       bash examples/train_qwen3_8b_seta_dive_po.sh
+       bash examples/training/train_qwen3_8b_seta_dive_po.sh
 
   3) Watchdog status:
        sudo systemctl status docker-watchdog

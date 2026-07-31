@@ -29,10 +29,10 @@ LightRL/
 │   ├── services/               # worker/router 服务
 │   └── observability/          # 指标与 rollout 日志
 ├── configs/                    # 可组合配置及实验配方
-├── examples/                   # 推荐的训练入口
+├── examples/                   # 用户工作流：训练配方与端到端验证
 ├── benchmarks/                 # benchmark 数据与任务定义
 ├── deploy/workers/             # Docker worker 运维脚本
-├── tools/validation/           # 一键启动和端到端验证脚本
+├── tools/                      # 分析、评测、诊断等辅助工具
 ├── tests/                      # 单元及静态冒烟测试
 ├── slime/                      # 训练后端
 ├── Megatron-LM/                # 模型训练后端
@@ -72,7 +72,7 @@ GPU 和训练环境的节点或 rjob。
 cd /mnt/shared-storage-user/puyuan/code/LightRL
 
 # 脚本会先检查 Docker daemon；未运行时尝试启动，然后以前台方式启动 pool server。
-bash tools/validation/start_local_docker_server.sh
+bash examples/validation/start_docker_worker.sh
 ```
 
 保持该终端运行。脚本会打印类似：
@@ -100,9 +100,9 @@ Docker daemon、代理、磁盘或并发参数的说明见
 ```bash
 cd /mnt/shared-storage-user/puyuan/code/LightRL
 
-bash examples/train_qwen3_8b_seta_dapo.sh --dry-run
-bash examples/train_qwen3_8b_seta_dive_po.sh --dry-run
-bash examples/train_qwen3_8b_mixed_dapo.sh --dry-run
+bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
+bash examples/training/train_qwen3_8b_seta_dive_po.sh --dry-run
+bash examples/training/train_qwen3_8b_mixed_dapo.sh --dry-run
 ```
 
 各示例所需模型路径和环境变量参见 [examples/README.md](examples/README.md)。
@@ -121,7 +121,7 @@ ACTOR_GPUS=2 \
 ROLLOUT_GPUS=2 \
 TP_SIZE=2 \
 ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
-bash examples/train_qwen3_8b_seta_dapo.sh
+bash examples/training/train_qwen3_8b_seta_dapo.sh
 ```
 
 其他已维护入口：
@@ -131,13 +131,13 @@ bash examples/train_qwen3_8b_seta_dapo.sh
 WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
 NUM_GPUS=4 ACTOR_GPUS=2 ROLLOUT_GPUS=2 TP_SIZE=2 \
 ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
-bash examples/train_qwen3_8b_seta_dive_po.sh
+bash examples/training/train_qwen3_8b_seta_dive_po.sh
 
 # SETA + Agent-SafetyBench + AgentHarm + DAPO
 WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
 NUM_GPUS=4 ACTOR_GPUS=2 ROLLOUT_GPUS=2 TP_SIZE=2 \
 ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
-bash examples/train_qwen3_8b_mixed_dapo.sh
+bash examples/training/train_qwen3_8b_mixed_dapo.sh
 ```
 
 默认配方面向正式训练，运行时间较长。首次部署建议先执行下一节的有界验证。
@@ -152,19 +152,19 @@ cd /mnt/shared-storage-user/puyuan/code/LightRL
 # SETA + DAPO
 WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
 NUM_ROLLOUT=3 \
-bash tools/validation/run_4gpu_seta_dapo_validation.sh
+bash examples/validation/validate_4gpu_seta_dapo.sh
 
 # DIVE-PO：2 个 rollout
 EXPERIMENT=dive_po \
 WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
 NUM_ROLLOUT=2 \
-bash tools/validation/run_4gpu_example_validation.sh
+bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
 
 # Mixed DAPO：2 个 rollout
 EXPERIMENT=mixed \
 WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
 NUM_ROLLOUT=2 \
-bash tools/validation/run_4gpu_example_validation.sh
+bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
 ```
 
 脚本会检查 GPU、内存、磁盘、Python 编译、worker 健康状态、rollout metrics

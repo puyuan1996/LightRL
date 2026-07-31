@@ -156,7 +156,7 @@ cli_dry_run() {
   ROLLOUT_GPUS="${ROLLOUT_GPUS}" \
   TP_SIZE="${TP_SIZE}" \
   ROLLOUT_NUM_GPUS_PER_ENGINE="${ROLLOUT_NUM_GPUS_PER_ENGINE}" \
-    bash examples/train_qwen3_8b_seta_dapo.sh --dry-run
+    bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 }
 
 run_training() {
@@ -172,7 +172,7 @@ run_training() {
   export EXPLORATION_PROFILE=off
 
   log "Starting real SETA+DAPO validation: task=${SMOKE_TASK_NAME} rollouts=${NUM_ROLLOUT} batch=${ROLLOUT_BATCH_SIZE} samples=${N_SAMPLES}"
-  bash tools/rjob/run_seta_dapo_refactor_smoke.sh
+  bash examples/validation/internal/run_seta_dapo_smoke.sh
 }
 
 post_training_checks() {

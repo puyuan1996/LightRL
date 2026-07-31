@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bounded end-to-end smoke run for the public DIVE-PO and mixed examples.
+# Internal bounded run used by validate_4gpu_dive_po_or_mixed.sh.
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/mnt/shared-storage-user/puyuan/code/LightRL}"
@@ -13,12 +13,12 @@ WORKER_URLS_FILE="${WORKER_URLS_FILE:-${RUN_DIR}/config/worker_urls.txt}"
 
 case "${EXPERIMENT}" in
   dive_po)
-    EXAMPLE_SCRIPT="examples/train_qwen3_8b_seta_dive_po.sh"
+    EXAMPLE_SCRIPT="examples/training/train_qwen3_8b_seta_dive_po.sh"
     DEFAULT_NUM_ROLLOUT=3
     DEFAULT_ROLLOUT_BATCH_SIZE=1
     ;;
   mixed)
-    EXAMPLE_SCRIPT="examples/train_qwen3_8b_mixed_dapo.sh"
+    EXAMPLE_SCRIPT="examples/training/train_qwen3_8b_mixed_dapo.sh"
     DEFAULT_NUM_ROLLOUT=2
     DEFAULT_ROLLOUT_BATCH_SIZE=3
     ;;

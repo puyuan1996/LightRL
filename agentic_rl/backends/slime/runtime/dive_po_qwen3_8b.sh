@@ -11,7 +11,7 @@
 #   ALGO=grpo|dapo
 #
 # USAGE:
-#   bash examples/train_qwen3_8b_seta_dive_po.sh
+#   bash examples/training/train_qwen3_8b_seta_dive_po.sh
 #   DATASET=safety ALGO=dapo bash ...exploration_pu.sh                   # ASB + DAPO override
 #   EXPLORATION_PROFILE=robust_dapo_lite bash ...exploration_pu.sh       # conservative DAPO exploration override
 #   EXPLORATION_PROFILE=off EXPLORE_AGENT57_LITE=0 bash ...exploration_pu.sh # baseline-style ablation

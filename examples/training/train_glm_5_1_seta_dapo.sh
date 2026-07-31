@@ -12,7 +12,7 @@ if [[ "${1:-}" != "--dry-run" ]]; then
   : "${MODEL_ARGS_FILE:?MODEL_ARGS_FILE is required for GLM-5.1 training}"
 fi
 
-REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." &>/dev/null && pwd)"
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)"
 CONFIG_PATH="${CONFIG_PATH:-${REPO_ROOT}/configs/experiment/glm_5_1_seta_dapo.yaml}"
 cd "${REPO_ROOT}"
 exec python3 -m agentic_rl.cli train --config "${CONFIG_PATH}" "$@"

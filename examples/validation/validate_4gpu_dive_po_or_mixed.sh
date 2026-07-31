@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate either examples/train_qwen3_8b_seta_dive_po.sh or mixed DAPO.
+# Validate either the public DIVE-PO or mixed DAPO training workflow.
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/mnt/shared-storage-user/puyuan/code/LightRL}"
@@ -37,17 +37,17 @@ git diff --check
 
 case "${EXPERIMENT}" in
   dive_po)
-    bash examples/train_qwen3_8b_seta_dive_po.sh --dry-run >/dev/null
+    bash examples/training/train_qwen3_8b_seta_dive_po.sh --dry-run >/dev/null
     ;;
   mixed)
-    bash examples/train_qwen3_8b_mixed_dapo.sh --dry-run >/dev/null
+    bash examples/training/train_qwen3_8b_mixed_dapo.sh --dry-run >/dev/null
     ;;
   *)
     die "EXPERIMENT must be dive_po or mixed"
     ;;
 esac
 
-bash tools/rjob/run_4gpu_example_smoke.sh
+bash examples/validation/internal/run_dive_po_or_mixed_smoke.sh
 
 python3 - "${RUN_DIR}" "${EXPERIMENT}" <<'PY'
 import ast

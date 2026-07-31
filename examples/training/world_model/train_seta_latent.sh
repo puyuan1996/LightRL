@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 WM_TRAJECTORIES="${WM_TRAJECTORIES:-${REPO_ROOT}/runs/terminal-rl_qwen3-8b_8gpu_seta_dapo_nodynamic_exploration_simhash_life_fp_ucb_v0710_k6_quality_balanced1000_epturn0_none_dualadv_think_2026-07-08_185609/trajectories}"
 WM_OUTPUT_DIR="${WM_OUTPUT_DIR:-${REPO_ROOT}/runs/world_model_seta_latent/$(date +%Y%m%d_%H%M%S)}"

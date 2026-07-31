@@ -26,7 +26,7 @@ FINAL_DOCKER_CLEANUP="${FINAL_DOCKER_CLEANUP:-0}"
 TERMINAL_RL_POOL_NAMESPACE="${TERMINAL_RL_POOL_NAMESPACE:-default}"
 
 log() {
-  printf '[local-docker-validation] %s\n' "$*"
+  printf '[docker-worker] %s\n' "$*"
 }
 
 die() {

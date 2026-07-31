@@ -30,7 +30,7 @@ a71ba399 refactor: flatten the private trajectory store
 
 ```bash
 cd "$LIGHTRL_REPO"
-bash tools/validation/start_local_docker_server.sh
+bash examples/validation/start_docker_worker.sh
 ```
 
 脚本以前台方式运行；保持这个终端开启。它会打印供 rjob 使用的
@@ -42,7 +42,7 @@ bash tools/validation/start_local_docker_server.sh
 cd "$LIGHTRL_REPO"
 
 WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
-  bash tools/validation/run_4gpu_seta_dapo_validation.sh
+  bash examples/validation/validate_4gpu_seta_dapo.sh
 ```
 
 该脚本依次检查 4-GPU 拓扑、CPU/内存/磁盘、Python 静态编译、imports、相关
@@ -53,7 +53,7 @@ SETA+DAPO rollout，并检查 fatal error signature 和 `metrics.jsonl`。增加
 ```bash
 WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
 NUM_ROLLOUT=10 \
-  bash tools/validation/run_4gpu_seta_dapo_validation.sh
+  bash examples/validation/validate_4gpu_seta_dapo.sh
 ```
 
 仅重跑训练、跳过已经通过的静态和 pytest 阶段：
@@ -64,7 +64,7 @@ RUN_STATIC_CHECKS=0 \
 RUN_IMPORT_SMOKE=0 \
 RUN_RELEVANT_TESTS=0 \
 RUN_CLI_DRY_RUN=0 \
-  bash tools/validation/run_4gpu_seta_dapo_validation.sh
+  bash examples/validation/validate_4gpu_seta_dapo.sh
 ```
 
 以下章节保留等价的分步命令和排障方法。
@@ -149,7 +149,7 @@ ACTOR_GPUS=2 \
 ROLLOUT_GPUS=2 \
 TP_SIZE=2 \
 ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
-bash examples/train_qwen3_8b_seta_dapo.sh --dry-run
+bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
 预期出现 `IMPORT_SMOKE_OK`；dry-run 输出 JSON，`command` 指向
@@ -278,7 +278,7 @@ ACTOR_GPUS=2 \
 ROLLOUT_GPUS=2 \
 TP_SIZE=2 \
 ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
-bash examples/train_qwen3_8b_seta_dapo.sh --dry-run
+bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
 预期 `RJOB_IMPORT_SMOKE_OK`，dry-run 不启动训练且解析到 4-GPU override。
@@ -309,7 +309,7 @@ ROLLOUT_BATCH_SIZE=1 \
 N_SAMPLES=2 \
 WANDB_MODE=disabled \
 MAX_CKPT_KEEP=0 \
-bash tools/rjob/run_seta_dapo_refactor_smoke.sh
+bash examples/validation/validate_4gpu_seta_dapo.sh
 ```
 
 trainer rjob 本身不要求本地 Docker daemon；SETA task containers 由
