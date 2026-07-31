@@ -13,7 +13,7 @@ RUN_IMPORT_SMOKE="${RUN_IMPORT_SMOKE:-1}"
 RUN_RELEVANT_TESTS="${RUN_RELEVANT_TESTS:-1}"
 RUN_CLI_DRY_RUN="${RUN_CLI_DRY_RUN:-1}"
 RUN_TRAINING="${RUN_TRAINING:-1}"
-DEFAULT_WORKER_URLS="${DEFAULT_WORKER_URLS:-http://100.96.29.69:18081}"
+DEFAULT_WORKER_URLS="${DEFAULT_WORKER_URLS:-http://100.96.26.133:18081}"
 WORKER_URLS="${WORKER_URLS:-${DEFAULT_WORKER_URLS}}"
 WORKER_HEALTH_TIMEOUT="${WORKER_HEALTH_TIMEOUT:-10}"
 MIN_REPO_FREE_GB="${MIN_REPO_FREE_GB:-10}"
@@ -98,8 +98,13 @@ static_checks() {
   git diff --check
   local legacy_module_pattern='agentic_rl\.rollout\.'"trajectory"'\.(policy|store)'
   local legacy_dir_pattern='agentic_rl/rollout/'"trajectory/"
-  if rg -n "${legacy_module_pattern}|${legacy_dir_pattern}" \
-    agentic_rl tests tools configs docs examples deploy; then
+  local search_pattern="${legacy_module_pattern}|${legacy_dir_pattern}"
+  local search_roots=(agentic_rl tests tools configs docs examples deploy)
+  if command -v rg >/dev/null 2>&1; then
+    if rg -n "${search_pattern}" "${search_roots[@]}"; then
+      die "legacy trajectory module path remains"
+    fi
+  elif grep -R -I -n -E "${search_pattern}" "${search_roots[@]}"; then
     die "legacy trajectory module path remains"
   fi
 }
@@ -196,6 +201,7 @@ PY
 main() {
   [[ -d "${REPO_ROOT}/agentic_rl" ]] || die "LightRL repo not found: ${REPO_ROOT}"
   cd "${REPO_ROOT}"
+  export PYTHONPATH="${REPO_ROOT}/slime:${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
   mkdir -p "${RUN_DIR}"
   exec > >(tee -a "${VALIDATION_LOG}") 2>&1
 
