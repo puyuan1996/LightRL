@@ -113,10 +113,28 @@ static_checks() {
 import_smoke() {
   python3 - <<'PY'
 from agentic_rl import REGISTRY, load_config
-from agentic_rl.rollout import trajectory_store
+from agentic_rl.rollout import entrypoint, trajectory_store
 
 assert callable(trajectory_store._trajectory_save_decision)
 assert callable(trajectory_store._save_rollout_artifacts)
+for name in (
+    "_EXPLORE_CDE_ACTOR_ENABLED",
+    "_EXPLORE_CDE_ACTOR_REWARD_GATE",
+    "_EXPLORE_INTRINSIC_COEF",
+    "_EXPLORE_INTRINSIC_DECAY_STEPS",
+    "_EXPLORE_INTRINSIC_ENABLED",
+    "_EXPLORE_INTRINSIC_GRANULARITY",
+    "_EXPLORE_INTRINSIC_REDUCER",
+    "_EXPLORE_INTRINSIC_SCHEDULE",
+    "_EXPLORE_INTRINSIC_SCOPE",
+    "_EXPLORE_LPRND_COEF",
+    "_EXPLORE_LPRND_DECAY_STEPS",
+    "_EXPLORE_LPRND_ENABLED",
+    "_EXPLORE_LPRND_SCHEDULE",
+    "_EXPLORE_SAFETY_FILTER_ENABLED",
+    "_EXPLORE_SCORE_BONUS_COMPONENTS",
+):
+    assert hasattr(entrypoint, name), f"rollout entrypoint is missing {name}"
 assert "dapo" in REGISTRY.names("algorithms")
 config = load_config("configs/experiment/qwen3_8b_seta_dapo.yaml")
 assert config["algorithm"]["base"]["name"] == "dapo"
@@ -159,7 +177,7 @@ run_training() {
 
 post_training_checks() {
   local metrics_path="${RUN_DIR}/logs/metrics.jsonl"
-  local fatal_pattern='ModuleNotFoundError|NameError:.*trajectory|CUDA out of memory|RayActorError'
+  local fatal_pattern='ModuleNotFoundError|NameError:|CUDA out of memory|RayActorError'
   local fatal_found=1
   if command -v rg >/dev/null 2>&1; then
     rg -n "${fatal_pattern}" "${RUN_DIR}" && fatal_found=0
@@ -171,7 +189,7 @@ post_training_checks() {
   fi
   [[ -s "${metrics_path}" ]] \
     || die "training exited without a non-empty ${metrics_path}"
-  python3 - "${metrics_path}" <<'PY'
+  python3 - "${metrics_path}" "${NUM_ROLLOUT}" <<'PY'
 import json
 import math
 import sys
@@ -185,6 +203,11 @@ records = [
 ]
 if not records:
     raise SystemExit("metrics file contains no JSON records")
+expected_rollouts = int(sys.argv[2])
+if len(records) < expected_rollouts:
+    raise SystemExit(
+        f"expected at least {expected_rollouts} metric records, found {len(records)}"
+    )
 
 finite_numeric = 0
 for record in records:
@@ -194,11 +217,15 @@ for record in records:
                 finite_numeric += 1
 if finite_numeric == 0:
     raise SystemExit("metrics records contain no finite numeric values")
+max_trainable = max(int(record.get("trainable_count") or 0) for record in records)
+if max_trainable <= 0:
+    raise SystemExit("all metric records have trainable_count=0")
 
 print(
     "TRAINING_METRICS_OK",
     f"records={len(records)}",
     f"finite_numeric_values={finite_numeric}",
+    f"max_trainable_count={max_trainable}",
 )
 print("LAST_METRICS_RECORD", json.dumps(records[-1], sort_keys=True))
 PY
