@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-root",
         type=str,
-        default=os.getenv("TBENCH_OUTPUT_ROOT", "build_outputs"),
+        default=os.getenv("TBENCH_OUTPUT_ROOT", "runs/env-worker/task_outputs"),
     )
 
     parser.add_argument(

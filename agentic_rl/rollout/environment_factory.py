@@ -70,7 +70,14 @@ class _LocalAgentSafetyBenchClient:
             uid=str(run_ctx.get("uid", "local")),
             group_index=int(run_ctx.get("group_index", 0) or 0),
             sample_index=int(run_ctx.get("sample_index", 0) or 0),
-            log_dir=Path(str(run_ctx.get("log_dir", "build_outputs"))),
+            log_dir=Path(
+                str(
+                    run_ctx.get(
+                        "log_dir",
+                        "runs/unscoped/environment_outputs/AgentRunner_Output",
+                    )
+                )
+            ),
         )
         user_msg, tool_schemas = await self._env.reset(
             task_meta=task_meta,
@@ -120,7 +127,14 @@ class _LocalAgentHarmClient:
             uid=str(run_ctx.get("uid", "local")),
             group_index=int(run_ctx.get("group_index", 0) or 0),
             sample_index=int(run_ctx.get("sample_index", 0) or 0),
-            log_dir=Path(str(run_ctx.get("log_dir", "build_outputs"))),
+            log_dir=Path(
+                str(
+                    run_ctx.get(
+                        "log_dir",
+                        "runs/unscoped/environment_outputs/AgentRunner_Output",
+                    )
+                )
+            ),
         )
         user_msg, tool_schemas = await self._env.reset(
             task_meta=task_meta,
@@ -170,7 +184,14 @@ class _LocalTau2Client:
             uid=str(run_ctx.get("uid", "local")),
             group_index=int(run_ctx.get("group_index", 0) or 0),
             sample_index=int(run_ctx.get("sample_index", 0) or 0),
-            log_dir=Path(str(run_ctx.get("log_dir", "build_outputs"))),
+            log_dir=Path(
+                str(
+                    run_ctx.get(
+                        "log_dir",
+                        "runs/unscoped/environment_outputs/AgentRunner_Output",
+                    )
+                )
+            ),
         )
         user_msg, tool_schemas = await self._env.reset(
             task_meta=task_meta,

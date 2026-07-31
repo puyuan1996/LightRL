@@ -74,7 +74,7 @@ bash deploy/workers/docker_worker_doctor.sh diagnose \
 | Variable | Default | Description |
 |---|---|---|
 | `DATASET_DIR` | `benchmarks` | Path to the task dataset directory |
-| `TBENCH_OUTPUT_ROOT` | `build_outputs` | Root for build/output artifacts |
+| `TBENCH_OUTPUT_ROOT` | `<server-run>/task_outputs` | Root for build/output artifacts under the worker's structured run log directory |
 | `ENV_SERVER_PORT` | `18081` | Port the pool server listens on |
 | `WORKER_MAX_TASKS` | `16` | Max tasks allocated per worker |
 | `WORKER_MAX_RUNS_PER_TASK` | `8` | Max concurrent runs per task |

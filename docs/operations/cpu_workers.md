@@ -186,7 +186,7 @@ bash deploy/workers/docker_worker_doctor.sh diagnose
 cd /mnt/shared-storage-user/puyuan/code/LightRL
 
 bash deploy/workers/diag_docker_failures_lite.sh
-cat tmp_doc_latest/cpu_diag_summary.txt
+cat runs/latest/cpu_diag_summary.txt
 ```
 
 手动检查：
@@ -495,7 +495,7 @@ mkdir /data/overlay2/<id>: no space left on device
 ```bash
 cd /mnt/shared-storage-user/puyuan/code/LightRL
 
-# 先判因：默认只读，报告写到 tmp_doc_latest/docker_storage_doctor/<host>/<run_id>/
+# 先判因：默认只读，报告写到 runs/latest/docker_storage_doctor/<host>/<run_id>/
 DOCKER_DATA_ROOT=/data bash deploy/workers/safevo_docker_storage_doctor.sh
 
 # 再做保守修复：不删除 tagged images

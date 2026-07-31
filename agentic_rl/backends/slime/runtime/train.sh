@@ -390,6 +390,8 @@ RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 CKPT_ROOT="${CKPT_ROOT:-${EXPORT_ROOT}/ckpt}"
 RUN_ID="${RUN_ID:-${RUN_NAME}}"
 RUN_DIR="${RUNS_ROOT}/${RUN_ID}"
+TBENCH_OUTPUT_ROOT="${TBENCH_OUTPUT_ROOT:-${RUN_DIR}/environment_outputs}"
+export RUNS_ROOT RUN_ID RUN_DIR TBENCH_OUTPUT_ROOT
 
 # Create directory structure via run_paths.py
 # A dry-run must be executable on a login/debug node where the production
@@ -650,11 +652,9 @@ fi
 
 RUN_LOG="${RUN_LOG_DIR}/train.log"
 
-# ── Auto-mirror logs to a stable path that Claude can Read directly ──
-# Canonical logs live under runs/<run>/.  The repo-root tmp_doc_latest path is
-# kept only as a compatibility symlink to the current run directory, so legacy
-# tmp_doc_latest/remote_logs also resolves under runs/<run>/remote_logs.  New
-# tmp_doc_<timestamp> directories are no longer created at the repo root.
+# ── Auto-mirror logs inside the unified run directory ──
+# Canonical logs and compatibility shortcuts all live under runs/<run>/.
+# runs/latest is the only repository-level pointer to the current run.
 TMP_DOC_ROOT="${RUN_LOG_DIR}/mirror"
 TMP_DOC_LATEST="${TMP_DOC_ROOT}"
 mkdir -p "${TMP_DOC_ROOT}"
@@ -663,10 +663,6 @@ GPU_RUN_LOG="${TMP_DOC_ROOT}/gpu_run.log"      # full stdout/stderr
 GPU_ERR_LOG="${TMP_DOC_ROOT}/gpu_err.log"      # filtered errors (populated on failure)
 GPU_TAIL_LOG="${TMP_DOC_ROOT}/gpu_tail.log"    # last ~300 lines (populated on failure)
 if [[ "${DRY_RUN}" != "1" ]]; then
-  TMP_DOC_LATEST="${REPO_ROOT}/tmp_doc_latest"
-  if ! ln -sfnT "${RUN_DIR}" "${TMP_DOC_LATEST}" 2>/dev/null; then
-    echo "[WARN] Could not update ${TMP_DOC_LATEST}; existing non-symlink directory may need manual archival."
-  fi
   ln -sfnT "${GPU_RUN_LOG}" "${RUN_DIR}/gpu_run.log" 2>/dev/null || true
   ln -sfnT "${GPU_ERR_LOG}" "${RUN_DIR}/gpu_err.log" 2>/dev/null || true
   ln -sfnT "${GPU_TAIL_LOG}" "${RUN_DIR}/gpu_tail.log" 2>/dev/null || true
@@ -1006,7 +1002,7 @@ case "${DATASET}" in
   mixed)
     if [[ -n "${MIX_AGENTHARM_RATIO:-}" ]]; then
       ensure_agentharm_dataset
-      MIXED_DATA="${REPO_ROOT}/benchmarks/mixed_sources.jsonl"
+      MIXED_DATA="${RUN_DIR}/config/mixed_sources.jsonl"
       MIX_ARGS=(
         --output "${MIXED_DATA}"
         --seed "${MIX_SEED:-42}"
@@ -1048,7 +1044,7 @@ case "${DATASET}" in
     else
       INCLUDES_SETA="1"
       INCLUDES_SAFETY="1"
-      MIXED_DATA="${REPO_ROOT}/benchmarks/mixed_seta_safety.jsonl"
+      MIXED_DATA="${RUN_DIR}/config/mixed_seta_safety.jsonl"
       if [[ ! -f "${MIXED_DATA}" ]] || [[ "${SETA_DATA}" -nt "${MIXED_DATA}" ]] || [[ "${SAFETY_DATA}" -nt "${MIXED_DATA}" ]]; then
         if [[ -n "${MIX_SETA_RATIO:-}" ]] || [[ -n "${MIX_SAFETY_RATIO:-}" ]]; then
           MIX_ARGS=(
@@ -2403,6 +2399,7 @@ RUNTIME_ENV_JSON="{
     \"RUN_DIR\": \"${RUN_DIR}\",
     \"RUN_ID\": \"${RUN_ID}\",
     \"RUN_NAME\": \"${RUN_NAME}\",
+    \"TBENCH_OUTPUT_ROOT\": \"${TBENCH_OUTPUT_ROOT}\",
     \"RUN_LOG_DIR\": \"${RUN_LOG_DIR}\",
     \"TERMINAL_STRUCTURED_METRICS\": \"${TERMINAL_STRUCTURED_METRICS}\",
     \"TERMINAL_METRICS_JSONL\": \"${TERMINAL_METRICS_JSONL}\",

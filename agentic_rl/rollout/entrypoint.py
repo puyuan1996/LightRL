@@ -187,12 +187,16 @@ async def generate(
     train_step = _sample_or_env_int(sample, "train_step", "_CURRENT_TRAIN_STEP")
     rollout_step = _sample_or_env_int(sample, "rollout_step", "_CURRENT_ROLLOUT_STEP")
     task_spec = _make_task_spec(task_meta)
+    output_root = (
+        getattr(args, "tbench_output_root", None)
+        or os.getenv("TBENCH_OUTPUT_ROOT")
+        or str(Path(os.getenv("RUN_DIR", "runs/unscoped")) / "environment_outputs")
+    )
     run_ctx = RunContext(
         uid=uid,
         group_index=group_index,
         sample_index=sample_index,
-        log_dir=Path(getattr(args, "tbench_output_root", "build_outputs"))
-        / "AgentRunner_Output",
+        log_dir=Path(output_root) / "AgentRunner_Output",
         rollout_id=rollout_id,
         train_step=train_step,
         rollout_step=rollout_step,

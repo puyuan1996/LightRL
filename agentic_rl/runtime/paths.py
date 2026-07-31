@@ -30,6 +30,7 @@ class RunPaths:
         self.metrics_dir = self.run_dir / "metrics"
         self.wandb_dir = self.metrics_dir / "wandb"
         self.analysis_dir = self.metrics_dir / "analysis"
+        self.environment_outputs_dir = self.run_dir / "environment_outputs"
         self.ckpt_real = ckpt_root / run_id
         self.ckpt_link = self.run_dir / "ckpt"
         self.meta_file = self.run_dir / "meta.json"
@@ -54,6 +55,7 @@ class RunPaths:
         for d in [
             self.config_dir, self.logs_dir, self.trajectories_dir,
             self.metrics_dir, self.wandb_dir, self.analysis_dir,
+            self.environment_outputs_dir,
         ]:
             d.mkdir(parents=True, exist_ok=True)
         if os.getenv("MAX_CKPT_KEEP", "0") != "0":
@@ -78,6 +80,7 @@ class RunPaths:
                 "trajectories": str(self.trajectories_dir),
                 "metrics": str(self.metrics_dir),
                 "wandb": str(self.wandb_dir),
+                "environment_outputs": str(self.environment_outputs_dir),
                 "ckpt_real": str(self.ckpt_real),
             },
         }
@@ -105,6 +108,7 @@ class RunPaths:
             "RUN_LOG_DIR": str(self.logs_dir),
             "TERMINAL_SAVE_TRAJ_DIR": str(self.trajectories_dir),
             "WANDB_DIR": str(self.wandb_dir),
+            "TBENCH_OUTPUT_ROOT": str(self.environment_outputs_dir),
             "SAVE_CKPT": str(self.ckpt_real),
         }
 

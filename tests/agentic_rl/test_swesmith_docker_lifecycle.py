@@ -279,5 +279,5 @@ def test_seta_worker_launcher_uses_repository_data_roots() -> None:
     launcher = SETA_LAUNCHER.read_text(encoding="utf-8")
 
     assert "${REPO_ROOT}/benchmarks" in launcher
-    assert "${REPO_ROOT}/build_outputs" in launcher
+    assert "${OPENCLAW_REMOTE_LOG_DIR}/task_outputs" in launcher
     assert "${TERMINAL_RL}/dataset" not in launcher

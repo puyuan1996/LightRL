@@ -401,7 +401,9 @@ def build_docker_image(
     trial_handler = TrialHandler(
         trial_name=f"build_run_{task_name}",
         input_path=task_path,
-        output_path=Path("build_outputs"),
+        output_path=Path(
+            os.getenv("TBENCH_OUTPUT_ROOT", "runs/env-worker/task_outputs")
+        ),
     )
 
     compose_manager = DockerComposeManager(
