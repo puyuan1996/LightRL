@@ -1,3 +1,0 @@
-name: seta
-dataset: benchmarks/seta_env_convert/train.jsonl
-max_turn: 10

@@ -28,25 +28,25 @@ def test_slime_backend_routes_registered_harnesses():
     assert '\\"HARNESS_OPTION\\": \\"${HARNESS_OPTION}\\"' in script
 
 
-def test_experiment_config_selects_harness_without_wrapper_script():
-    config = yaml.safe_load(
-        (ROOT / "configs" / "experiment" / "dive_po_qwen3_8b_seta.yaml").read_text()
-    )
-    assert config["extends"] == "../defaults.yaml"
-    assert "HARNESS_OPTION" not in config["runtime"]["env"]
+def test_recipe_selects_harness_without_config_composition():
+    script = (ROOT / "examples" / "training" / "train_qwen3_8b_seta_dapo.sh").read_text()
+    assert 'HARNESS_OPTION="${HARNESS_OPTION:-camel-agent}"' in script
+    assert "agentic_rl.platform.cli" not in script
+    assert "agentic_rl/platform/slime_train.sh" in script
 
 
 def test_dive_po_runtime_accepts_claude_code_alias():
     script = (
-        AGENTIC_RL / "platform" / "dive_po_qwen3_8b.sh"
+        AGENTIC_RL / "algorithms" / "dive_po" / "defaults.sh"
     ).read_text()
     assert "claude-code|claude_code)" in script
     assert "Use: camel-agent|claude_code" in script
 
 
-def test_camel_harness_registry_imports_complete_package():
-    from agentic_rl.platform.registry import REGISTRY
+def test_camel_harness_factory_imports_complete_package():
+    from agentic_rl.harnesses.factory import create_harness, normalize_harness_name
     from agentic_rl.harnesses.camel.prompts import get_developer_agent_prompt
 
-    assert REGISTRY.load("harnesses", "camel-agent").__name__ == "CamelAgent"
+    assert normalize_harness_name("camel-agent") == "camel_agent"
+    assert callable(create_harness)
     assert callable(get_developer_agent_prompt)

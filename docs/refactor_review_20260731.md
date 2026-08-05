@@ -8,17 +8,17 @@ the earlier one-file package chains under `cli`, `config`, `core`, `runtime`,
 
 | Path | Responsibility | Main entrypoints |
 |---|---|---|
-| `agentic_rl/algorithms` | GRPO, DAPO, DIVE-PO, and LWM algorithm code | algorithm registry targets |
+| `agentic_rl/algorithms` | LightRL-owned DIVE-PO algorithm extension | `dive_po/` |
 | `agentic_rl/environments` | terminal and benchmark runtimes | environment registry targets |
 | `agentic_rl/harnesses` | Camel, Claude Code, and PRM harnesses | harness registry targets |
 | `agentic_rl/rollout` | rollout orchestration and trajectory persistence | `entrypoint.py` |
-| `agentic_rl/platform` | flat CLI, config, backend, paths, router, and worker infrastructure | `cli.py`, `slime_train.sh`, `worker_cli.py`, `router_cli.py` |
+| `agentic_rl/platform` | Slime runtime, router, and worker infrastructure | `slime_train.sh`, `worker_cli.py`, `router_cli.py` |
 | `agentic_rl/misc` | flat reward, logging, sink, and integration helpers | `rollout_log.py`, `reward_rules.py`, `clawsentry.py` |
 
-The public Python entrypoint is:
+The public training entrypoint is:
 
 ```bash
-python3 -m agentic_rl.platform.cli --help
+bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
 The maintained Slime launcher is:

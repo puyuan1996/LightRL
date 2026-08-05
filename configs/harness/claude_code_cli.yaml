@@ -1,3 +1,0 @@
-name: claude_code_cli
-max_turns: 16
-timeout_sec: 900

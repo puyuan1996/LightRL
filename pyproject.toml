@@ -44,9 +44,6 @@ dev = [
 ]
 
 
-[project.scripts]
-agentic-rl = "agentic_rl.platform.cli:main"
-
 [tool.setuptools.packages.find]
 include = ["agentic_rl*"]
 

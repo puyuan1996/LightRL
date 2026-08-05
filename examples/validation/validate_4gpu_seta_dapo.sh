@@ -112,7 +112,7 @@ static_checks() {
 
 import_smoke() {
   python3 - <<'PY'
-from agentic_rl import REGISTRY, load_config
+from agentic_rl.algorithms import ALGORITHMS
 from agentic_rl.rollout import entrypoint, trajectory_store
 
 assert callable(trajectory_store._trajectory_save_decision)
@@ -135,10 +135,7 @@ for name in (
     "_EXPLORE_SCORE_BONUS_COMPONENTS",
 ):
     assert hasattr(entrypoint, name), f"rollout entrypoint is missing {name}"
-assert "dapo" in REGISTRY.names("algorithms")
-config = load_config("configs/experiment/qwen3_8b_seta_dapo.yaml")
-assert config["algorithm"]["base"]["name"] == "dapo"
-assert config["environment"]["name"] == "seta"
+assert ALGORITHMS == ("dive_po",)
 print("RJOB_IMPORT_SMOKE_OK")
 PY
 }

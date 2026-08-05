@@ -402,7 +402,7 @@ RUN_PATHS_CKPT_ROOT="${CKPT_ROOT}"
 if [[ "${DRY_RUN}" == "1" ]]; then
   RUN_PATHS_CKPT_ROOT="${RUN_DIR}/checkpoints"
 fi
-MAX_CKPT_KEEP="${MAX_CKPT_KEEP}" python3 "${REPO_ROOT}/agentic_rl/platform/paths.py" init \
+MAX_CKPT_KEEP="${MAX_CKPT_KEEP}" python3 -m agentic_rl.platform.paths init \
   --runs-root "${RUNS_ROOT}" \
   --ckpt-root "${RUN_PATHS_CKPT_ROOT}" \
   --run-id "${RUN_ID}" > /dev/null

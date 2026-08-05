@@ -1,11 +1,74 @@
 #!/usr/bin/env bash
-# Qwen3-8B + SETA + DAPO baseline.
-# Harness / Model / Algorithm: Camel-Agent / Qwen3-8B / DAPO.
-# Required for a real run: reachable WORKER_URLS or WORKER_URLS_FILE.
-# Defaults: repository Qwen checkpoint paths, 8 GPUs, max_turn=10, exploration off.
+# Complete 4-GPU recipe: Qwen3-8B + SETA + Slime DAPO.
+# Run this inside the GPU rjob. The Docker worker stays on pu-dev-2.
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)"
-CONFIG_PATH="${CONFIG_PATH:-${REPO_ROOT}/configs/experiment/qwen3_8b_seta_dapo.yaml}"
 cd "${REPO_ROOT}"
-exec python3 -m agentic_rl.platform.cli train --config "${CONFIG_PATH}" "$@"
+
+# Infrastructure and topology. Override any value through the environment.
+export WORKER_URLS="${WORKER_URLS:-http://100.98.75.44:18081}"
+export NUM_GPUS="${NUM_GPUS:-4}"
+export ACTOR_GPUS="${ACTOR_GPUS:-2}"
+export ROLLOUT_GPUS="${ROLLOUT_GPUS:-2}"
+export TP_SIZE="${TP_SIZE:-2}"
+export ROLLOUT_NUM_GPUS_PER_ENGINE="${ROLLOUT_NUM_GPUS_PER_ENGINE:-2}"
+
+# Model, environment and algorithm recipe.
+export MODEL_TAG="${MODEL_TAG:-qwen3-8b}"
+export MODEL_ARGS_FILE="${MODEL_ARGS_FILE:-qwen3-8B}"
+export HF_CKPT="${HF_CKPT:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B/}"
+export REF_LOAD="${REF_LOAD:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B_torch_dist/}"
+export CUSTOM_CONFIG_PATH="${CUSTOM_CONFIG_PATH:-${REPO_ROOT}/configs/rollout/rollout_qwen3_think.yaml}"
+export DATASET="${DATASET:-seta}"
+export ALGO="${ALGO:-dapo}"
+export HARNESS_OPTION="${HARNESS_OPTION:-camel-agent}"
+export MAX_TURN="${MAX_TURN:-10}"
+export DAPO_DYNAMIC_SAMPLING="${DAPO_DYNAMIC_SAMPLING:-0}"
+export EXPLORATION_PROFILE="${EXPLORATION_PROFILE:-off}"
+
+export RUN_TIMESTAMP="${RUN_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
+export RUN_ID="${RUN_ID:-seta-dapo-4g-${RUN_TIMESTAMP}}"
+export RUN_NAME="${RUN_NAME:-${RUN_ID}}"
+RUN_DIR="${RUN_DIR:-${REPO_ROOT}/runs/${RUN_ID}}"
+LOG_FILE="${LOG_FILE:-${RUN_DIR}/launcher.log}"
+BACKGROUND="${BACKGROUND:-0}"
+DRY_RUN="${DRY_RUN:-0}"
+
+if [[ "${1:-}" == "--dry-run" ]]; then
+  DRY_RUN=1
+  export DRY_RUN
+  shift
+fi
+
+die() { printf '[seta-dapo] ERROR: %s\n' "$*" >&2; exit 1; }
+
+if [[ "${DRY_RUN}" != "1" ]]; then
+  command -v nvidia-smi >/dev/null || die "nvidia-smi is required inside the rjob"
+  gpu_count="$(nvidia-smi -L | sed -n '/^GPU /p' | wc -l)"
+  [[ "${gpu_count}" == "${NUM_GPUS}" ]] || die "expected ${NUM_GPUS} visible GPUs, found ${gpu_count}"
+  command -v curl >/dev/null || die "curl is required for the worker health check"
+  curl --noproxy '*' --fail --silent --show-error --max-time 10 \
+    "${WORKER_URLS%%,*}/healthz" >/dev/null \
+    || die "Docker worker is not healthy: ${WORKER_URLS%%,*}/healthz"
+fi
+
+printf '[seta-dapo] recipe=%s\n' "${BASH_SOURCE[0]}"
+printf '[seta-dapo] runtime=%s\n' "agentic_rl/platform/slime_train.sh"
+printf '[seta-dapo] final_entry=%s\n' "slime/train_async.py"
+printf '[seta-dapo] run_id=%s worker=%s gpus=%s (%s actor + %s rollout)\n' \
+  "${RUN_ID}" "${WORKER_URLS}" "${NUM_GPUS}" "${ACTOR_GPUS}" "${ROLLOUT_GPUS}"
+
+launcher=(bash agentic_rl/platform/slime_train.sh "$@")
+if [[ "${BACKGROUND}" != "1" ]]; then
+  exec "${launcher[@]}"
+fi
+
+mkdir -p "${RUN_DIR}"
+if ! mkdir "${RUN_DIR}/.launch-once" 2>/dev/null; then
+  die "${RUN_ID} was already launched; inspect ${LOG_FILE} or choose another RUN_ID"
+fi
+nohup "${launcher[@]}" >"${LOG_FILE}" 2>&1 </dev/null &
+pid="$!"
+printf '%s\n' "${pid}" >"${RUN_DIR}/launcher.pid"
+printf '[seta-dapo] background pid=%s log=%s\n' "${pid}" "${LOG_FILE}"

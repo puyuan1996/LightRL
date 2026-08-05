@@ -1,5 +1,0 @@
-name: lwm
-enabled: true
-encoder: hash
-use_dapo_replay_buffer: false
-loss_coef: 0.0

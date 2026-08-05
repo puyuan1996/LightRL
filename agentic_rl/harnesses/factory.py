@@ -1,25 +1,36 @@
 from __future__ import annotations
 
 import inspect
+from importlib import import_module
 from typing import Any
 
-from agentic_rl.platform.registry import REGISTRY
+_HARNESS_ALIASES = {
+    "camel_agent": "camel_agent", "camel": "camel_agent",
+    "camel-agent": "camel_agent", "camelagent": "camel_agent",
+    "claude_code_cli": "claude_code_cli", "claude": "claude_code_cli",
+    "claude-code": "claude_code_cli", "claude_code": "claude_code_cli",
+    "claude-code-harness": "claude_code_cli",
+}
+_HARNESS_TARGETS = {
+    "camel_agent": ("agentic_rl.harnesses.camel.agent", "CamelAgent"),
+    "claude_code_cli": ("agentic_rl.harnesses.claude_code.agent", "ClaudeCodeAgent"),
+}
 
 
 def normalize_harness_name(value: str | None) -> str:
     requested = value or "camel_agent"
     try:
-        return REGISTRY.canonical_name("harnesses", requested)
+        return _HARNESS_ALIASES[requested]
     except KeyError as exc:
-        choices = ", ".join(REGISTRY.names("harnesses"))
         raise ValueError(
-            f"Unsupported harness option: {value!r}. Available: {choices}"
+            f"Unsupported harness option: {value!r}. Available: camel-agent, claude-code"
         ) from exc
 
 
 def create_harness(name: str, **kwargs: Any) -> Any:
-    """Instantiate a registered harness without coupling rollout core to it."""
-    factory = REGISTRY.load("harnesses", name)
+    """Instantiate a supported harness while keeping optional imports lazy."""
+    module_name, class_name = _HARNESS_TARGETS[normalize_harness_name(name)]
+    factory = getattr(import_module(module_name), class_name)
     signature = inspect.signature(factory)
     accepts_kwargs = any(
         parameter.kind is inspect.Parameter.VAR_KEYWORD

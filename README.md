@@ -51,11 +51,11 @@ LightRL/
 - worker URL、凭据和站点专用调度配置应放在被 Git 忽略的
   `local/cluster/` 或环境变量中，不要提交到仓库。
 
-只检查 Python 包和 CLI 时可安装：
+只检查 Python 包时可安装：
 
 ```bash
 python3 -m pip install -e '.[rollout,worker,train]'
-python3 -m agentic_rl.platform.cli --help
+python3 -c 'import agentic_rl'
 ```
 
 这不会自动准备模型权重、CUDA、Slime 或 Megatron-LM 运行环境。
@@ -205,12 +205,11 @@ runs/<RUN_ID>/
 
 ## 开发状态
 
-- DAPO 与 DIVE-PO 是当前维护的主要算法路径。
+- GRPO 与 DAPO 直接使用 Slime 实现；LightRL 只维护新增的 DIVE-PO 扩展。
 - DIVE-PO 配方位于
-  `configs/experiment/dive_po_qwen3_8b_seta.yaml`，算法说明见
+  `examples/training/train_qwen3_8b_seta_dive_po.sh`，算法说明见
   [DIVE-PO centered gate](docs/algorithms/dive_po_centered_gate.md)。
-- LWM 仍为 WIP，入口位于 `agentic_rl/algorithms/lwm/` 和
-  `slime/slime/world_model/`；使用前请阅读
+- LWM 仍为 Slime 内的 WIP；使用前请阅读
   [LWM 指南](docs/algorithms/lwm_guide_zh.md)。
 - 重构范围与保守保留项见
   [重构审查记录](docs/refactor_review_20260731.md)。

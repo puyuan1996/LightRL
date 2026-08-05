@@ -1,1 +1,0 @@
-http://worker-host.example:18081

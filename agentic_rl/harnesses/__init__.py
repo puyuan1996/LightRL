@@ -1,3 +1,5 @@
-from agentic_rl.platform.registry import REGISTRY
+"""Agent harness implementations and their small lazy factory."""
 
-__all__ = ["REGISTRY"]
+from .factory import create_harness, normalize_harness_name
+
+__all__ = ["create_harness", "normalize_harness_name"]

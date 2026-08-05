@@ -132,15 +132,12 @@ cd /mnt/shared-storage-user/puyuan/code/LightRL
 python3 -m compileall -q agentic_rl tests/agentic_rl tools
 
 python3 - <<'PY'
-from agentic_rl import REGISTRY, load_config
+from agentic_rl.algorithms import ALGORITHMS
 from agentic_rl.rollout import trajectory_store
 
 assert callable(trajectory_store._trajectory_save_decision)
 assert callable(trajectory_store._save_rollout_artifacts)
-assert "dapo" in REGISTRY.names("algorithms")
-cfg = load_config("configs/experiment/qwen3_8b_seta_dapo.yaml")
-assert cfg["algorithm"]["base"]["name"] == "dapo"
-assert cfg["environment"]["name"] == "seta"
+assert ALGORITHMS == ("dive_po",)
 print("IMPORT_SMOKE_OK")
 PY
 
@@ -263,13 +260,11 @@ cd "$LIGHTRL_REPO"
 python3 -m compileall -q agentic_rl tests/agentic_rl tools
 
 python3 - <<'PY'
-from agentic_rl import REGISTRY, load_config
+from agentic_rl.algorithms import ALGORITHMS
 from agentic_rl.rollout import trajectory_store
 
 assert callable(trajectory_store._trajectory_save_decision)
-assert "dapo" in REGISTRY.names("algorithms")
-cfg = load_config("configs/experiment/qwen3_8b_seta_dapo.yaml")
-assert cfg["cluster"]["num_gpus"] > 0
+assert ALGORITHMS == ("dive_po",)
 print("RJOB_IMPORT_SMOKE_OK")
 PY
 

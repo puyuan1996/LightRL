@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# GLM-5.1 + SETA + DAPO integration entry.
-# Harness / Model / Algorithm: Camel-Agent / GLM-5.1 / DAPO.
-# Required: HF_CKPT, REF_LOAD, MODEL_ARGS_FILE, plus WORKER_URLS[_FILE].
-# Defaults: GLM-5.1 rollout parser config, 8 GPUs, max_turn=10, exploration off.
-# MODEL_ARGS_FILE must name a compatible file under slime/scripts/models/.
+# GLM-5.1 + SETA + Slime DAPO. Supply the three model paths below.
 set -euo pipefail
-
-if [[ "${1:-}" != "--dry-run" ]]; then
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)"
+cd "${REPO_ROOT}"
+[[ "${1:-}" == "--dry-run" ]] && export DRY_RUN=1 && shift
+if [[ "${DRY_RUN:-0}" != "1" ]]; then
   : "${HF_CKPT:?HF_CKPT is required for GLM-5.1 training}"
   : "${REF_LOAD:?REF_LOAD is required for GLM-5.1 training}"
   : "${MODEL_ARGS_FILE:?MODEL_ARGS_FILE is required for GLM-5.1 training}"
 fi
-
-REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)"
-CONFIG_PATH="${CONFIG_PATH:-${REPO_ROOT}/configs/experiment/glm_5_1_seta_dapo.yaml}"
-cd "${REPO_ROOT}"
-exec python3 -m agentic_rl.platform.cli train --config "${CONFIG_PATH}" "$@"
+export MODEL_TAG="${MODEL_TAG:-glm-5.1}"
+export CUSTOM_CONFIG_PATH="${CUSTOM_CONFIG_PATH:-${REPO_ROOT}/configs/rollout/rollout_glm51_think.yaml}"
+export DATASET="${DATASET:-seta}"
+export ALGO="${ALGO:-dapo}"
+export HARNESS_OPTION="${HARNESS_OPTION:-camel-agent}"
+export DAPO_DYNAMIC_SAMPLING="${DAPO_DYNAMIC_SAMPLING:-0}"
+export EXPLORATION_PROFILE="${EXPLORATION_PROFILE:-off}"
+exec bash agentic_rl/platform/slime_train.sh "$@"

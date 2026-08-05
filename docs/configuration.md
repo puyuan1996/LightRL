@@ -1,33 +1,27 @@
-# LightRL configuration
+# LightRL training recipes
 
-LightRL uses dependency-light YAML composition backed by typed dataclass
-defaults. An experiment can inherit another YAML document with `extends`, then
-override only the values that differ.
-
-Configuration layers are:
-
-1. typed global defaults in `agentic_rl/platform/config_schema.py`;
-2. repository defaults in `configs/defaults.yaml`;
-3. dimension configs under `configs/{harness,model,algorithm,environment,backend,cluster}`;
-4. an experiment recipe under `configs/experiment/`;
-5. command-line dotted overrides such as `cluster.num_gpus=4`.
-
-Example:
+训练配置直接写在 `examples/training/` 的 recipe 脚本中。每个脚本包含模型、数据集、
+算法、GPU 拓扑和 rollout 配置，环境变量可覆盖默认值；不再经过 Python CLI、配置组合
+或插件 registry。
 
 ```bash
-python3 -m agentic_rl.platform.cli compose \
-  --config configs/experiment/dive_po_qwen3_8b_seta.yaml \
-  cluster.num_gpus=4
+# 查看最终 Slime 参数，不启动训练
+bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
+
+# 在 4-GPU rjob 内启动完整训练（前台）
+bash examples/training/train_qwen3_8b_seta_dapo.sh
+
+# 显式后台启动
+BACKGROUND=1 bash examples/training/train_qwen3_8b_seta_dapo.sh
 ```
 
-Training resolves `runtime.launcher`, converts `runtime.env` values into a
-process environment, and then replaces the CLI process with the launcher:
+调用链固定为：
 
-```bash
-python3 -m agentic_rl.platform.cli train \
-  --config configs/experiment/dive_po_qwen3_8b_seta.yaml
+```text
+examples/training/<recipe>.sh
+  -> agentic_rl/platform/slime_train.sh
+  -> slime/train_async.py
 ```
 
-Use `--dry-run` to inspect the command and exported environment without
-starting Slime. Scheduler-specific settings are local state and belong under
-the ignored `local/cluster/` directory, not in shared experiment configs.
+`configs/rollout/` 只保留传给 rollout 的模型模板配置。站点地址、凭据和调度参数应通过
+环境变量或被 Git 忽略的 `local/cluster/` 提供。

@@ -1,52 +1,37 @@
 # LightRL Architecture
 
-LightRL keeps domain code visible and groups framework plumbing into two flat
-packages:
+LightRL 将训练配方、项目新增逻辑和第三方训练后端明确分开：
 
 ```text
+examples/training/       # 可直接执行、可审阅的训练 recipe
+configs/rollout/         # rollout 模型模板（唯一保留的组合配置）
 agentic_rl/
-├── algorithms/      # optimization and exploration algorithms
-├── data/            # dataset conversion and download utilities
-├── environments/    # terminal and benchmark environments
-├── evaluation/      # evaluation adapters and reports
-├── harnesses/       # agent harnesses
-├── inference/       # inference clients
-├── models/          # model profiles
-├── rollout/         # rollout orchestration and trajectory handling
-├── platform/        # flat CLI, config, backend, runtime, router, and worker modules
-└── misc/            # flat rewards, observability, and third-party integrations
+├── algorithms/dive_po/  # LightRL 新增的 DIVE-PO 实现与 defaults
+├── data/                 # 数据转换与下载
+├── environments/        # 环境运行时
+├── evaluation/          # 评测适配
+├── harnesses/           # Camel / Claude Code agent harness
+├── inference/           # 推理客户端
+├── rollout/             # rollout 编排与 trajectory
+├── platform/            # Slime runtime、worker 与 router
+└── misc/                # reward、日志和第三方集成
+slime/                   # 第三方训练后端
+Megatron-LM/             # 第三方模型训练后端
 ```
 
-`platform/` contains infrastructure shared by multiple domains. Its files are
-named by purpose—such as `config_loader.py`, `worker_pool.py`, `router_app.py`,
-and `slime_train.sh`—instead of being nested under one-file package layers.
+公开训练链路只有三层：
 
-`misc/` contains optional cross-cutting behavior: reward helpers, rollout
-logging/formatting, JSONL sinks, and the ClawSentry client. These modules do not
-define the main package architecture.
+```text
+examples/training/<recipe>.sh
+  -> agentic_rl/platform/slime_train.sh
+  -> slime/train_async.py
+```
 
-The domain packages remain separate because they are real extension axes:
+GRPO、DAPO 直接由 Slime 提供，`agentic_rl/algorithms/` 不为它们维护占位包。
+DIVE-PO 是 LightRL 新增能力，因此其 exploration 与 reward 实现集中在
+`agentic_rl/algorithms/dive_po/`。Harness 的名称映射集中在
+`agentic_rl/harnesses/factory.py`，并通过惰性 import 隔离可选依赖。
 
-- **Harness** controls how model output becomes environment actions. Add a
-  harness under `agentic_rl/harnesses/` and register it in
-  `agentic_rl/platform/registry.py`.
-- **Model** describes checkpoint, tokenizer, and model-family defaults. Add
-  profiles under `agentic_rl/models/` and config fragments under
-  `configs/model/`.
-- **Algorithm** owns optimization, exploration, and algorithm-specific reward
-  behavior. Add implementations under `agentic_rl/algorithms/` and config
-  fragments under `configs/algorithm/`.
-- **Environment** owns task runtime semantics. Add implementations under
-  `agentic_rl/environments/`.
-
-The maintained training bridge is `agentic_rl/platform/slime_train.sh`.
-`slime/` and `Megatron-LM/` remain vendorized backend trees and are not imported
-while composing configuration.
-
-DIVE-PO stays under `agentic_rl/algorithms/dive_po/` because its exploration
-controller, episodic/lifelong state, and reward processing form one cohesive
-algorithm rather than generic platform plumbing.
-
-Site-specific worker URLs, credentials, and scheduler capacity are local state
-under ignored `local/cluster/` paths or environment variables; they do not
-belong in portable experiment recipes.
+单个 `WORKER_URLS` 默认由训练进程直接访问；多个 worker 或显式设置
+`START_ENV_POOL_SERVER=1` 时才需要本地 router。站点地址、凭据和调度容量通过环境变量
+或被 Git 忽略的 `local/cluster/` 提供。

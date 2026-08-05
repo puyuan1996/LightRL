@@ -1,21 +1,15 @@
 # Harnesses
 
-Harness implementations live in `agentic_rl/harnesses/` and are selected by
-`harness.name`.
+Harness 实现位于 `agentic_rl/harnesses/`，训练 recipe 通过 `HARNESS_OPTION` 选择：
 
-Available integrations:
+- `camel-agent`：默认 terminal-agent harness；
+- `claude-code`：Claude Code CLI 与 LightRL MCP bridge。
 
-- `camel_agent`: the default terminal-agent harness.
-- `claude_code_cli`: Claude Code CLI with the LightRL MCP bridge.
-
-Inspect a Claude Code composition without starting training:
+例如：
 
 ```bash
-python3 -m agentic_rl.platform.cli train --dry-run \
-  --config configs/experiment/dive_po_qwen3_8b_seta.yaml \
-  harness.name=claude_code_cli
+HARNESS_OPTION=claude-code \
+  bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
-New harnesses should implement the core rollout interface, register a stable
-name in `agentic_rl/platform/registry.py`, and add a config under
-`configs/harness/`. Algorithm and model code should not need modification.
+映射集中在 `agentic_rl/harnesses/factory.py`，使用惰性 import 保持可选依赖隔离。
