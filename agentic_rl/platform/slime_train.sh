@@ -1211,6 +1211,7 @@ fi
 
 # ── Router / worker URLs ─────────────────────────────────────────────
 WORKER_URLS="${WORKER_URLS:-}"
+WORKER_URLS_FROM_FILE=0
 RUN_LOCAL_WORKER_URLS_FILE=""
 if [[ -z "${WORKER_URLS_FILE:-}" && "${DATASET}" == "swesmith" ]]; then
   RUN_LOCAL_WORKER_URLS_FILE="${RUN_DIR}/config/worker_urls.txt"
@@ -1247,6 +1248,7 @@ PY
 
 if [[ -z "${WORKER_URLS}" && -f "${WORKER_URLS_FILE}" ]]; then
   WORKER_URLS="$(read_worker_urls_from_file "${WORKER_URLS_FILE}")"
+  WORKER_URLS_FROM_FILE=1
 fi
 if [[ "${DRY_RUN}" != "1" && "${NEEDS_ENV_ROUTER}" == "1" && -z "${WORKER_URLS}" ]]; then
   echo "[ERROR] WORKER_URLS is unset. Example:"
@@ -1322,27 +1324,42 @@ probe_ready_endpoint() {
   local base_url="$1"
   local label="$2"
   local timeout_s="${3:-${READY_PROBE_TIMEOUT}}"
-  local tmp code path body
+  local tmp err_tmp code path body curl_rc curl_error
 
   tmp="$(mktemp /tmp/openclaw_ready.XXXXXX 2>/dev/null || printf '/tmp/openclaw_ready.%s' "$$")"
+  err_tmp="$(mktemp /tmp/openclaw_ready_err.XXXXXX 2>/dev/null || printf '/tmp/openclaw_ready_err.%s' "$$")"
   path="/readyz"
+  curl_rc=0
   code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
-    -o "${tmp}" -w '%{http_code}' "${base_url}${path}" 2>/dev/null || echo "000")"
+    -o "${tmp}" -w '%{http_code}' "${base_url}${path}" 2>"${err_tmp}")" || curl_rc=$?
+  if (( curl_rc != 0 )); then
+    curl_error="$(head -c 300 "${err_tmp}" 2>/dev/null || true)"
+    log "  [WARN] ${label}${path} transport failure (curl rc=${curl_rc}, HTTP ${code:-000})${curl_error:+: ${curl_error}}"
+    rm -f "${tmp}" "${err_tmp}" 2>/dev/null || true
+    return 2
+  fi
   if [[ "${code}" == "404" ]]; then
     path="/healthz"
+    curl_rc=0
     code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
-      -o "${tmp}" -w '%{http_code}' "${base_url}${path}" 2>/dev/null || echo "000")"
+      -o "${tmp}" -w '%{http_code}' "${base_url}${path}" 2>"${err_tmp}")" || curl_rc=$?
+    if (( curl_rc != 0 )); then
+      curl_error="$(head -c 300 "${err_tmp}" 2>/dev/null || true)"
+      log "  [WARN] ${label}${path} transport failure (curl rc=${curl_rc}, HTTP ${code:-000})${curl_error:+: ${curl_error}}"
+      rm -f "${tmp}" "${err_tmp}" 2>/dev/null || true
+      return 2
+    fi
   fi
 
   if [[ "${code}" =~ ^2[0-9][0-9]$ ]]; then
     log "  [OK] ${label}${path}"
-    rm -f "${tmp}" 2>/dev/null || true
+    rm -f "${tmp}" "${err_tmp}" 2>/dev/null || true
     return 0
   fi
 
   body="$(head -c 300 "${tmp}" 2>/dev/null || true)"
   log "  [WARN] ${label}${path} not ready HTTP ${code}${body:+: ${body}}"
-  rm -f "${tmp}" 2>/dev/null || true
+  rm -f "${tmp}" "${err_tmp}" 2>/dev/null || true
   return 1
 }
 
@@ -1404,7 +1421,7 @@ close_stale_worker_runs() {
   : > "${ids_tmp}"
   for path in /readyz /status; do
     code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
-      -o "${tmp}" -w '%{http_code}' "${base_url}${path}" 2>/dev/null || echo "000")"
+      -o "${tmp}" -w '%{http_code}' "${base_url}${path}" 2>/dev/null || true)"
     if [[ "${code}" =~ ^[0-9][0-9][0-9]$ ]]; then
       extract_stale_lease_ids "${tmp}" >> "${ids_tmp}" || true
     fi
@@ -1419,7 +1436,7 @@ close_stale_worker_runs() {
   repair_code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
     -X POST -H 'Content-Type: application/json' \
     --data "{\"reason\":\"startup_readyz_repair\",\"min_age\":${STALE_WORKER_REPAIR_MIN_AGE},\"max_repairs\":${STALE_WORKER_REPAIR_MAX_REPAIRS}}" \
-    -o "${repair_tmp}" -w '%{http_code}' "${base_url}/repair/stale_runs" 2>/dev/null || echo "000")"
+    -o "${repair_tmp}" -w '%{http_code}' "${base_url}/repair/stale_runs" 2>/dev/null || true)"
   repair_body="$(head -c 320 "${repair_tmp}" 2>/dev/null || true)"
   if [[ "${repair_code}" =~ ^2[0-9][0-9]$ ]]; then
     log "  [REPAIR] ${label}: repair stale runs HTTP ${repair_code}${repair_body:+: ${repair_body}}"
@@ -1439,7 +1456,7 @@ close_stale_worker_runs() {
     close_code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
       -X POST -H 'Content-Type: application/json' \
       --data "{\"lease_id\":\"${lease_id}\"}" \
-      -o "${close_tmp}" -w '%{http_code}' "${base_url}/close" 2>/dev/null || echo "000")"
+      -o "${close_tmp}" -w '%{http_code}' "${base_url}/close" 2>/dev/null || true)"
     close_body="$(head -c 240 "${close_tmp}" 2>/dev/null || true)"
     log "  [REPAIR] ${label}: close stale lease=${lease_id} HTTP ${close_code}${close_body:+: ${close_body}}"
     rm -f "${close_tmp}" 2>/dev/null || true
@@ -1957,12 +1974,17 @@ fi
 if [[ "${NEEDS_ENV_ROUTER}" == "1" ]]; then
   # Router startup may wait indefinitely while its workers file is hot-reloaded.
   # Keep the direct preflight aligned with the worker set that made the router
-  # ready instead of probing the stale WORKER_URLS snapshot from process start.
-  _REFRESHED_WORKER_URLS="$(read_worker_urls_from_file "${WORKER_URLS_FILE}")"
-  if [[ -n "${_REFRESHED_WORKER_URLS}" && "${_REFRESHED_WORKER_URLS}" != "${WORKER_URLS}" ]]; then
-    log "Worker URLs changed during router startup; refreshing preflight targets: ${WORKER_URLS} -> ${_REFRESHED_WORKER_URLS}"
-    WORKER_URLS="${_REFRESHED_WORKER_URLS}"
-    export WORKER_URLS
+  # ready instead of probing a stale snapshot. In direct-worker mode an
+  # explicit WORKER_URLS always wins over a possibly stale local file.
+  if [[ "${START_ENV_POOL_SERVER}" == "1" || "${WORKER_URLS_FROM_FILE}" == "1" ]]; then
+    _REFRESHED_WORKER_URLS="$(read_worker_urls_from_file "${WORKER_URLS_FILE}")"
+    if [[ -n "${_REFRESHED_WORKER_URLS}" && "${_REFRESHED_WORKER_URLS}" != "${WORKER_URLS}" ]]; then
+      log "Worker URLs changed during router startup; refreshing preflight targets: ${WORKER_URLS} -> ${_REFRESHED_WORKER_URLS}"
+      WORKER_URLS="${_REFRESHED_WORKER_URLS}"
+      export WORKER_URLS
+    fi
+  else
+    log "Keeping explicit WORKER_URLS for direct-worker preflight: ${WORKER_URLS}"
   fi
   log "Probing worker endpoints..."
   IFS=',' read -r -a _WORKERS <<< "${WORKER_URLS}"
@@ -1970,8 +1992,13 @@ if [[ "${NEEDS_ENV_ROUTER}" == "1" ]]; then
   for _w in "${_WORKERS[@]}"; do
     if probe_ready_endpoint "${_w}" "${_w}" "${WORKER_PREFLIGHT_TIMEOUT}"; then
       READY_WORKERS=$((READY_WORKERS + 1))
-    elif [[ "${AUTO_CLOSE_STALE_WORKER_RUNS}" == "1" ]]; then
-      close_stale_worker_runs "${_w}" "${_w} (worker_preflight)" "${STALE_WORKER_CLOSE_TIMEOUT}" || true
+    else
+      _probe_rc=$?
+      if [[ "${_probe_rc}" == "1" && "${AUTO_CLOSE_STALE_WORKER_RUNS}" == "1" ]]; then
+        close_stale_worker_runs "${_w}" "${_w} (worker_preflight)" "${STALE_WORKER_CLOSE_TIMEOUT}" || true
+      elif [[ "${_probe_rc}" == "2" ]]; then
+        log "  [WARN] ${_w}: skipping stale-run repair because the worker is unreachable"
+      fi
     fi
   done
   log "Worker readiness: ${READY_WORKERS}/${#_WORKERS[@]} ready"

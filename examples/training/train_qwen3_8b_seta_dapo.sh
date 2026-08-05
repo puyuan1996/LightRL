@@ -7,7 +7,12 @@ REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)
 cd "${REPO_ROOT}"
 
 # Infrastructure and topology. Override any value through the environment.
-export WORKER_URLS="${WORKER_URLS:-http://100.98.75.44:18081}"
+DEFAULT_WORKER_URLS="http://100.98.75.44:18081"
+if [[ -n "${WORKER_URLS:-}" && "${WORKER_URLS}" != "${DEFAULT_WORKER_URLS}" ]]; then
+  printf '[seta-dapo] WORKER_URLS overrides the pu-dev-2 default: %s (default: %s)\n' \
+    "${WORKER_URLS}" "${DEFAULT_WORKER_URLS}"
+fi
+export WORKER_URLS="${WORKER_URLS:-${DEFAULT_WORKER_URLS}}"
 export NUM_GPUS="${NUM_GPUS:-4}"
 export ACTOR_GPUS="${ACTOR_GPUS:-2}"
 export ROLLOUT_GPUS="${ROLLOUT_GPUS:-2}"
@@ -50,7 +55,7 @@ if [[ "${DRY_RUN}" != "1" ]]; then
   command -v curl >/dev/null || die "curl is required for the worker health check"
   curl --noproxy '*' --fail --silent --show-error --max-time 10 \
     "${WORKER_URLS%%,*}/healthz" >/dev/null \
-    || die "Docker worker is not healthy: ${WORKER_URLS%%,*}/healthz"
+    || die "Docker worker is unreachable: ${WORKER_URLS%%,*}/healthz. If this came from a stale shell export, run: unset WORKER_URLS WORKER_URLS_FILE"
 fi
 
 printf '[seta-dapo] recipe=%s\n' "${BASH_SOURCE[0]}"
