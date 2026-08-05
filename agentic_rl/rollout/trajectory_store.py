@@ -16,7 +16,7 @@ from typing import Any, Dict, List
 
 from slime.utils.types import Sample
 
-from agentic_rl.core.types import RunContext, TaskSpec
+from agentic_rl.platform.types import RunContext, TaskSpec
 
 logger = logging.getLogger(__name__)
 

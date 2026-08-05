@@ -11,11 +11,11 @@ Available integrations:
 Inspect a Claude Code composition without starting training:
 
 ```bash
-python3 -m agentic_rl.cli train --dry-run \
+python3 -m agentic_rl.platform.cli train --dry-run \
   --config configs/experiment/dive_po_qwen3_8b_seta.yaml \
   harness.name=claude_code_cli
 ```
 
 New harnesses should implement the core rollout interface, register a stable
-name in `agentic_rl/core/registry.py`, and add a config under
+name in `agentic_rl/platform/registry.py`, and add a config under
 `configs/harness/`. Algorithm and model code should not need modification.

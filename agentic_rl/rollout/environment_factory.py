@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from agentic_rl.core.types import RunContext, TaskSpec
+from agentic_rl.platform.types import RunContext, TaskSpec
 from agentic_rl.environments.client import TerminalEnvClient
 from agentic_rl.rollout.sample_builder import _make_task_spec
 

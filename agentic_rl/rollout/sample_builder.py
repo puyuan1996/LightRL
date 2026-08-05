@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from slime.utils.types import Sample
 
-from agentic_rl.core.types import Interaction, TaskSpec
+from agentic_rl.platform.types import Interaction, TaskSpec
 from agentic_rl.rollout.trajectory_store import _optional_int
 
 

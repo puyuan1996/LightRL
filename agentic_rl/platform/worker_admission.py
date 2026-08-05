@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from agentic_rl.core.types import RunContext, TaskSpec, TaskTimeouts
+from agentic_rl.platform.types import RunContext, TaskSpec, TaskTimeouts
 
 logger = logging.getLogger("lightrl.env.worker.admission")
 

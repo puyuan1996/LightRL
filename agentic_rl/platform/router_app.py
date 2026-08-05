@@ -8,8 +8,8 @@ import aiohttp
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from agentic_rl.services.http import json_payload
-from agentic_rl.services.router.service import (
+from agentic_rl.platform.http import json_payload
+from agentic_rl.platform.router import (
     Router,
     _env_float,
     _format_error,

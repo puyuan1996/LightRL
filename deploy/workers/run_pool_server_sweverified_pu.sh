@@ -69,7 +69,7 @@ if [[ -z "${POOL_SERVER_PYTHON}" ]]; then
        timeout 60 env \
          "PYTHONPATH=${TERMINAL_RL_DIR}/..${PYTHONPATH:+:${PYTHONPATH}}" \
          "${candidate}" -c \
-         'import importlib; module = importlib.import_module("agentic_rl.services.worker.app"); assert module.app is not None' \
+         'import importlib; module = importlib.import_module("agentic_rl.platform.worker_app"); assert module.app is not None' \
          >/dev/null 2>&1; then
       POOL_SERVER_PYTHON="${candidate}"
       break
@@ -83,7 +83,7 @@ fi
 if ! timeout 60 env \
   "PYTHONPATH=${TERMINAL_RL_DIR}/..${PYTHONPATH:+:${PYTHONPATH}}" \
   "${POOL_SERVER_PYTHON}" -c \
-  'import importlib; module = importlib.import_module("agentic_rl.services.worker.app"); assert module.app is not None'; then
+  'import importlib; module = importlib.import_module("agentic_rl.platform.worker_app"); assert module.app is not None'; then
   echo "[ERROR] pool_server Python dependency preflight failed for ${POOL_SERVER_PYTHON}." >&2
   echo "        Install deploy/workers/requirements-swesmith-worker.txt in that environment." >&2
   exit 2

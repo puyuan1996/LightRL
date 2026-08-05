@@ -7,8 +7,8 @@ from pathlib import Path
 
 import uvicorn
 
-import agentic_rl.services.router.app as router_app
-from agentic_rl.services.router.service import Router, _format_error, _parse_worker_urls_text
+import agentic_rl.platform.router_app as router_app
+from agentic_rl.platform.router import Router, _format_error, _parse_worker_urls_text
 
 logger = logging.getLogger("lightrl.env.router")
 

@@ -21,7 +21,7 @@ from urllib import error, request
 
 from agentic_rl.harnesses.claude_code.qwen_gateway import ClaudeCodeQwenGateway
 from agentic_rl.harnesses.claude_code.prompts import get_developer_agent_prompt
-from agentic_rl.core.types import Interaction, TurnResult
+from agentic_rl.platform.types import Interaction, TurnResult
 from agentic_rl.inference.sglang import SGLangTurnClient
 
 logger = logging.getLogger(__name__)

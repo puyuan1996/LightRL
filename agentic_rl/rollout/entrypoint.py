@@ -21,8 +21,8 @@ from slime.rollout.sglang_rollout import GenerateState
 from slime.utils.types import Sample
 
 from agentic_rl.harnesses.prm.agent import TerminalPRMAgent
-from agentic_rl.integrations.clawsentry.client import ClawSentryClient
-from agentic_rl.core.types import (
+from agentic_rl.misc.clawsentry import ClawSentryClient
+from agentic_rl.platform.types import (
     Interaction,
     RunContext,
     TaskSpec,
@@ -43,7 +43,7 @@ from agentic_rl.algorithms.dive_po.exploration.agent57.controller import (
     exit_code_bucket as _agent57_exit_code_bucket,
     record_arm_event as _agent57_record_arm_event,
 )
-from agentic_rl.rewards.safety import (
+from agentic_rl.misc.reward_safety import (
     DEFAULT_ZERO_THRESHOLD as _SAFETY_ZERO_THRESHOLD,
     broadcast_to_turns as _safety_broadcast,
     per_turn_score as _safety_per_turn_score,

@@ -102,12 +102,12 @@ def _install_import_stubs(monkeypatch):
     responses_mod.JSONResponse = _JSONResponse
     responses_mod.Response = _Response
 
-    custom_types_mod = types.ModuleType("agentic_rl.core.types")
+    custom_types_mod = types.ModuleType("agentic_rl.platform.types")
     custom_types_mod.TaskSpec = _TaskSpec
     custom_types_mod.RunContext = _RunContext
     custom_types_mod.TaskTimeouts = _TaskTimeouts
 
-    request_utils_mod = types.ModuleType("agentic_rl.services.http")
+    request_utils_mod = types.ModuleType("agentic_rl.platform.http")
 
     async def _json_payload(_request):
         return {}
@@ -142,14 +142,14 @@ def _install_import_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "uvicorn", types.ModuleType("uvicorn"))
     monkeypatch.setitem(sys.modules, "fastapi", fastapi_mod)
     monkeypatch.setitem(sys.modules, "fastapi.responses", responses_mod)
-    monkeypatch.setitem(sys.modules, "agentic_rl.core.types", custom_types_mod)
-    monkeypatch.setitem(sys.modules, "agentic_rl.services.http", request_utils_mod)
+    monkeypatch.setitem(sys.modules, "agentic_rl.platform.types", custom_types_mod)
+    monkeypatch.setitem(sys.modules, "agentic_rl.platform.http", request_utils_mod)
     monkeypatch.setitem(sys.modules, "agentic_rl.environments.terminal.runtime", terminal_env_mod)
     monkeypatch.setitem(
         sys.modules, "agentic_rl.environments.terminal.docker_compose", docker_compose_utils_mod
     )
-    sys.modules.pop("agentic_rl.services.worker.app", None)
-    return importlib.import_module("agentic_rl.services.worker.app")
+    sys.modules.pop("agentic_rl.platform.worker_app", None)
+    return importlib.import_module("agentic_rl.platform.worker_app")
 
 
 def _new_pool(pool_server_mod, env: _DummyEnv, tmp_path: Path):
@@ -173,7 +173,7 @@ def test_pressure_guard_rejects_allocate_on_low_pids_headroom(monkeypatch):
     monkeypatch.setenv("WORKER_PIDS_PAUSE_ALLOCATE_PCT", "99")
     monkeypatch.setenv("WORKER_PIDS_MIN_FREE_ALLOCATE", "6000")
     monkeypatch.setattr(
-        importlib.import_module("agentic_rl.services.worker.admission"),
+        importlib.import_module("agentic_rl.platform.worker_admission"),
         "worker_pressure_stats",
         lambda *args, **kwargs: {
             "procs": 100,
@@ -206,7 +206,7 @@ def test_pressure_guard_rejects_reset_on_low_pids_headroom(monkeypatch):
     monkeypatch.setenv("WORKER_PIDS_REJECT_RESET_PCT", "99")
     monkeypatch.setenv("WORKER_PIDS_MIN_FREE_RESET", "4000")
     monkeypatch.setattr(
-        importlib.import_module("agentic_rl.services.worker.admission"),
+        importlib.import_module("agentic_rl.platform.worker_admission"),
         "worker_pressure_stats",
         lambda *args, **kwargs: {
             "procs": 100,
@@ -1195,7 +1195,7 @@ def test_cancelled_orphan_sweep_joins_bounded_worker_thread(monkeypatch, tmp_pat
             return 0
 
         monkeypatch.setattr(
-            importlib.import_module("agentic_rl.services.worker.pool"),
+            importlib.import_module("agentic_rl.platform.worker_pool"),
             "force_remove_orphan_docker_objects",
             _blocking_sweep,
         )
@@ -1236,7 +1236,7 @@ def test_orphan_sweep_builtin_timeout_is_classified_on_python310(
             raise TimeoutError("deadline")
 
         monkeypatch.setattr(
-            importlib.import_module("agentic_rl.services.worker.pool"),
+            importlib.import_module("agentic_rl.platform.worker_pool"),
             "force_remove_orphan_docker_objects",
             _timed_out_sweep,
         )

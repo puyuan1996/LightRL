@@ -1,1 +1,52 @@
-# LightRL Architecture\n\nLightRL keeps the three independent extension axes explicit:\n\n- **Harness** controls how an agent turns model outputs into environment actions. Add adapters under `agentic_rl/harnesses/<name>/` and register their lazy import in `agentic_rl/core/registry.py`.\n- **Model** describes checkpoint/tokenizer/model-family defaults. Add profiles under `agentic_rl/models/` plus a `configs/model/<name>.yaml` fragment.\n- **Algorithm** owns optimization, exploration, and reward behavior. Add implementations under `agentic_rl/algorithms/<name>/` plus a `configs/algorithm/<name>.yaml` fragment.\n\nThe rollout layer (`agentic_rl/rollout/`) depends on protocols and the registry, not concrete harnesses, models, or algorithms. Environment runtimes live under `agentic_rl/environments/`; inference construction lives under `agentic_rl/inference/`. Shared infrastructure is separated into router/worker services, runtime path handling, reward primitives, and observability sinks.\n\n`agentic_rl/backends/slime/` is the maintained bridge into the top-level `slime/` training backend. `Megatron-LM/` remains a vendorized low-level backend. Neither vendor tree is imported into the framework core during config composition.\n\nDIVE-PO is implemented under `agentic_rl/algorithms/dive_po/`. Its Agent57-style exploration controller, rollout bonus calculation, persistence, and reward processing are separate modules. The only maintained public DIVE-PO recipe is `configs/experiment/dive_po_qwen3_8b_seta.yaml`; the versioned experiment wrapper preserves the exact v0716 filename for reproducibility.\n\nLWM remains WIP. Its LightRL-facing boundary is `agentic_rl/algorithms/lwm/`; code imported from the `lwm` branch is isolated under `slime/slime/world_model/`, with operational tooling under `tools/world_model/`.\n\nSite-specific scheduler commands, worker URLs, credentials, and cluster capacity are local state under ignored `local/cluster/`. They must not be added to portable experiment recipes.\n
+# LightRL Architecture
+
+LightRL keeps domain code visible and groups framework plumbing into two flat
+packages:
+
+```text
+agentic_rl/
+├── algorithms/      # optimization and exploration algorithms
+├── data/            # dataset conversion and download utilities
+├── environments/    # terminal and benchmark environments
+├── evaluation/      # evaluation adapters and reports
+├── harnesses/       # agent harnesses
+├── inference/       # inference clients
+├── models/          # model profiles
+├── rollout/         # rollout orchestration and trajectory handling
+├── platform/        # flat CLI, config, backend, runtime, router, and worker modules
+└── misc/            # flat rewards, observability, and third-party integrations
+```
+
+`platform/` contains infrastructure shared by multiple domains. Its files are
+named by purpose—such as `config_loader.py`, `worker_pool.py`, `router_app.py`,
+and `slime_train.sh`—instead of being nested under one-file package layers.
+
+`misc/` contains optional cross-cutting behavior: reward helpers, rollout
+logging/formatting, JSONL sinks, and the ClawSentry client. These modules do not
+define the main package architecture.
+
+The domain packages remain separate because they are real extension axes:
+
+- **Harness** controls how model output becomes environment actions. Add a
+  harness under `agentic_rl/harnesses/` and register it in
+  `agentic_rl/platform/registry.py`.
+- **Model** describes checkpoint, tokenizer, and model-family defaults. Add
+  profiles under `agentic_rl/models/` and config fragments under
+  `configs/model/`.
+- **Algorithm** owns optimization, exploration, and algorithm-specific reward
+  behavior. Add implementations under `agentic_rl/algorithms/` and config
+  fragments under `configs/algorithm/`.
+- **Environment** owns task runtime semantics. Add implementations under
+  `agentic_rl/environments/`.
+
+The maintained training bridge is `agentic_rl/platform/slime_train.sh`.
+`slime/` and `Megatron-LM/` remain vendorized backend trees and are not imported
+while composing configuration.
+
+DIVE-PO stays under `agentic_rl/algorithms/dive_po/` because its exploration
+controller, episodic/lifelong state, and reward processing form one cohesive
+algorithm rather than generic platform plumbing.
+
+Site-specific worker URLs, credentials, and scheduler capacity are local state
+under ignored `local/cluster/` paths or environment variables; they do not
+belong in portable experiment recipes.

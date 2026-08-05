@@ -81,7 +81,7 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-AGENTIC_RL_DIR="$(cd -- "${SCRIPT_DIR}/../../.." &>/dev/null && pwd)"
+AGENTIC_RL_DIR="$(cd -- "${SCRIPT_DIR}/.." &>/dev/null && pwd)"
 
 # Default robust blueprint based on the 2026-06-05 mixed DAPO Agent57/NGU-lite
 # run, with think rollout config enabled by default and DAPO dynamic sampling off.
@@ -507,4 +507,4 @@ export EXPLORE_RETRY_ATTEMPTS EXPLORE_RETRY_TRAJ_GAMMA
 export TERMINAL_STRUCTURED_METRICS TERMINAL_METRICS_JSONL TERMINAL_WANDB_METRIC_PROFILE
 
 # ── 12. Execute mixed nodynamic baseline script ──
-exec bash "${SCRIPT_DIR}/train.sh" "$@"
+exec bash "${SCRIPT_DIR}/slime_train.sh" "$@"

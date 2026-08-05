@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from agentic_rl.core.registry import REGISTRY
+from agentic_rl.platform.registry import REGISTRY
 
 
 def normalize_harness_name(value: str | None) -> str:

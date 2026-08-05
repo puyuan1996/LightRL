@@ -6,9 +6,9 @@ import os
 
 import uvicorn
 
-import agentic_rl.services.worker.app as worker_app
-from agentic_rl.core.types import TaskTimeouts
-from agentic_rl.services.worker.pool import WorkerPool
+import agentic_rl.platform.worker_app as worker_app
+from agentic_rl.platform.types import TaskTimeouts
+from agentic_rl.platform.worker_pool import WorkerPool
 
 logger = logging.getLogger("lightrl.env.worker")
 

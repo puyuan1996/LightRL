@@ -10,13 +10,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from agentic_rl.core.types import TaskTimeouts
+from agentic_rl.platform.types import TaskTimeouts
 from agentic_rl.environments.terminal.runtime import (
     TerminalEnv,
     force_remove_orphan_docker_objects,
 )
 from agentic_rl.environments.terminal.docker_compose import docker_image_build_status
-from agentic_rl.services.worker.admission import (
+from agentic_rl.platform.worker_admission import (
     CapacityError,
     ResetAdmissionBacklogError,
     ResetInProgressError,

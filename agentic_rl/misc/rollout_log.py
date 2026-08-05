@@ -1608,7 +1608,7 @@ def _env_enabled(name: str, default: str = "1") -> bool:
     }
 
 
-from agentic_rl.observability.sinks.jsonl import (
+from agentic_rl.misc.jsonl_sink import (
     write_structured_metrics as _write_structured_metrics,
 )
 
@@ -2794,7 +2794,7 @@ def _dataset_metrics(
     return log_dict, rows, split_rows
 
 
-from agentic_rl.observability.rollout.formatting import (
+from agentic_rl.misc.rollout_formatting import (
     _format_agent57_table,
     _format_dataset_table,
     _format_reward_breakdown_table,

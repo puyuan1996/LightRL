@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agentic_rl.core.registry import REGISTRY
+from agentic_rl.platform.registry import REGISTRY
 
 
 _TOP_LEVEL_SECTIONS = {

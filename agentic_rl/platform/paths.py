@@ -1,7 +1,7 @@
 """Centralized path management for a single training run.
 
 Usage in shell script:
-    RUN_ID=$(python3 -m agentic_rl.runtime.paths init --runs-root ./runs --ckpt-root /mnt/.../ckpt)
+    RUN_ID=$(python3 -m agentic_rl.platform.paths init --runs-root ./runs --ckpt-root /mnt/.../ckpt)
     # prints JSON with all paths to stdout
 
 Usage in Python (generate.py etc.):

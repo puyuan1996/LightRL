@@ -65,9 +65,9 @@ def _install_import_stubs() -> None:
     sys.modules.setdefault("agent", agent)
     sys.modules.setdefault("agentic_rl.harnesses.prm.agent", prm_agent)
 
-    for name in ("agentic_rl.integrations.clawsentry.client", "agentic_rl.inference.sglang", "agentic_rl.rollout.runner", "agentic_rl.environments.client"):
+    for name in ("agentic_rl.misc.clawsentry", "agentic_rl.inference.sglang", "agentic_rl.rollout.runner", "agentic_rl.environments.client"):
         module = types.ModuleType(name)
-        if name == "agentic_rl.integrations.clawsentry.client":
+        if name == "agentic_rl.misc.clawsentry":
             module.ClawSentryClient = object
         elif name == "agentic_rl.inference.sglang":
             module.SGLangTurnClient = object
@@ -78,17 +78,17 @@ def _install_import_stubs() -> None:
             module.TerminalEnvClient = object
         sys.modules.setdefault(name, module)
 
-    safety_reward = types.ModuleType("agentic_rl.rewards.safety")
+    safety_reward = types.ModuleType("agentic_rl.misc.reward_safety")
     safety_reward.DEFAULT_ZERO_THRESHOLD = 0.0
     safety_reward.broadcast_to_turns = lambda *_args, **_kwargs: {}
     safety_reward.per_turn_score = lambda *_args, **_kwargs: 0.0
     safety_reward.trajectory_score = lambda *_args, **_kwargs: 0.0
-    sys.modules.setdefault("agentic_rl.rewards.safety", safety_reward)
+    sys.modules.setdefault("agentic_rl.misc.reward_safety", safety_reward)
 
 
 _install_import_stubs()
 
-from agentic_rl.core.types import Interaction  # noqa: E402
+from agentic_rl.platform.types import Interaction  # noqa: E402
 from agentic_rl.rollout.entrypoint import _build_samples  # noqa: E402
 from slime.utils.types import Sample  # noqa: E402
 

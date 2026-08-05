@@ -21,13 +21,12 @@ Docker worker 执行，GPU 训练进程通过 `WORKER_URLS` 调用 worker；不�
 LightRL/
 ├── agentic_rl/
 │   ├── algorithms/             # GRPO、DAPO、DIVE-PO、LWM 扩展点
-│   ├── backends/slime/         # LightRL 到 Slime 的训练适配
-│   ├── config/                 # 配置组合、校验与快照
 │   ├── environments/           # 终端及 benchmark 环境
 │   ├── harnesses/              # Camel-Agent、Claude Code、PRM 适配
+│   ├── misc/                   # 奖励、可观测性与第三方集成
+│   ├── platform/               # 扁平的配置、CLI、后端与服务基础设施
 │   ├── rollout/                # rollout 编排、采样与轨迹管理
-│   ├── services/               # worker/router 服务
-│   └── observability/          # 指标与 rollout 日志
+│   └── data/                   # 数据转换与下载
 ├── configs/                    # 可组合配置及实验配方
 ├── examples/                   # 用户工作流：训练配方与端到端验证
 ├── benchmarks/                 # benchmark 数据与任务定义
@@ -56,7 +55,7 @@ LightRL/
 
 ```bash
 python3 -m pip install -e '.[rollout,worker,train]'
-python3 -m agentic_rl.cli --help
+python3 -m agentic_rl.platform.cli --help
 ```
 
 这不会自动准备模型权重、CUDA、Slime 或 Megatron-LM 运行环境。

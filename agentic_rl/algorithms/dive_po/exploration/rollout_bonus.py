@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 
 from slime.utils.types import Sample
 
-from agentic_rl.core.types import Interaction, RunContext
+from agentic_rl.platform.types import Interaction, RunContext
 from agentic_rl.algorithms.dive_po.exploration.agent57.memory import create_episodic_memory_backend
 from agentic_rl.algorithms.dive_po.exploration.agent57.controller import (
     coarse_observation_fingerprint as _agent57_coarse_observation_fingerprint,

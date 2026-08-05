@@ -153,7 +153,7 @@ bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
 预期出现 `IMPORT_SMOKE_OK`；dry-run 输出 JSON，`command` 指向
-`agentic_rl/backends/slime/runtime/train.sh`，且不启动 Ray/训练。
+`agentic_rl/platform/slime_train.sh`，且不启动 Ray/训练。
 
 ### 4. 启动最小 CPU Docker worker
 

@@ -1344,7 +1344,7 @@ def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
         encoding="utf-8"
     )
     pool_server = (
-        MODULE_PATH.parents[1] / "services" / "worker" / "pool.py"
+        MODULE_PATH.parents[1] / "platform" / "worker_pool.py"
     ).read_text(encoding="utf-8")
     assert 'WORKER_SHIM_CLEANUP_ENABLED="${WORKER_SHIM_CLEANUP_ENABLED:-0}"' in launcher
     assert 'WORKER_ORPHAN_DOCKER_SWEEP="${WORKER_ORPHAN_DOCKER_SWEEP:-1}"' in launcher
@@ -1359,7 +1359,7 @@ def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
     assert 'data_preflight=ok format=v' in launcher
     assert 'export POOL_SERVER_VENV' in launcher
     training = (
-        MODULE_PATH.parents[1] / "backends" / "slime" / "runtime" / "train.sh"
+        MODULE_PATH.parents[1] / "platform" / "slime_train.sh"
     ).read_text(encoding="utf-8")
     smoke = (
         MODULE_PATH.parents[2] / "tools" / "dev" / "smoke_swesmith_worker.py"
@@ -1823,7 +1823,7 @@ def test_smoke_observes_worker_close_cleanup_failure(
     )
 
     pool_source = (
-        MODULE_PATH.parents[1] / "services" / "worker" / "pool.py"
+        MODULE_PATH.parents[1] / "platform" / "worker_pool.py"
     ).read_text(encoding="utf-8")
     assert '"recent_close_failures"' in pool_source
     assert "_record_close_failure(" in pool_source

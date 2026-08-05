@@ -25,7 +25,7 @@ from terminal_bench.parsers.parser_factory import ParserFactory
 from terminal_bench.terminal.docker_compose_manager import DockerComposeManager
 from terminal_bench.terminal.terminal import Terminal
 
-from agentic_rl.core.types import RunContext, TaskSpec, TaskTimeouts
+from agentic_rl.platform.types import RunContext, TaskSpec, TaskTimeouts
 
 from agentic_rl.environments.agentharm.runtime import AgentHarmEnv
 from agentic_rl.environments.agent_safetybench.runtime import AgentSafetyBenchEnv

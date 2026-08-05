@@ -89,7 +89,7 @@ RuntimeError: cannot reuse already awaited coroutine
 
 涉及模块：
 
-- `agentic_rl/services/worker/pool.py`
+- `agentic_rl/platform/worker_pool.py`
 - `WorkerPool._run_reset_once()`
 
 ### 解决方案
@@ -97,7 +97,7 @@ RuntimeError: cannot reuse already awaited coroutine
 把 reset coroutine 显式包装成 `asyncio.Task`，warning 阶段只等待 task 是否完成，真正超时阶段用 `asyncio.shield(reset_task)`，避免 `wait_for` 直接消费裸 coroutine。
 
 ```python
-# agentic_rl/services/worker/pool.py:1185, WorkerPool._run_reset_once()
+# agentic_rl/platform/worker_pool.py:1185, WorkerPool._run_reset_once()
 reset_task = asyncio.create_task(
     run_slot.env.reset(
         task_meta=task_meta,
@@ -118,7 +118,7 @@ user_msg, tool_schemas = await asyncio.wait_for(
 超时后显式 cancel，并注册 callback 消费取消异常，避免后台 task 异常泄漏：
 
 ```python
-# agentic_rl/services/worker/pool.py:1231
+# agentic_rl/platform/worker_pool.py:1231
 except asyncio.TimeoutError as exc:
     if reset_task.done():
         raise
@@ -157,7 +157,7 @@ timeout 需要同时覆盖：
 worker 端对关键 timeout override 设置 floor，避免旧客户端把 `ensure_image`/`reset_session` 降到不合理的小值。
 
 ```python
-# agentic_rl/services/worker/pool.py:28, _parse_timeout_overrides()
+# agentic_rl/platform/worker_pool.py:28, _parse_timeout_overrides()
 def _pick(key: str, default: float, *, minimum: float | None = None) -> float:
     ...
     if minimum is not None and value < minimum:
@@ -222,7 +222,7 @@ reset_http_timeout = _env_float("ENV_RESET_HTTP_TIMEOUT", default_reset_http_tim
 当前 P0 优化将 close timeout 拆成 queue/session 两段，并在 `/status` 暴露。
 
 ```python
-# agentic_rl/services/worker/pool.py:543, WorkerPool.__init__()
+# agentic_rl/platform/worker_pool.py:543, WorkerPool.__init__()
 legacy_close_task_timeout = _env_float(
     "WORKER_CLOSE_TASK_TIMEOUT",
     max(30.0, float(default_timeouts.close_session) + 30.0),
@@ -238,7 +238,7 @@ self.close_task_timeout = self.close_queue_timeout + self.close_session_timeout
 ```
 
 ```python
-# agentic_rl/services/worker/pool.py:753
+# agentic_rl/platform/worker_pool.py:753
 await asyncio.wait_for(
     self._close_sem.acquire(), timeout=self.close_queue_timeout
 )
@@ -275,7 +275,7 @@ export WORKER_CLOSE_SESSION_TIMEOUT="${WORKER_CLOSE_SESSION_TIMEOUT:-60}"
 涉及模块：
 
 - `agentic_rl/environments/terminal/runtime.py`
-- `agentic_rl/services/worker/pool.py`
+- `agentic_rl/platform/worker_pool.py`
 - `agentic_rl/env_client.py`
 
 ### 解决方案
@@ -332,7 +332,7 @@ if not parser_results:
 `pool_server` 会把 details 返回给 RL client：
 
 ```python
-# agentic_rl/services/worker/pool.py:2815
+# agentic_rl/platform/worker_pool.py:2815
 score, details = await POOL.evaluate(str(lease_id), trajectory)
 payload: dict[str, Any] = {"ok": True, "score": score}
 if details is not None:
@@ -342,7 +342,7 @@ if details is not None:
 RL 侧默认 evaluate retry 降到 1：
 
 ```bash
-# agentic_rl/backends/slime/runtime/train.sh:372
+# agentic_rl/platform/slime_train.sh:372
 ENV_EVALUATE_MAX_RETRIES="${ENV_EVALUATE_MAX_RETRIES:-1}"
 ```
 
@@ -550,7 +550,7 @@ docker ps -a --format "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"
 `WorkerPool.periodic_reap()` 每轮调用：
 
 ```python
-# agentic_rl/services/worker/pool.py
+# agentic_rl/platform/worker_pool.py
 await self._maybe_cleanup_orphan_docker_containers()
 ```
 
@@ -574,7 +574,7 @@ TERMINAL_ENV_DOCKER_CLEANUP_WORKERS=8
 修复后，如果 reset future 已成功完成但 lease 已被 close 移除，直接返回 reset 结果，不再把它反报为 500：
 
 ```python
-# agentic_rl/services/worker/pool.py
+# agentic_rl/platform/worker_pool.py
 except KeyError:
     logger.info(
         "Reset completed after lease=%s was already removed; "
@@ -739,8 +739,8 @@ WORKER_AUTO_SERIALIZE_UNSAFE_COMPOSE=1 且 compose 含固定 service container_n
 
 ```bash
 # server 语法和 Python 编译
-python -m py_compile agentic_rl/environments/terminal/runtime.py agentic_rl/services/worker/app.py agentic_rl/environments/client.py agentic_rl/services/router/app.py
-bash -n deploy/workers/start_server.sh deploy/workers/run_pool_server_pu_v2.sh agentic_rl/backends/slime/runtime/train.sh
+python -m py_compile agentic_rl/environments/terminal/runtime.py agentic_rl/platform/worker_app.py agentic_rl/environments/client.py agentic_rl/platform/router_app.py
+bash -n deploy/workers/start_server.sh deploy/workers/run_pool_server_pu_v2.sh agentic_rl/platform/slime_train.sh
 
 # 运行日志关键字
 grep -E "Reset exceeds|WORKER_RESET_TIMEOUT|Forced container recreation|eval_timeout|eval_parse_failed|eval_no_results|Timed out closing|Docker cleanup detached|Docker compose down finished|fixed task service|Periodic orphan Docker sweep|Idle orphan reap|Reset-storm orphan reap|RUN_SLOTS_EXHAUSTED" cpu_pool.log

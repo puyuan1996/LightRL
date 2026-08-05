@@ -1,6 +1,6 @@
 """LightRL agentic RL package."""
 
-from .config.loader import load_config
-from .core.registry import REGISTRY
+from .platform.config_loader import load_config
+from .platform.registry import REGISTRY
 
 __all__ = ["REGISTRY", "load_config"]

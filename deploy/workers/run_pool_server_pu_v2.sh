@@ -813,7 +813,7 @@ start_pool_server_child() {
   # Use stdbuf for line-buffered output (real-time log visibility). Do not use
   # exec here: the launcher owns cleanup traps and must survive the child process.
   stdbuf -oL -eL \
-      "${POOL_SERVER_PYTHON}" -m agentic_rl.services.worker.cli \
+      "${POOL_SERVER_PYTHON}" -m agentic_rl.platform.worker_cli \
       --host 0.0.0.0 \
       --port "${ENV_SERVER_PORT}" \
       --max-tasks "${WORKER_MAX_TASKS}" \

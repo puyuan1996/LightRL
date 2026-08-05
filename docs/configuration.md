@@ -6,7 +6,7 @@ override only the values that differ.
 
 Configuration layers are:
 
-1. typed global defaults in `agentic_rl/config/schema.py`;
+1. typed global defaults in `agentic_rl/platform/config_schema.py`;
 2. repository defaults in `configs/defaults.yaml`;
 3. dimension configs under `configs/{harness,model,algorithm,environment,backend,cluster}`;
 4. an experiment recipe under `configs/experiment/`;
@@ -15,7 +15,7 @@ Configuration layers are:
 Example:
 
 ```bash
-python3 -m agentic_rl.cli compose \
+python3 -m agentic_rl.platform.cli compose \
   --config configs/experiment/dive_po_qwen3_8b_seta.yaml \
   cluster.num_gpus=4
 ```
@@ -24,7 +24,7 @@ Training resolves `runtime.launcher`, converts `runtime.env` values into a
 process environment, and then replaces the CLI process with the launcher:
 
 ```bash
-python3 -m agentic_rl.cli train \
+python3 -m agentic_rl.platform.cli train \
   --config configs/experiment/dive_po_qwen3_8b_seta.yaml
 ```
 

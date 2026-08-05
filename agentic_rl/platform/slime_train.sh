@@ -18,9 +18,9 @@
 #   3. Converted dataset files available.
 #
 # Usage:
-#   DATASET=mixed ALGO=dapo bash agentic_rl/backends/slime/runtime/train.sh
-#   DATASET=swe-smith ALGO=dapo bash agentic_rl/backends/slime/runtime/train.sh
-#   DATASET=seta ALGO=grpo bash agentic_rl/backends/slime/runtime/train.sh
+#   DATASET=mixed ALGO=dapo bash agentic_rl/platform/slime_train.sh
+#   DATASET=swe-smith ALGO=dapo bash agentic_rl/platform/slime_train.sh
+#   DATASET=seta ALGO=grpo bash agentic_rl/platform/slime_train.sh
 #
 # Structured reward observability:
 #   TERMINAL_STRUCTURED_METRICS=1 writes per-rollout dataset reward breakdowns
@@ -64,7 +64,7 @@ else
   sleep 2
   ray stop --force || true
   pkill -9 ray || true
-  pkill -9 -f "agentic_rl.services.router.cli" || true
+  pkill -9 -f "agentic_rl.platform.router_cli" || true
   sleep 2
 fi
 
@@ -97,8 +97,8 @@ fi
 log "GPU config: total=${NUM_GPUS}, actor=${ACTOR_GPUS}, rollout=${ROLLOUT_GPUS}, TP=${TP_SIZE}, engine_tp=${ROLLOUT_NUM_GPUS_PER_ENGINE}"
 
 # ── Paths ────────────────────────────────────────────────────────────
-RUNTIME_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-SCRIPT_DIR="$(cd -- "${RUNTIME_DIR}/../../.." &>/dev/null && pwd)"
+PLATFORM_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+SCRIPT_DIR="$(cd -- "${PLATFORM_DIR}/.." &>/dev/null && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 export REPO_ROOT
 export SLIME_DIR="${SLIME_DIR:-${REPO_ROOT}/slime}"
@@ -402,7 +402,7 @@ RUN_PATHS_CKPT_ROOT="${CKPT_ROOT}"
 if [[ "${DRY_RUN}" == "1" ]]; then
   RUN_PATHS_CKPT_ROOT="${RUN_DIR}/checkpoints"
 fi
-MAX_CKPT_KEEP="${MAX_CKPT_KEEP}" python3 "${REPO_ROOT}/agentic_rl/runtime/paths.py" init \
+MAX_CKPT_KEEP="${MAX_CKPT_KEEP}" python3 "${REPO_ROOT}/agentic_rl/platform/paths.py" init \
   --runs-root "${RUNS_ROOT}" \
   --ckpt-root "${RUN_PATHS_CKPT_ROOT}" \
   --run-id "${RUN_ID}" > /dev/null
@@ -622,13 +622,9 @@ if [[ "${HARNESS_OPTION}" == "claude-code" && "${DRY_RUN}" != "1" ]]; then
   claude_code_preflight
 fi
 
-# Symlinks for backward compatibility. Dry-run avoids touching stable repo links.
+# Keep one current-run pointer under the repository-level runs directory.
 if [[ "${DRY_RUN}" != "1" ]]; then
   ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/latest" 2>/dev/null || true
-  # Keep old logs/latest symlink for tools that expect it
-  LOG_BASE="${SCRIPT_DIR}/logs"
-  mkdir -p "${LOG_BASE}" 2>/dev/null || true
-  ln -sfn "${RUN_LOG_DIR}" "${LOG_BASE}/latest" 2>/dev/null || true
 fi
 
 # Only create ckpt dir and set SAVE_CKPT when saving is enabled
@@ -1795,8 +1791,8 @@ MISC_ARGS=(
 
 CUSTOM_ARGS=(
   --custom-generate-function-path agentic_rl.rollout.entrypoint.generate
-  --custom-rollout-log-function-path agentic_rl.observability.rollout.entrypoint.rollout_log
-  --custom-eval-rollout-log-function-path agentic_rl.observability.rollout.entrypoint.eval_rollout_log
+  --custom-rollout-log-function-path agentic_rl.misc.rollout_log.rollout_log
+  --custom-eval-rollout-log-function-path agentic_rl.misc.rollout_log.eval_rollout_log
 )
 if [[ "${EXPLORE_ADVANTAGE_BONUS_ENABLED}" == "1" ]]; then
   # Keep the historical hook as the default, while allowing an rjob variant to
@@ -1869,7 +1865,7 @@ if [[ "${NEEDS_ENV_ROUTER}" == "1" && "${START_ENV_POOL_SERVER}" == "1" ]]; then
   log "  readiness require_router=${ROUTER_REQUIRE_READY} wait_forever=${ROUTER_READY_WAIT_FOREVER} require_worker=${WORKER_PREFLIGHT_REQUIRE_READY} probe_timeout=${READY_PROBE_TIMEOUT}s worker_timeout=${ROUTER_READYZ_WORKER_TIMEOUT}s auto_close_stale=${AUTO_CLOSE_STALE_WORKER_RUNS}"
   (
     cd "${REPO_ROOT}"
-    "${ROUTER_PYTHON}" -m agentic_rl.services.router.cli \
+    "${ROUTER_PYTHON}" -m agentic_rl.platform.router_cli \
       --host "${ROUTER_HOST}" --port "${ROUTER_PORT}" --workers "${WORKER_URLS}" \
       --workers-file "${WORKER_URLS_FILE}" --workers-reload-interval "${WORKER_URLS_RELOAD_INTERVAL}" \
       > "${ROUTER_LOG}" 2>&1 &

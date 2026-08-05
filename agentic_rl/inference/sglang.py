@@ -22,7 +22,7 @@ from openai.types.responses.response_function_tool_call import ResponseFunctionT
 
 from slime.utils.http_utils import post as async_post
 
-from agentic_rl.core.types import Interaction
+from agentic_rl.platform.types import Interaction
 
 logger = logging.getLogger(__name__)
 

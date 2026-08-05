@@ -44,6 +44,16 @@ bash examples/training/train_glm_5_1_seta_dapo.sh --dry-run
 worker。站点专用地址放在环境变量或被 Git 忽略的
 `local/cluster/worker_urls.txt`，不要写入公共配置。
 
+若已在 rjob 内，并要复用当前的 Docker worker 启动完整 4-GPU SETA+DAPO 训练：
+
+```bash
+bash examples/training/launch_rjob_4gpu_seta_dapo.sh
+```
+
+该脚本默认使用 `http://100.98.75.44:18081`，在启动前检查 worker 健康状态和
+4 张可见 GPU，并将后台日志写入 `runs/<RUN_ID>/launcher.log`。可用
+`WORKER_URLS` 或 `RUN_ID` 覆盖默认值；`FOREGROUND=1` 则以前台方式运行。
+
 ## 验证入口
 
 CPU/Docker worker 主机：

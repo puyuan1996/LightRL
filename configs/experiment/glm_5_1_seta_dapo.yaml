@@ -10,7 +10,7 @@ experiment:
   name: glm_5_1_seta_dapo
 
 runtime:
-  launcher: agentic_rl/backends/slime/runtime/train.sh
+  launcher: agentic_rl/platform/slime_train.sh
   env:
     CUSTOM_CONFIG_PATH: configs/rollout/rollout_glm51_think.yaml
     MODEL_TAG: glm-5.1

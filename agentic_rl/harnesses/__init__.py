@@ -1,3 +1,3 @@
-from agentic_rl.core.registry import REGISTRY
+from agentic_rl.platform.registry import REGISTRY
 
 __all__ = ["REGISTRY"]

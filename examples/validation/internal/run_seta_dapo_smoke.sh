@@ -82,5 +82,5 @@ export ROLLOUT_GENERATION_MAX_RETRIES="${ROLLOUT_GENERATION_MAX_RETRIES:-2}"
 export ROLLOUT_GENERATION_RETRY_INITIAL_BACKOFF="${ROLLOUT_GENERATION_RETRY_INITIAL_BACKOFF:-20}"
 export ROLLOUT_GENERATION_RETRY_MAX_BACKOFF="${ROLLOUT_GENERATION_RETRY_MAX_BACKOFF:-60}"
 
-exec python3 -m agentic_rl.cli train \
+exec python3 -m agentic_rl.platform.cli train \
   --config configs/experiment/qwen3_8b_seta_dapo.yaml

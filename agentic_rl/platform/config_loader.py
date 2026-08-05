@@ -6,8 +6,8 @@ from typing import Any
 
 import yaml
 
-from agentic_rl.config.schema import LightRLConfig
-from agentic_rl.config.validation import validate_config
+from agentic_rl.platform.config_schema import LightRLConfig
+from agentic_rl.platform.config_validation import validate_config
 
 
 def _deep_merge(base: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:

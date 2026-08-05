@@ -15,8 +15,8 @@ from agentic_rl.environments.terminal.docker_compose import (
     DockerImagePreparationBacklogError,
     TaskImageBlacklistedError,
 )
-from agentic_rl.services.http import json_payload
-from agentic_rl.services.worker.admission import (
+from agentic_rl.platform.http import json_payload
+from agentic_rl.platform.worker_admission import (
     CapacityError,
     ResetAdmissionBacklogError,
     ResetInProgressError,
@@ -27,7 +27,7 @@ from agentic_rl.services.worker.admission import (
     docker_data_root_stats,
     worker_pressure_stats,
 )
-from agentic_rl.services.worker.pool import WorkerPool
+from agentic_rl.platform.worker_pool import WorkerPool
 
 logger = logging.getLogger("lightrl.env.worker.app")
 app = FastAPI()

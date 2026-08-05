@@ -23,7 +23,7 @@ For from-zero setup, hardening, watchdog, and recovery procedures, see the **ope
 | Script / file | Role |
 |---|---|
 | `run_pool_server_pu_v2.sh` | Hardened pool server launcher. Sources `/etc/seta_build_proxy.env`, sanity-checks dockerd, configures capacity, starts uvicorn |
-| `agentic_rl/services/worker/app.py` | FastAPI service exposed on port 18081 |
+| `agentic_rl/platform/worker_app.py` | FastAPI service exposed on port 18081 |
 | `agentic_rl/environments/terminal/runtime.py` | Environment client used by pool server |
 | `agentic_rl/environments/terminal/docker_compose.py` | Helper to build / up / down compose stacks |
 
@@ -69,7 +69,7 @@ bash deploy/workers/docker_worker_doctor.sh diagnose \
 
 ---
 
-## Optional environment variables (read by `agentic_rl/services/worker/app.py`)
+## Optional environment variables (read by `agentic_rl/platform/worker_app.py`)
 
 | Variable | Default | Description |
 |---|---|---|

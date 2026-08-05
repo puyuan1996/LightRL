@@ -75,8 +75,8 @@ def _restore_import_stubs(previous: dict[str, types.ModuleType | None]) -> None:
 def _import_rollout_log():
     previous = _install_rollout_log_import_stubs()
     try:
-        sys.modules.pop("agentic_rl.observability.rollout.entrypoint", None)
-        return importlib.import_module("agentic_rl.observability.rollout.entrypoint")
+        sys.modules.pop("agentic_rl.misc.rollout_log", None)
+        return importlib.import_module("agentic_rl.misc.rollout_log")
     finally:
         _restore_import_stubs(previous)
 

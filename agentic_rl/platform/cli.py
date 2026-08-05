@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from agentic_rl.config.loader import compose_config
+from agentic_rl.platform.config_loader import compose_config
 
 
 def _build_parser() -> argparse.ArgumentParser:

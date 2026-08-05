@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
-from agentic_rl.core.types import TurnContext, TurnResult
+from agentic_rl.platform.types import TurnContext, TurnResult
 from agentic_rl.harnesses.factory import create_harness, normalize_harness_name
 
 if TYPE_CHECKING:

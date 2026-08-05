@@ -231,8 +231,8 @@ def test_worker_and_harness_pin_official_inputs() -> None:
     assert "SWEVERIFIED_REQUIRE_PINNED_WORKER_DEPS" in worker
     assert "requirements-swesmith-worker.txt" in worker
     assert ".venv-swesmith-worker/bin/python" in worker
-    assert 'import_module("agentic_rl.services.worker.app")' in worker
-    assert worker.count('import_module("agentic_rl.services.worker.app")') == 2
+    assert 'import_module("agentic_rl.platform.worker_app")' in worker
+    assert worker.count('import_module("agentic_rl.platform.worker_app")') == 2
     assert "pool_server Python dependency preflight failed" in worker
     assert converter.SWEBENCH_COMMIT in harness
     assert converter.DATASET_NAME in harness
