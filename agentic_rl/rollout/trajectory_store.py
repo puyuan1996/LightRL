@@ -194,9 +194,17 @@ def _trajectory_task_id(task_spec: TaskSpec) -> str:
     return f"{slug}-{digest}"
 
 
-def _trajectory_reward_value(reward: Dict[str, Any]) -> float | None:
-    for key in ("total_reward", "score", "raw_reward", "raw_score", "accuracy"):
-        value = reward.get(key)
+# Canonical priority when guessing "the" reward value out of a reward dict or
+# an index record.  The writer side (shared._sync_reward_aliases) makes
+# total_reward the explicit alias of score; keep every reader on this order.
+_REWARD_VALUE_KEYS = ("total_reward", "score", "raw_reward", "raw_score", "accuracy")
+# Index records carry a numeric "reward" column that wins over the aliases.
+_RECORD_REWARD_KEYS = ("reward", "total_reward", "raw_reward", "raw_score")
+
+
+def _first_finite_reward(mapping: Dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        value = mapping.get(key)
         try:
             if value is None or value == "":
                 continue
@@ -206,6 +214,10 @@ def _trajectory_reward_value(reward: Dict[str, Any]) -> float | None:
         if math.isfinite(numeric):
             return numeric
     return None
+
+
+def _trajectory_reward_value(reward: Dict[str, Any]) -> float | None:
+    return _first_finite_reward(reward, _REWARD_VALUE_KEYS)
 
 
 def _format_reward_for_filename(value: float | None) -> str:
@@ -345,17 +357,7 @@ def _trajectory_load_index_cached(save_dir: Path) -> list[dict[str, Any]]:
 
 
 def _trajectory_record_reward(record: dict[str, Any]) -> float | None:
-    for key in ("reward", "total_reward", "raw_reward", "raw_score"):
-        try:
-            value = record.get(key)
-            if value is None or value == "":
-                continue
-            numeric = float(value)
-        except (TypeError, ValueError):
-            continue
-        if math.isfinite(numeric):
-            return numeric
-    return None
+    return _first_finite_reward(record, _RECORD_REWARD_KEYS)
 
 
 def _trajectory_record_ts(record: dict[str, Any]) -> int:
