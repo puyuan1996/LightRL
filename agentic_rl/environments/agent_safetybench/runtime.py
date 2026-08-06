@@ -8,7 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from agentic_rl.misc.reward_rules import (
+from agentic_rl.environments.reward_rules import (
         clip_score,
         collect_tool_calls,
         delayed_turn_penalty,

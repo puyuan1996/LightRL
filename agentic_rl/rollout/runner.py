@@ -4,7 +4,7 @@ import inspect
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
 from agentic_rl.platform.types import TurnContext, TurnResult
-from agentic_rl.harnesses.factory import create_harness, normalize_harness_name
+from agentic_rl.harnesses.factory import create_harness, display_harness_name, normalize_harness_name
 
 if TYPE_CHECKING:
     from agentic_rl.inference.sglang import SGLangTurnClient
@@ -37,12 +37,8 @@ class RolloutAgent(Protocol):
 
 
 def normalize_harness_option(value: str | None) -> str:
-    """Normalize a harness name through the extension registry."""
-    canonical = normalize_harness_name(value)
-    return {
-        "camel_agent": "camel-agent",
-        "claude_code_cli": "claude-code",
-    }.get(canonical, canonical.replace("_", "-"))
+    """Normalize a harness name to its display form via the extension registry."""
+    return display_harness_name(value)
 
 
 class AgentRunner:

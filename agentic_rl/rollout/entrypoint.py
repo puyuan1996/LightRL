@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from slime.rollout.sglang_rollout import GenerateState
 from slime.utils.types import Sample
 
-from agentic_rl.harnesses.prm.agent import TerminalPRMAgent
+from agentic_rl.algorithms.prm.agent import TerminalPRMAgent
 from agentic_rl.misc.clawsentry import ClawSentryClient
 from agentic_rl.platform.types import (
     Interaction,
@@ -27,7 +27,7 @@ from agentic_rl.algorithms.dive_po.exploration.agent57.controller import (
     compute_lifelong_bonus as _agent57_compute_lifelong_bonus,
     record_arm_event as _agent57_record_arm_event,
 )
-from agentic_rl.misc.reward_safety import (
+from agentic_rl.environments.reward_safety import (
     DEFAULT_ZERO_THRESHOLD as _SAFETY_ZERO_THRESHOLD,
     broadcast_to_turns as _safety_broadcast,
     per_turn_score as _safety_per_turn_score,

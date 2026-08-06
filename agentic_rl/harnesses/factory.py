@@ -15,6 +15,11 @@ _HARNESS_TARGETS = {
     "camel_agent": ("agentic_rl.harnesses.camel.agent", "CamelAgent"),
     "claude_code_cli": ("agentic_rl.harnesses.claude_code.agent", "ClaudeCodeAgent"),
 }
+# Canonical -> user-facing display name (logs, turn records, CLI help).
+_HARNESS_DISPLAY_NAMES = {
+    "camel_agent": "camel-agent",
+    "claude_code_cli": "claude-code",
+}
 
 
 def normalize_harness_name(value: str | None) -> str:
@@ -25,6 +30,12 @@ def normalize_harness_name(value: str | None) -> str:
         raise ValueError(
             f"Unsupported harness option: {value!r}. Available: camel-agent, claude-code"
         ) from exc
+
+
+def display_harness_name(value: str | None) -> str:
+    """Resolve any accepted harness alias to its canonical display name."""
+    canonical = normalize_harness_name(value)
+    return _HARNESS_DISPLAY_NAMES.get(canonical, canonical.replace("_", "-"))
 
 
 def create_harness(name: str, **kwargs: Any) -> Any:
