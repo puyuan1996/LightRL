@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from slime.utils.types import Sample
 
 from agentic_rl.platform.types import Interaction, TaskSpec
+from agentic_rl.algorithms.dive_po.rewards.shared import _sync_reward_aliases
 from agentic_rl.environments.registry import (
     safety_split_applies as _safety_split_applies,
 )
@@ -97,27 +98,6 @@ def _dapo_overlong_reward(response_length: int, cfg: dict[str, Any] | None) -> f
         return 0.0
     exceed_len = int(response_length) - int(cfg["expected_len"])
     return min(-exceed_len / float(cfg["buffer_len"]) * float(cfg["penalty_factor"]), 0.0)
-
-
-def _sync_reward_aliases(reward: Dict[str, Any] | None) -> None:
-    """Add explicit reward component aliases while preserving legacy keys."""
-    if not isinstance(reward, dict):
-        return
-
-    total = reward.get("score")
-    raw = reward.get("raw_score")
-    task = reward.get("base_score", raw)
-    exploration = reward.get("explore_total_bonus", 0.0)
-
-    if raw is None and total is not None:
-        raw = total
-    if task is None and raw is not None:
-        task = raw
-
-    reward["raw_reward"] = raw
-    reward["task_reward"] = task
-    reward["exploration_reward"] = exploration
-    reward["total_reward"] = total
 
 
 def _build_samples(

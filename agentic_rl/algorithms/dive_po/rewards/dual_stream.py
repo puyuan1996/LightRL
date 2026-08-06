@@ -1,8 +1,9 @@
-"""Conservative DiVE-PO dual-stream correction.
+"""DIVE-PO dual-stream reward post-processing (production default).
 
-This module deliberately keeps the existing episodic estimator, lifelong
-estimator, multiplicative NGU-lite signal, and UCB allocator unchanged.  It
-only corrects how the already-computed trajectory intrinsic signal is injected
+This is the default ``--custom-reward-post-process-path`` wired by
+``platform/slime_train.sh``.  It keeps the episodic estimator, lifelong
+estimator, multiplicative NGU-lite signal, and UCB allocator unchanged, and
+corrects how the already-computed trajectory intrinsic signal is injected
 after DAPO/GRPO reward normalization:
 
 1. normalize one intrinsic value per trajectory inside each prompt group;
@@ -10,6 +11,11 @@ after DAPO/GRPO reward normalization:
 3. preserve the existing quality gate by default, with an opt-in blend knob;
 4. center *after* arm/gate weighting, while keeping beta=0 control arms at 0;
 5. use a group-wise scale clip, which preserves the zero-sum property.
+
+When every intrinsic value in the batch is zero (baseline profiles) the
+output reduces to the base group normalization plus truncation penalties in
+``postprocess.py``.  Set ``DIVE_PO_CENTERED_GATE_ENABLED=0`` to fall back to
+``postprocess.post_process_rewards`` entirely.
 
 The public function matches slime's custom reward post-process interface.
 """
@@ -21,7 +27,7 @@ import math
 import os
 from typing import Any
 
-from agentic_rl.algorithms.dive_po.rewards import postprocess as legacy
+from agentic_rl.algorithms.dive_po.rewards import postprocess as base
 
 
 logger = logging.getLogger(__name__)
@@ -77,7 +83,7 @@ def _configured_max_beta(observed_betas: list[float]) -> float:
 
 
 def _trajectory_key(sample: Any, sample_position: int) -> tuple[int, int]:
-    group = legacy._sample_group_key(sample)
+    group = base._sample_group_key(sample)
     index = getattr(sample, "index", None)
     return group, int(index) if index is not None else int(sample_position)
 
@@ -99,10 +105,10 @@ def _soft_gate(sample: Any, quality_blend: float) -> dict[str, float]:
     trust_present = isinstance(reward, dict) and trust_key in reward
     trust = _component(sample, trust_key, 1.0 if not trust_present else 0.0)
     trust = max(0.0, min(1.0, trust))
-    status_scale = max(0.0, min(1.0, legacy._status_intrinsic_scale(sample)))
+    status_scale = max(0.0, min(1.0, base._status_intrinsic_scale(sample)))
     reliability = trust * status_scale
 
-    quality, outcome, status_floor = legacy._quality_gate(sample)
+    quality, outcome, status_floor = base._quality_gate(sample)
     blend = max(0.0, min(1.0, quality_blend))
     gate = (1.0 - blend) * reliability + blend * quality
 
@@ -136,7 +142,7 @@ def _centered_dual_stream(
         "explore_agent57_intrinsic_signal",
     ).strip()
     intrinsic_values = [_component(sample, intrinsic_key) for sample in samples]
-    intrinsic_adv = legacy._group_normalize_sample_values(
+    intrinsic_adv = base._group_normalize_sample_values(
         args,
         samples,
         intrinsic_values,
@@ -148,8 +154,8 @@ def _centered_dual_stream(
     )
     schedule = os.getenv("EXPLORE_ADVANTAGE_LAMBDA_SCHEDULE", "constant").strip()
     decay_steps = max(0, _env_int("EXPLORE_ADVANTAGE_LAMBDA_DECAY_STEPS", 0))
-    train_step = legacy._batch_train_step(samples)
-    schedule_multiplier = legacy._schedule_multiplier(schedule, train_step, decay_steps)
+    train_step = base._batch_train_step(samples)
+    schedule_multiplier = base._schedule_multiplier(schedule, train_step, decay_steps)
     effective_lambda = lambda_coef * schedule_multiplier
     # eta=1 is the correctness-only setting: preserve the proven v0710 quality
     # gate.  Values below 1 are an experimental ablation, not part of this fix.
@@ -279,7 +285,7 @@ def _centered_dual_stream(
                 }
             )
 
-    return legacy._apply_truncation_penalties(
+    return base._apply_truncation_penalties(
         samples,
         adjusted,
         exploration_extra=exploration_extra,
@@ -294,6 +300,6 @@ def post_process_rewards(
     if not samples:
         return [], []
     if not _env_flag("DIVE_PO_CENTERED_GATE_ENABLED", "1"):
-        return legacy.post_process_rewards(args, samples)
-    raw_rewards, base_rewards = legacy._default_post_process(args, samples)
+        return base.post_process_rewards(args, samples)
+    raw_rewards, base_rewards = base._default_post_process(args, samples)
     return raw_rewards, _centered_dual_stream(args, samples, base_rewards)

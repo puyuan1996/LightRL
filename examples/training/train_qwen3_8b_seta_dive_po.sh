@@ -50,7 +50,7 @@ export EXPLORE_TRUNCATION_PENALTY="${EXPLORE_TRUNCATION_PENALTY:--0.01}"
 export EXPLORE_TRUNCATION_PENALTY_OUTCOME_AWARE="${EXPLORE_TRUNCATION_PENALTY_OUTCOME_AWARE:-1}"
 export DIVE_PO_CENTERED_GATE_ENABLED="${DIVE_PO_CENTERED_GATE_ENABLED:-1}"
 export DIVE_PO_GATE_QUALITY_BLEND="${DIVE_PO_GATE_QUALITY_BLEND:-1.0}"
-export CUSTOM_REWARD_POST_PROCESS_PATH="${CUSTOM_REWARD_POST_PROCESS_PATH:-agentic_rl.algorithms.dive_po.rewards.centered_gate.post_process_rewards}"
+export CUSTOM_REWARD_POST_PROCESS_PATH="${CUSTOM_REWARD_POST_PROCESS_PATH:-agentic_rl.algorithms.dive_po.rewards.dual_stream.post_process_rewards}"
 
 # shellcheck source=../../../agentic_rl/algorithms/dive_po/defaults.sh
 source "${REPO_ROOT}/agentic_rl/algorithms/dive_po/defaults.sh"

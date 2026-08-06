@@ -15,6 +15,17 @@ from slime.utils.types import Sample
 from slime.ray.rollout import compute_rollout_step
 
 from agentic_rl.algorithms.dive_po.rewards.shared import (
+    _batch_train_step,
+    _component_value,
+    _group_normalize_sample_values as _group_normalize_values_for_log,
+    _outcome_score,
+    _quality_gate,
+    _sample_group_key,
+    _sample_train_step,
+    _sample_traj_key,
+    _status_intrinsic_scale,
+    _status_name,
+    _status_quality_floor,
     advantage_gate_mode as _advantage_gate_mode,
     clamp01 as _clamp01,
     env_int as _env_int,
@@ -497,80 +508,6 @@ def _advantage_bonus_enabled() -> bool:
     )
 
 
-def _component_value(sample: Sample, key: str) -> float:
-    value = _reward_value(sample, key)
-    return 0.0 if value is None else float(value)
-
-
-
-def _sample_train_step(sample: Sample) -> Any:
-    metadata = getattr(sample, "metadata", None)
-    if isinstance(metadata, dict):
-        for key in ("train_step", "rollout_step", "rollout_id"):
-            if metadata.get(key) is not None:
-                return metadata.get(key)
-    reward = getattr(sample, "reward", None)
-    if isinstance(reward, dict):
-        for key in ("train_step", "rollout_step", "rollout_id"):
-            if reward.get(key) is not None:
-                return reward.get(key)
-    return None
-
-
-def _batch_train_step(samples: list[Sample]) -> Any:
-    values = [_sample_train_step(sample) for sample in samples]
-    numeric: list[float] = []
-    for value in values:
-        if value is None:
-            continue
-        try:
-            numeric.append(float(value))
-        except (TypeError, ValueError):
-            continue
-    if numeric:
-        return max(numeric)
-    return next((value for value in values if value is not None), None)
-
-
-def _status_intrinsic_scale(sample: Sample) -> float:
-    status = _status_name(sample)
-    if "truncated" in status:
-        return max(0.0, _env_float("EXPLORE_ADVANTAGE_TRUNCATED_INTRINSIC_SCALE", 1.0))
-    if any(part in status for part in ("failed", "aborted")):
-        return max(0.0, _env_float("EXPLORE_ADVANTAGE_FAILED_INTRINSIC_SCALE", 1.0))
-    return 1.0
-
-
-
-
-
-
-def _outcome_score(sample: Sample) -> float:
-    for key in _outcome_candidate_keys():
-        value = _reward_value(sample, key)
-        if value is not None:
-            return _normalize_outcome_value(key, value)
-    status = _status_name(sample)
-    return 1.0 if "completed" in status else 0.0
-
-
-def _status_quality_floor(sample: Sample) -> float:
-    status = _status_name(sample)
-    if "truncated" in status:
-        return _clamp01(_env_float("EXPLORE_ADVANTAGE_TRUNCATED_FLOOR", 0.15))
-    if "aborted" in status:
-        return _clamp01(_env_float("EXPLORE_ADVANTAGE_ABORTED_FLOOR", 0.0))
-    if "failed" in status:
-        return _clamp01(_env_float("EXPLORE_ADVANTAGE_FAILED_FLOOR", 0.0))
-    return _clamp01(_env_float("EXPLORE_ADVANTAGE_COMPLETED_FLOOR", 0.5))
-
-
-def _quality_gate(sample: Sample) -> tuple[float, float, float]:
-    outcome = _outcome_score(sample)
-    floor = _status_quality_floor(sample)
-    return _clamp01(floor + (1.0 - floor) * outcome), outcome, floor
-
-
 def _truncation_penalty(sample: Sample) -> float:
     penalty_value = _env_float(
         "EXPLORE_TRUNCATION_PENALTY",
@@ -581,58 +518,6 @@ def _truncation_penalty(sample: Sample) -> float:
     if _env_enabled("EXPLORE_TRUNCATION_PENALTY_OUTCOME_AWARE", "0"):
         return float(penalty_value * (1.0 - _outcome_score(sample)))
     return float(penalty_value)
-
-
-def _sample_group_key(sample: Sample) -> int:
-    try:
-        return int(sample.group_index) if getattr(sample, "group_index", None) is not None else -1
-    except (TypeError, ValueError):
-        return -1
-
-
-def _sample_traj_key(sample: Sample, sample_idx: int) -> tuple[int, int]:
-    try:
-        traj_idx = int(sample.index) if getattr(sample, "index", None) is not None else sample_idx
-    except (TypeError, ValueError):
-        traj_idx = sample_idx
-    return _sample_group_key(sample), traj_idx
-
-
-
-def _group_normalize_values_for_log(
-    args: Any,
-    samples: list[Sample],
-    values: list[float],
-) -> list[float]:
-    use_std = bool(getattr(args, "grpo_std_normalization", False))
-    if getattr(args, "dynamic_history", False):
-        value_by_key: dict[tuple[int, int], float] = {}
-        group_to_keys: dict[int, list[tuple[int, int]]] = {}
-        key_by_sample: list[tuple[int, int]] = []
-        for i, sample in enumerate(samples):
-            key = _sample_traj_key(sample, i)
-            key_by_sample.append(key)
-            if key not in value_by_key:
-                value_by_key[key] = float(values[i])
-                group_to_keys.setdefault(key[0], []).append(key)
-
-        normalized_by_key: dict[tuple[int, int], float] = {}
-        for keys in group_to_keys.values():
-            vals = _normalize_values([value_by_key[k] for k in keys], use_std)
-            for j, key in enumerate(keys):
-                normalized_by_key[key] = float(vals[j])
-        return [normalized_by_key[key] for key in key_by_sample]
-
-    group_to_indices: dict[int, list[int]] = defaultdict(list)
-    for i, sample in enumerate(samples):
-        group_to_indices[_sample_group_key(sample)].append(i)
-
-    normalized = list(values)
-    for idxs in group_to_indices.values():
-        vals = _normalize_values([values[i] for i in idxs], use_std)
-        for j, sample_idx in enumerate(idxs):
-            normalized[sample_idx] = float(vals[j])
-    return normalized
 
 
 def _expected_post_norm_intrinsic_values(args: Any, samples: list[Sample]) -> list[float]:
@@ -917,13 +802,6 @@ def _response_length(sample: Sample) -> float | None:
     if value is None:
         value = getattr(sample, "response_length", None)
     return _to_float(value)
-
-
-def _status_name(sample: Sample) -> str:
-    status = getattr(sample, "status", None)
-    if isinstance(status, Sample.Status):
-        return status.value
-    return str(status or "unknown").lower()
 
 
 def _task_identity(sample: Sample) -> str:

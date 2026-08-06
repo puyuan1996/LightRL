@@ -1814,7 +1814,7 @@ CUSTOM_ARGS=(
 if [[ "${EXPLORE_ADVANTAGE_BONUS_ENABLED}" == "1" ]]; then
   # Keep the historical hook as the default, while allowing an rjob variant to
   # test a drop-in post-process fix without forking this large launcher.
-  CUSTOM_REWARD_POST_PROCESS_PATH="${CUSTOM_REWARD_POST_PROCESS_PATH:-agentic_rl.algorithms.dive_po.rewards.postprocess.post_process_rewards}"
+  CUSTOM_REWARD_POST_PROCESS_PATH="${CUSTOM_REWARD_POST_PROCESS_PATH:-agentic_rl.algorithms.dive_po.rewards.dual_stream.post_process_rewards}"
   CUSTOM_ARGS+=(--custom-reward-post-process-path "${CUSTOM_REWARD_POST_PROCESS_PATH}")
 fi
 # --custom-config-path is optional in slime; only attach it if the yaml exists.

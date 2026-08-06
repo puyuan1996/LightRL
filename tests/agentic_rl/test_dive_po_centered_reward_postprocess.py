@@ -10,7 +10,7 @@ TERMINAL_RL = Path(__file__).resolve().parents[2] / "agentic_rl"
 if str(TERMINAL_RL) not in sys.path:
     sys.path.insert(0, str(TERMINAL_RL))
 
-from agentic_rl.algorithms.dive_po.rewards import centered_gate as centered  # noqa: E402
+from agentic_rl.algorithms.dive_po.rewards import dual_stream as centered  # noqa: E402
 
 
 class DummySample:
