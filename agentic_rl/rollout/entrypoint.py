@@ -36,7 +36,7 @@ from agentic_rl.misc.reward_safety import (
 
 logger = logging.getLogger(__name__)
 
-_DIRECT_SCORE_DATA_SOURCES = {"agent_safetybench", "agentharm", "tau2"}
+from agentic_rl.environments.registry import direct_score_source, safety_reward_mode
 
 
 from agentic_rl.platform.env import (
@@ -134,9 +134,6 @@ async def generate(
     if not isinstance(sample.metadata, dict):
         sample.metadata = {}
     data_source = str(task_meta.get("data_source", ""))
-    seta_safety_mode = os.getenv("SETA_SAFETY", "none")
-    safety_bench_reward_mode = os.getenv("SAFETY_BENCH_REWARD", "rule")
-    agentharm_reward_mode = os.getenv("AGENTHARM_REWARD", "rule")
     uid = (sample.metadata or {}).get("uid") or uuid.uuid4().hex[:8]
     group_index = int(sample.group_index) if sample.group_index is not None else -1
     sample_index = int(sample.index) if sample.index is not None else -1
@@ -218,12 +215,7 @@ async def generate(
     prm_turn_scores: dict[int, float] = {}
     prm_turn_details: list[dict[str, Any]] = []
 
-    if data_source == "agent_safetybench":
-        safety_enable = safety_bench_reward_mode == "clawsentry"
-    elif data_source == "agentharm":
-        safety_enable = agentharm_reward_mode == "clawsentry"
-    else:
-        safety_enable = seta_safety_mode == "clawsentry"
+    safety_enable = safety_reward_mode(data_source) == "clawsentry"
     safety_enable = safety_enable and (not evaluation)
     safety_coef = _env_float("SAFETY_REWARD_COEF", 0.0)
     traj_save_interval = _trajectory_save_interval(args, data_source=data_source)
@@ -783,7 +775,7 @@ async def generate(
                 assert env_client is not None and lease_id is not None
                 await env_client.heartbeat(lease_id)
                 eval_payload = None
-                if data_source in _DIRECT_SCORE_DATA_SOURCES:
+                if direct_score_source(data_source):
                     eval_payload = _build_agent_safetybench_eval_payload(
                         task_meta=task_meta,
                         turn_records=turn_records,
@@ -947,8 +939,8 @@ async def generate(
             safety_coef=safety_coef,
             discount=1.0,
             encourage=False,
-            outcome_is_score=(data_source in _DIRECT_SCORE_DATA_SOURCES),
-            penalize_short_response=(data_source not in _DIRECT_SCORE_DATA_SOURCES),
+            outcome_is_score=direct_score_source(data_source),
+            penalize_short_response=not direct_score_source(data_source),
             dapo_overlong_cfg=dapo_overlong_cfg,
         )
         if dapo_overlong_cfg is not None:

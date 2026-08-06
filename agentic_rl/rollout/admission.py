@@ -45,36 +45,9 @@ _REMOTE_ENV_CLOSE_LIMIT: int | None = None
 _REMOTE_ENV_CLOSE_SEMAPHORE_LOCK: asyncio.Lock | None = None  # P1 fix: Add lock for semaphore recreation
 
 
-def _uses_local_agent_safetybench_env(task_meta: Dict[str, Any] | None) -> bool:
-    return (
-        isinstance(task_meta, dict)
-        and task_meta.get("data_source") == "agent_safetybench"
-        and os.getenv("AGENT_SAFETYBENCH_REMOTE_ENV", "0") != "1"
-    )
-
-
-def _uses_local_agentharm_env(task_meta: Dict[str, Any] | None) -> bool:
-    return (
-        isinstance(task_meta, dict)
-        and task_meta.get("data_source") == "agentharm"
-        and os.getenv("AGENTHARM_REMOTE_ENV", "0") != "1"
-    )
-
-
-def _uses_local_tau2_env(task_meta: Dict[str, Any] | None) -> bool:
-    return (
-        isinstance(task_meta, dict)
-        and task_meta.get("data_source") == "tau2"
-        and os.getenv("TAU2_REMOTE_ENV", "0") != "1"
-    )
-
-
-def _uses_remote_terminal_env(task_meta: Dict[str, Any] | None) -> bool:
-    return not (
-        _uses_local_agent_safetybench_env(task_meta)
-        or _uses_local_agentharm_env(task_meta)
-        or _uses_local_tau2_env(task_meta)
-    )
+from agentic_rl.environments.registry import (
+    uses_remote_terminal_env as _uses_remote_terminal_env,
+)
 
 
 _TASK_CIRCUIT: dict[str, dict[str, Any]] = {}

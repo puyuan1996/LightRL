@@ -8,6 +8,9 @@ from typing import Any, Dict, List
 from slime.utils.types import Sample
 
 from agentic_rl.platform.types import Interaction, TaskSpec
+from agentic_rl.environments.registry import (
+    safety_split_applies as _safety_split_applies,
+)
 from agentic_rl.rollout.trajectory_store import _optional_int
 
 
@@ -47,7 +50,7 @@ def _last_eval_details(env_client: Any) -> dict[str, Any] | None:
 
 def _safety_split_from_meta(task_meta: dict[str, Any]) -> str:
     data_source = str(task_meta.get("data_source") or "")
-    if data_source not in {"agent_safetybench", "agentharm"}:
+    if not _safety_split_applies(data_source):
         return "agentic"
     raw = task_meta.get("fulfillable")
     try:

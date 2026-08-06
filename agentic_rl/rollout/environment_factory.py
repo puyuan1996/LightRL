@@ -1,40 +1,22 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict
 
 from agentic_rl.platform.types import RunContext, TaskSpec
 from agentic_rl.environments.client import TerminalEnvClient
+from agentic_rl.environments.protocol import EnvClient
+from agentic_rl.environments.registry import local_env_spec
+from agentic_rl.rollout.admission import _await_with_optional_timeout
 from agentic_rl.rollout.sample_builder import _make_task_spec
 
 logger = logging.getLogger(__name__)
 
 
 from agentic_rl.platform.env import env_float as _env_float
-
-
-async def _await_with_optional_timeout(awaitable, timeout: float, *, op_name: str):
-    if timeout <= 0:
-        return await awaitable
-    try:
-        return await asyncio.wait_for(awaitable, timeout=timeout)
-    except asyncio.TimeoutError as exc:
-        raise TimeoutError(f"{op_name} timed out after {timeout:.1f}s") from exc
-
-
-def _uses_local_agent_safetybench_env(task_meta: Dict[str, Any] | None) -> bool:
-    return isinstance(task_meta, dict) and task_meta.get("data_source") == "agent_safetybench" and os.getenv("AGENT_SAFETYBENCH_REMOTE_ENV", "0") != "1"
-
-
-def _uses_local_agentharm_env(task_meta: Dict[str, Any] | None) -> bool:
-    return isinstance(task_meta, dict) and task_meta.get("data_source") == "agentharm" and os.getenv("AGENTHARM_REMOTE_ENV", "0") != "1"
-
-
-def _uses_local_tau2_env(task_meta: Dict[str, Any] | None) -> bool:
-    return isinstance(task_meta, dict) and task_meta.get("data_source") == "tau2" and os.getenv("TAU2_REMOTE_ENV", "0") != "1"
 
 
 def _normalize_tau2_conversation_mode(raw_mode: Any) -> str:
@@ -44,11 +26,17 @@ def _normalize_tau2_conversation_mode(raw_mode: Any) -> str:
     return "solo"
 
 
-class _LocalAgentSafetyBenchClient:
-    def __init__(self) -> None:
-        from agentic_rl.environments.agent_safetybench.runtime import AgentSafetyBenchEnv
+class _LocalEnvClient:
+    """Adapt an in-process env runtime to the :class:`EnvClient` protocol.
 
-        self._env = AgentSafetyBenchEnv()
+    The runtime only needs ``reset/exec_tool/evaluate/close``; ``agent_reply``
+    is exercised solely for tau2-style dual-agent tasks and is guarded by the
+    data source upstream.
+    """
+
+    def __init__(self, env: Any, *, conversation_mode: str | None = None) -> None:
+        self._env = env
+        self._conversation_mode = conversation_mode
         self.last_evaluate_details: dict[str, Any] | None = None
 
     async def reset(
@@ -57,8 +45,9 @@ class _LocalAgentSafetyBenchClient:
         task_meta: dict[str, Any],
         run_ctx: dict[str, Any],
         task_timeouts: dict[str, Any] | None = None,
+        request_id: str | None = None,
     ) -> dict[str, Any]:
-        _ = (lease_id, task_timeouts)
+        _ = (lease_id, task_timeouts, request_id)
         local_run_ctx = RunContext(
             uid=str(run_ctx.get("uid", "local")),
             group_index=int(run_ctx.get("group_index", 0) or 0),
@@ -77,127 +66,10 @@ class _LocalAgentSafetyBenchClient:
             task_spec=_make_task_spec(task_meta),
             run_ctx=local_run_ctx,
         )
-        return {"user_msg": user_msg, "tool_schemas": tool_schemas}
-
-    async def heartbeat(self, lease_id: str) -> None:
-        _ = lease_id
-
-    async def exec_tool(
-        self, lease_id: str, tool_name: str, arguments: dict[str, Any]
-    ) -> str:
-        _ = lease_id
-        return await self._env.exec_tool(tool_name, arguments)
-
-    async def evaluate(
-        self, lease_id: str, trajectory: dict[str, Any] | None = None
-    ) -> float:
-        _ = lease_id
-        score = await self._env.evaluate(trajectory)
-        self.last_evaluate_details = getattr(self._env, "_last_eval", None)
-        return score
-
-    async def close(self, lease_id: str) -> None:
-        _ = lease_id
-        await self._env.close()
-
-
-class _LocalAgentHarmClient:
-    def __init__(self) -> None:
-        from agentic_rl.environments.agentharm.runtime import AgentHarmEnv
-
-        self._env = AgentHarmEnv()
-        self.last_evaluate_details: dict[str, Any] | None = None
-
-    async def reset(
-        self,
-        lease_id: str,
-        task_meta: dict[str, Any],
-        run_ctx: dict[str, Any],
-        task_timeouts: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        _ = (lease_id, task_timeouts)
-        local_run_ctx = RunContext(
-            uid=str(run_ctx.get("uid", "local")),
-            group_index=int(run_ctx.get("group_index", 0) or 0),
-            sample_index=int(run_ctx.get("sample_index", 0) or 0),
-            log_dir=Path(
-                str(
-                    run_ctx.get(
-                        "log_dir",
-                        "runs/unscoped/environment_outputs/AgentRunner_Output",
-                    )
-                )
-            ),
-        )
-        user_msg, tool_schemas = await self._env.reset(
-            task_meta=task_meta,
-            task_spec=_make_task_spec(task_meta),
-            run_ctx=local_run_ctx,
-        )
-        return {"user_msg": user_msg, "tool_schemas": tool_schemas}
-
-    async def heartbeat(self, lease_id: str) -> None:
-        _ = lease_id
-
-    async def exec_tool(
-        self, lease_id: str, tool_name: str, arguments: dict[str, Any]
-    ) -> str:
-        _ = lease_id
-        return await self._env.exec_tool(tool_name, arguments)
-
-    async def evaluate(
-        self, lease_id: str, trajectory: dict[str, Any] | None = None
-    ) -> float:
-        _ = lease_id
-        score = await self._env.evaluate(trajectory)
-        self.last_evaluate_details = getattr(self._env, "_last_eval", None)
-        return score
-
-    async def close(self, lease_id: str) -> None:
-        _ = lease_id
-        await self._env.close()
-
-
-class _LocalTau2Client:
-    def __init__(self) -> None:
-        from agentic_rl.environments.tau2.runtime import Tau2Env
-
-        self._env = Tau2Env()
-        self.last_evaluate_details: dict[str, Any] | None = None
-
-    async def reset(
-        self,
-        lease_id: str,
-        task_meta: dict[str, Any],
-        run_ctx: dict[str, Any],
-        task_timeouts: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        _ = (lease_id, task_timeouts)
-        local_run_ctx = RunContext(
-            uid=str(run_ctx.get("uid", "local")),
-            group_index=int(run_ctx.get("group_index", 0) or 0),
-            sample_index=int(run_ctx.get("sample_index", 0) or 0),
-            log_dir=Path(
-                str(
-                    run_ctx.get(
-                        "log_dir",
-                        "runs/unscoped/environment_outputs/AgentRunner_Output",
-                    )
-                )
-            ),
-        )
-        user_msg, tool_schemas = await self._env.reset(
-            task_meta=task_meta,
-            task_spec=_make_task_spec(task_meta),
-            run_ctx=local_run_ctx,
-        )
-        return {
-            "user_msg": user_msg,
-            "tool_schemas": tool_schemas,
-            "conversation_mode": _normalize_tau2_conversation_mode(
-                task_meta.get("tau2_mode")
-            ),
-        }
+        payload: dict[str, Any] = {"user_msg": user_msg, "tool_schemas": tool_schemas}
+        if self._conversation_mode is not None:
+            payload["conversation_mode"] = self._conversation_mode
+        return payload
 
     async def heartbeat(self, lease_id: str) -> None:
         _ = lease_id
@@ -229,30 +101,26 @@ async def _create_env_client(
     task_spec: TaskSpec,
     run_ctx: RunContext,
     task_meta: Dict[str, Any] | None = None,
-) -> tuple[Any, str]:
-    if _uses_local_agent_safetybench_env(task_meta):
+) -> tuple[EnvClient, str]:
+    spec = local_env_spec(task_meta)
+    if spec is not None:
+        module_name, class_name = spec.local_runtime
+        env_class = getattr(import_module(module_name), class_name)
+        conversation_mode = (
+            _normalize_tau2_conversation_mode(task_meta.get("tau2_mode"))
+            if spec.data_source == "tau2" and isinstance(task_meta, dict)
+            else None
+        )
         logger.info(
-            "Using local Agent-SafetyBench env backend for task=%s path=%s",
+            "Using local %s env backend for task=%s path=%s",
+            spec.data_source,
             task_spec.task_name,
             task_spec.task_path,
         )
-        return _LocalAgentSafetyBenchClient(), "local-agent-safetybench"
-
-    if _uses_local_agentharm_env(task_meta):
-        logger.info(
-            "Using local AgentHarm env backend for task=%s path=%s",
-            task_spec.task_name,
-            task_spec.task_path,
+        return (
+            _LocalEnvClient(env_class(), conversation_mode=conversation_mode),
+            spec.local_lease_id,
         )
-        return _LocalAgentHarmClient(), "local-agentharm"
-
-    if _uses_local_tau2_env(task_meta):
-        logger.info(
-            "Using local tau2 env backend for task=%s path=%s",
-            task_spec.task_name,
-            task_spec.task_path,
-        )
-        return _LocalTau2Client(), "local-tau2"
 
     env_server_url = os.getenv("ENV_SERVER_URL", "")
     if not env_server_url:

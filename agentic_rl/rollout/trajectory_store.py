@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 from agentic_rl.platform.env import env_bool as _env_bool, env_int as _env_int
+from agentic_rl.environments.registry import (
+    interval_candidates_for_slug as _interval_candidates_for_slug,
+)
+from agentic_rl.environments.registry import slug_for as _slug_for
 
 
 # ─── Trajectory export (parallels swe-rl/generate_with_swe_remote.py:78-137) ───
@@ -67,54 +71,13 @@ def _sample_or_env_int(sample: Sample, key: str, env_name: str) -> int | None:
 
 
 def _trajectory_dataset_slug(data_source: str | None) -> str:
-    raw = str(data_source or "").strip().lower()
-    if raw in {"", "terminal_bench", "seta", "seta_env"}:
-        return "seta"
-    if raw in {"agent_safetybench", "agent-safety-bench", "safety", "asb"}:
-        return "agent_safetybench"
-    if raw in {"agentharm", "agent_harm", "ah"}:
-        return "agentharm"
-    return _sanitize_filename(raw) or "unknown"
+    return _slug_for(data_source)
 
 
 def _interval_candidates_for_dataset(
     dataset_slug: str,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    if dataset_slug == "seta":
-        return (
-            ("trajectory_save_interval_seta", "trajectory_save_interval_terminal_bench"),
-            ("TRAJECTORY_SAVE_INTERVAL_SETA", "SAVE_INTERVAL_SETA"),
-        )
-    if dataset_slug == "agent_safetybench":
-        return (
-            (
-                "trajectory_save_interval_agent_safetybench",
-                "trajectory_save_interval_asb",
-                "trajectory_save_interval_safety",
-            ),
-            (
-                "TRAJECTORY_SAVE_INTERVAL_AGENT_SAFETYBENCH",
-                "TRAJECTORY_SAVE_INTERVAL_ASB",
-                "TRAJECTORY_SAVE_INTERVAL_SAFETY",
-                "SAVE_INTERVAL_AGENT_SAFETYBENCH",
-                "SAVE_INTERVAL_ASB",
-                "SAVE_INTERVAL_SAFETY",
-            ),
-        )
-    if dataset_slug == "agentharm":
-        return (
-            ("trajectory_save_interval_agentharm", "trajectory_save_interval_agent_harm"),
-            (
-                "TRAJECTORY_SAVE_INTERVAL_AGENTHARM",
-                "TRAJECTORY_SAVE_INTERVAL_AGENT_HARM",
-                "SAVE_INTERVAL_AGENTHARM",
-                "SAVE_INTERVAL_AGENT_HARM",
-            ),
-        )
-    return (
-        (f"trajectory_save_interval_{dataset_slug}",),
-        (f"TRAJECTORY_SAVE_INTERVAL_{dataset_slug.upper()}",),
-    )
+    return _interval_candidates_for_slug(dataset_slug)
 
 
 def _trajectory_save_interval(args, data_source: str | None = None) -> int:
