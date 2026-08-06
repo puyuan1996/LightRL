@@ -484,9 +484,7 @@ def _reward_value(sample: Sample, key: str = "score") -> float | None:
     return None
 
 
-def _env_float(name: str, default: float) -> float:
-    value = _to_float(os.getenv(name))
-    return default if value is None else value
+from agentic_rl.platform.env import env_float as _env_float
 
 
 

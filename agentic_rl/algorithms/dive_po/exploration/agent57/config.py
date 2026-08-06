@@ -18,41 +18,12 @@ import numpy as np
 from agentic_rl.algorithms.dive_po.exploration.agent57.memory import resolve_episodic_backend_name
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
-def _env_optional_int(name: str) -> int | None:
-    raw = os.getenv(name)
-    if raw is None or raw.strip() == "":
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
+from agentic_rl.platform.env import (
+    env_bool as _env_bool,
+    env_float as _env_float,
+    env_int as _env_int,
+    env_optional_int as _env_optional_int,
+)
 
 
 def _parse_betas(raw: str, k: int) -> list[float]:

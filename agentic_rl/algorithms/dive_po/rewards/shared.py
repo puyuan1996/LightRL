@@ -2,27 +2,15 @@ from __future__ import annotations
 
 import logging
 import math
-import os
 from typing import Any
 
 
 logger = logging.getLogger(__name__)
 
 
-def env_str(name: str, default: str = "") -> str:
-    raw = os.getenv(name)
-    return default if raw is None else raw.strip()
-
-
-def env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        logger.warning("Invalid %s=%r; using %d", name, raw, default)
-        return default
+# Re-exported from the platform-wide env module so the rewards package keeps
+# its historical import path (``rewards.shared.env_int``).
+from agentic_rl.platform.env import env_int, env_str  # noqa: F401
 
 
 def schedule_multiplier(schedule: str, train_step: Any, decay_steps: int) -> float:

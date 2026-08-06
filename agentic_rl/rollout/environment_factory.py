@@ -13,14 +13,7 @@ from agentic_rl.rollout.sample_builder import _make_task_spec
 logger = logging.getLogger(__name__)
 
 
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
+from agentic_rl.platform.env import env_float as _env_float
 
 
 async def _await_with_optional_timeout(awaitable, timeout: float, *, op_name: str):

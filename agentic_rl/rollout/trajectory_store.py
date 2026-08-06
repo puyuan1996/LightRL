@@ -21,22 +21,7 @@ from agentic_rl.platform.types import RunContext, TaskSpec
 logger = logging.getLogger(__name__)
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        logger.warning("Invalid %s=%r; using %d", name, raw, default)
-        return default
+from agentic_rl.platform.env import env_bool as _env_bool, env_int as _env_int
 
 
 # ─── Trajectory export (parallels swe-rl/generate_with_swe_remote.py:78-137) ───

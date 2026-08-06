@@ -38,15 +38,7 @@ def _status_from_payload(payload: dict[str, Any], default: int) -> int:
     return default
 
 
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        logger.warning("Invalid %s=%r; using %.3f", name, raw, default)
-        return default
+from agentic_rl.platform.env import env_float as _env_float
 
 
 def _retryable_allocate_failure(payload: dict[str, Any], status: int) -> bool:

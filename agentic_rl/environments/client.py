@@ -9,40 +9,11 @@ from slime.utils.http_utils import post
 logger = logging.getLogger(__name__)
 
 
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        logger.warning("Invalid %s=%r; using %.4f", name, raw, default)
-        return default
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        logger.warning("Invalid %s=%r; using %s", name, raw, default)
-        return default
-
-
-def _env_status_set(name: str, default: str) -> set[int]:
-    raw = os.getenv(name, default)
-    out: set[int] = set()
-    for part in raw.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        try:
-            out.add(int(part))
-        except ValueError:
-            logger.warning("Invalid HTTP status %r in %s=%r", part, name, raw)
-    return out
+from agentic_rl.platform.env import (
+    env_float as _env_float,
+    env_int as _env_int,
+    env_int_set as _env_status_set,
+)
 
 
 class TerminalEnvClient:

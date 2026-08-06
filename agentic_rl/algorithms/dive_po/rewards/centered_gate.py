@@ -27,34 +27,11 @@ from agentic_rl.algorithms.dive_po.rewards import postprocess as legacy
 logger = logging.getLogger(__name__)
 
 
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return float(default)
-    try:
-        value = float(raw)
-    except (TypeError, ValueError):
-        logger.warning("Invalid %s=%r; using %.6g", name, raw, default)
-        return float(default)
-    if not math.isfinite(value):
-        logger.warning("Non-finite %s=%r; using %.6g", name, raw, default)
-        return float(default)
-    return value
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return int(default)
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        logger.warning("Invalid %s=%r; using %d", name, raw, default)
-        return int(default)
-
-
-def _env_flag(name: str, default: str = "0") -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+from agentic_rl.platform.env import (
+    env_flag as _env_flag,
+    env_float as _env_float,
+    env_int as _env_int,
+)
 
 
 def _finite(value: Any, default: float = 0.0) -> float:

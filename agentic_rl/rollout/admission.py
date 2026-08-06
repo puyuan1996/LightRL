@@ -9,31 +9,11 @@ from typing import Any, Dict
 logger = logging.getLogger(__name__)
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
+from agentic_rl.platform.env import (
+    env_bool as _env_bool,
+    env_float as _env_float,
+    env_int as _env_int,
+)
 
 
 async def _await_with_optional_timeout(awaitable, timeout: float, *, op_name: str):

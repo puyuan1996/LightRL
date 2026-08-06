@@ -20,19 +20,7 @@ from agentic_rl.algorithms.dive_po.rewards.shared import (
 logger = logging.getLogger(__name__)
 
 
-def _env_flag(name: str, default: str = "0") -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        logger.warning("Invalid %s=%r; using %.4f", name, raw, default)
-        return default
+from agentic_rl.platform.env import env_flag as _env_flag, env_float as _env_float
 
 
 

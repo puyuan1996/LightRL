@@ -15,24 +15,7 @@ from mcp.server.fastmcp import FastMCP
 SERVER_NAME = "terminal_rl"
 
 
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
+from agentic_rl.platform.env import env_float as _env_float, env_int as _env_int
 
 
 def _base_url() -> str:

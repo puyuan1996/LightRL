@@ -11,8 +11,7 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
-def _env_enabled(name: str, default: str = "1") -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+from agentic_rl.platform.env import env_flag as _env_enabled
 
 
 def _format_float(value: Any, width: int = 8) -> str:

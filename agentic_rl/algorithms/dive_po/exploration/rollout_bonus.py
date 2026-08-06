@@ -24,31 +24,11 @@ logger = logging.getLogger(__name__)
 _AGENT57_CONFIG = _agent57_config_from_env()
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
+from agentic_rl.platform.env import (
+    env_bool as _env_bool,
+    env_float as _env_float,
+    env_int as _env_int,
+)
 
 
 # ── Exploration: count-based intrinsic reward (MERCI simplified) ──────────────

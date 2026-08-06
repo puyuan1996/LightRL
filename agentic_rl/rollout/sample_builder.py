@@ -60,11 +60,7 @@ def _safety_split_from_meta(task_meta: dict[str, Any]) -> str:
     return "benign_should_comply" if fulfillable == 1 else "harmful_should_refuse"
 
 
-def _env_flag(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+from agentic_rl.platform.env import env_bool as _env_flag
 
 
 def _dapo_overlong_cfg(args) -> dict[str, Any] | None:
