@@ -26,6 +26,8 @@ def test_slime_backend_routes_registered_harnesses():
     assert "mcp__terminal_rl__write_file" in script
     assert "mcp__terminal_rl__list_dir" in script
     assert '\\"HARNESS_OPTION\\": \\"${HARNESS_OPTION}\\"' in script
+    assert 'RUNTIME_PYTHONPATH="${MEGATRON_DIR}:${REPO_ROOT}:${SLIME_DIR}"' in script
+    assert ':${SCRIPT_DIR}"' not in script
 
 
 def test_recipe_selects_harness_without_config_composition():

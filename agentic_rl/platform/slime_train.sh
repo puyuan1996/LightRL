@@ -2303,10 +2303,21 @@ for i in {1..40}; do
 done
 
 # ── Build runtime env ────────────────────────────────────────────────
-# Match v1 (run_swe_rl_8b_remote_1node.sh): only code dirs in PYTHONPATH.
-# Do NOT inject conda site-packages — Ray workers use the default python3
-# which already has Megatron/TE/sglang installed.
-RUNTIME_PYTHONPATH="${MEGATRON_DIR}:${REPO_ROOT}:${SLIME_DIR}:${SCRIPT_DIR}"
+# Only add import roots. Adding ${SCRIPT_DIR} (the agentic_rl package directory)
+# makes agentic_rl/platform shadow Python's stdlib `platform` module and causes
+# every runtime-env Ray worker to crash before registration.
+# Do NOT inject conda site-packages — Ray workers already use the prepared Python.
+RUNTIME_PYTHONPATH="${MEGATRON_DIR}:${REPO_ROOT}:${SLIME_DIR}"
+if ! PYTHONPATH="${RUNTIME_PYTHONPATH}" "${TRAIN_PYTHON}" - <<'PY'
+import platform
+
+if not callable(getattr(platform, "system", None)):
+    raise RuntimeError(f"stdlib platform module was shadowed by {platform.__file__}")
+PY
+then
+  log "ERROR: Ray runtime PYTHONPATH shadows a Python standard-library module: ${RUNTIME_PYTHONPATH}"
+  exit 1
+fi
 
 RUNTIME_ENV_XTRACE_WAS_ON=0
 if [[ "${HARNESS_OPTION}" == "claude-code" && "$-" == *x* ]]; then
