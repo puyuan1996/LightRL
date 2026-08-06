@@ -20,7 +20,7 @@ from openai.types.chat.chat_completion_message_function_tool_call import (
 from openai.types.completion_usage import CompletionUsage
 from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
 
-from slime.utils.http_utils import post as async_post
+from agentic_rl.platform.http_client import post as async_post
 
 from agentic_rl.platform.types import Interaction
 

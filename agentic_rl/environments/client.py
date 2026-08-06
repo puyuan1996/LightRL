@@ -4,7 +4,7 @@ import logging
 import os
 from typing import Any
 
-from slime.utils.http_utils import post
+from agentic_rl.platform.http_client import post
 
 logger = logging.getLogger(__name__)
 

@@ -295,6 +295,11 @@ async def evaluate(request: Request) -> JSONResponse:
     return await _lease_proxy("/evaluate", request)
 
 
+@app.post("/agent_reply")
+async def agent_reply(request: Request) -> JSONResponse:
+    return await _lease_proxy("/agent_reply", request)
+
+
 @app.post("/close")
 async def close(request: Request) -> JSONResponse:
     return await _lease_proxy("/close", request)
