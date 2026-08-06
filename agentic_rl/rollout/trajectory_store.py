@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import shutil
+import threading
 import time
 import uuid
 from contextlib import contextmanager
@@ -301,6 +302,46 @@ def _trajectory_append_index(save_dir: Path, record: dict[str, Any]) -> None:
     with index_path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(_jsonable(record), ensure_ascii=False, default=str))
         fh.write("\n")
+    _trajectory_index_cache_update(save_dir, record)
+
+
+# In-process view of index.jsonl.  Every save used to re-read and re-stat the
+# whole index (O(total_records) disk work per rollout sample, thousands of
+# entries); within a training run this process is the only writer, so the
+# parsed active set is cached and updated incrementally on append.  External
+# edits to index.jsonl only take effect after a process restart.
+_INDEX_CACHE: dict[str, list[dict[str, Any]]] = {}
+_INDEX_CACHE_LOCK = threading.Lock()
+
+
+def _trajectory_index_cache_update(save_dir: Path, record: dict[str, Any]) -> None:
+    key = str(save_dir)
+    with _INDEX_CACHE_LOCK:
+        cached = _INDEX_CACHE.get(key)
+        if cached is None:
+            return
+        event = str(record.get("event") or "save")
+        rel_path = str(record.get("rel_path") or "")
+        if event == "delete":
+            cached[:] = [
+                existing
+                for existing in cached
+                if str(existing.get("rel_path") or "") != rel_path
+            ]
+        elif event == "save" and rel_path:
+            cached.append(dict(record))
+
+
+def _trajectory_load_index_cached(save_dir: Path) -> list[dict[str, Any]]:
+    key = str(save_dir)
+    with _INDEX_CACHE_LOCK:
+        cached = _INDEX_CACHE.get(key)
+        if cached is not None:
+            return [dict(record) for record in cached]
+    records = _trajectory_load_index(save_dir)
+    with _INDEX_CACHE_LOCK:
+        _INDEX_CACHE.setdefault(key, [dict(record) for record in records])
+    return records
 
 
 def _trajectory_record_reward(record: dict[str, Any]) -> float | None:
@@ -848,7 +889,7 @@ def _save_rollout_artifacts(
         policy = _trajectory_save_policy()
         reward_value = _trajectory_reward_value(reward_breakdown)
         with _trajectory_index_lock(save_dir):
-            active_records = _trajectory_load_index(save_dir)
+            active_records = _trajectory_load_index_cached(save_dir)
             save_decision = _trajectory_save_decision(
                 policy=policy,
                 run_ctx=run_ctx,
@@ -1026,7 +1067,7 @@ def _save_rollout_artifacts(
             if policy == "task_timeseries":
                 cleanup_deleted = _trajectory_cleanup(
                     save_dir,
-                    _trajectory_load_index(save_dir),
+                    _trajectory_load_index_cached(save_dir),
                     task_max_per_step=_trajectory_env_int("TRAJECTORY_TASK_MAX_PER_STEP", 2),
                     task_max_per_task=_trajectory_env_int("TRAJECTORY_TASK_MAX_PER_TASK", 24),
                     max_total=_trajectory_env_int("TRAJECTORY_MAX_TOTAL", 5000),

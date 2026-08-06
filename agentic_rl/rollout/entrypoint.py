@@ -1259,7 +1259,8 @@ async def generate(
                 s.metadata["evaluation_error"] = eval_error
         _mark_non_trainable_samples(samples)
 
-        _save_rollout_artifacts(
+        await asyncio.to_thread(
+            _save_rollout_artifacts,
             task_spec=task_spec,
             run_ctx=run_ctx,
             sampling_params=sampling_params,
@@ -1349,7 +1350,8 @@ async def generate(
                 }
             ]
         if failed_turn_records:
-            _save_rollout_artifacts(
+            await asyncio.to_thread(
+                _save_rollout_artifacts,
                 task_spec=task_spec,
                 run_ctx=run_ctx,
                 sampling_params=sampling_params,
