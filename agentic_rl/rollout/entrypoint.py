@@ -1,21 +1,11 @@
 from __future__ import annotations
 
-import hashlib
-import fcntl
-import json
+import asyncio
 import logging
-import math
 import os
-import re
-import shutil
-import time
 import uuid
-from copy import deepcopy
-from dataclasses import asdict, is_dataclass
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import asyncio
 
 from slime.rollout.sglang_rollout import GenerateState
 from slime.utils.types import Sample
@@ -30,17 +20,11 @@ from agentic_rl.platform.types import (
     TurnContext,
     TurnResult,
 )
-from agentic_rl.inference.sglang import SGLangTurnClient
 from agentic_rl.rollout.runner import create_agent_runner, normalize_harness_option
 from agentic_rl.environments.client import TerminalEnvClient
-from agentic_rl.algorithms.dive_po.exploration.agent57.memory import create_episodic_memory_backend
 from agentic_rl.algorithms.dive_po.exploration.agent57.controller import (
-    coarse_observation_fingerprint as _agent57_coarse_observation_fingerprint,
-    coarse_observation_label as _agent57_coarse_observation_label,
     compute_ngu_lite_bonus as _agent57_compute_ngu_lite_bonus,
     compute_lifelong_bonus as _agent57_compute_lifelong_bonus,
-    config_from_env as _agent57_config_from_env,
-    exit_code_bucket as _agent57_exit_code_bucket,
     record_arm_event as _agent57_record_arm_event,
 )
 from agentic_rl.misc.reward_safety import (
@@ -53,7 +37,6 @@ from agentic_rl.misc.reward_safety import (
 logger = logging.getLogger(__name__)
 
 _DIRECT_SCORE_DATA_SOURCES = {"agent_safetybench", "agentharm", "tau2"}
-_AGENT57_CONFIG = _agent57_config_from_env()
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -83,11 +66,6 @@ def _env_float(name: str, default: float) -> float:
     except ValueError:
         logger.warning("Invalid %s=%r; using %.4f", name, raw, default)
         return default
-
-
-def _env_csv_set(name: str, default: str) -> set[str]:
-    raw = os.getenv(name, default)
-    return {part.strip() for part in raw.split(",") if part.strip()}
 
 
 from agentic_rl.rollout.admission import (
@@ -172,7 +150,6 @@ async def generate(
     sampling_params: Dict[str, Any],
     evaluation: bool = False,
 ) -> List[Sample]:
-    _ = evaluation
     state = GenerateState(args)
 
     task_meta = _extract_task_meta(sample)
@@ -323,7 +300,6 @@ async def generate(
             "ENV_RESET_HTTP_TIMEOUT",
             default_reset_http_timeout,
         )
-        max_reset_lease_attempts = max(1, _env_int("ENV_RESET_LEASE_MAX_ATTEMPTS", 1))
         reset_payload: dict[str, Any] | None = None
         last_reset_exc: BaseException | None = None
 
@@ -337,7 +313,6 @@ async def generate(
             if _uses_remote_terminal_env(task_meta)
             else 0
         )
-        reset_payload: dict[str, Any] | None = None
         for reset_attempt in range(reset_fresh_lease_retries + 1):
             reset_kwargs["lease_id"] = lease_id
             if remote_env_admission_key is not None:

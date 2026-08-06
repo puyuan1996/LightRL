@@ -36,11 +36,6 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-def _env_csv_set(name: str, default: str) -> set[str]:
-    raw = os.getenv(name, default)
-    return {part.strip() for part in raw.split(",") if part.strip()}
-
-
 async def _await_with_optional_timeout(awaitable, timeout: float, *, op_name: str):
     if timeout <= 0:
         return await awaitable
@@ -100,71 +95,6 @@ def _uses_remote_terminal_env(task_meta: Dict[str, Any] | None) -> bool:
         or _uses_local_agentharm_env(task_meta)
         or _uses_local_tau2_env(task_meta)
     )
-
-
-def _http_exception_info(exc: BaseException) -> tuple[int | None, str | None, str, float | None]:
-    response = getattr(exc, "response", None)
-    status_code = getattr(response, "status_code", None)
-    text = ""
-    retry_after: float | None = None
-    if response is not None:
-        try:
-            text = str(getattr(response, "text", "") or "")
-        except Exception:
-            text = ""
-        try:
-            raw_retry_after = response.headers.get("Retry-After")
-            retry_after = float(raw_retry_after) if raw_retry_after else None
-        except Exception:
-            retry_after = None
-
-    code: str | None = None
-    if text:
-        try:
-            parsed = json.loads(text)
-            if isinstance(parsed, dict):
-                raw_code = parsed.get("code")
-                code = str(raw_code) if raw_code is not None else None
-        except Exception:
-            code = None
-    return status_code, code, text, retry_after
-
-
-def _reset_should_retry_with_new_lease(exc: BaseException) -> bool:
-    status_code, code, text, _ = _http_exception_info(exc)
-    combined = f"{code or ''} {text} {exc}"
-    non_retry_codes = _env_csv_set(
-        "ENV_RESET_LEASE_NON_RETRY_CODES",
-        "TASK_IMAGE_BLACKLISTED,TASK_BUILD_FAILED",
-    )
-    if code in non_retry_codes:
-        return False
-    if "TASK_IMAGE_BLACKLISTED" in combined or "TASK_BUILD_FAILED" in combined:
-        return False
-
-    retry_codes = _env_csv_set(
-        "ENV_RESET_LEASE_RETRY_CODES",
-        "DOCKER_IMAGE_PREP_BACKLOG,WORKER_RESET_ADMISSION_BACKLOG",
-    )
-    if code in retry_codes or any(marker in combined for marker in retry_codes):
-        return True
-
-    retry_statuses = set()
-    for item in _env_csv_set("ENV_RESET_LEASE_RETRY_STATUSES", "410,500,502,503,504"):
-        try:
-            retry_statuses.add(int(item))
-        except ValueError:
-            continue
-    return status_code in retry_statuses
-
-
-def _reset_retry_sleep_seconds(exc: BaseException, attempt: int) -> float:
-    _, _, _, retry_after = _http_exception_info(exc)
-    if retry_after is not None and retry_after >= 0:
-        return min(retry_after, _env_float("ENV_RESET_LEASE_RETRY_MAX_SLEEP", 60.0))
-    base = max(0.0, _env_float("ENV_RESET_LEASE_RETRY_BASE_SLEEP", 15.0))
-    max_sleep = max(base, _env_float("ENV_RESET_LEASE_RETRY_MAX_SLEEP", 60.0))
-    return min(max_sleep, base * max(1, attempt))
 
 
 _TASK_CIRCUIT: dict[str, dict[str, Any]] = {}

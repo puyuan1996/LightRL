@@ -8,7 +8,6 @@ from agentic_rl.harnesses.factory import create_harness, normalize_harness_name
 
 if TYPE_CHECKING:
     from agentic_rl.inference.sglang import SGLangTurnClient
-from agentic_rl.harnesses.factory import create_harness, normalize_harness_name
 import logging
 
 
