@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from agentic_rl.data.io_utils import write_jsonl  # noqa: F401
+
 
 def _task_messages(example: dict[str, Any], include_tools_in_prompt: bool) -> list[dict[str, str]]:
     if isinstance(example.get("dialog"), list) and example["dialog"]:
@@ -42,13 +44,6 @@ def convert_record(
         "task": _task_messages(example, include_tools_in_prompt),
         "metadata": metadata,
     }
-
-
-def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def main() -> None:

@@ -7,7 +7,7 @@ set -uo pipefail
 DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT:-${DOCKER_ROOT:-/data}}"
 DOCKER_CMD_TIMEOUT="${DOCKER_CMD_TIMEOUT:-30}"
 DOCKER_PRUNE_TIMEOUT="${DOCKER_PRUNE_TIMEOUT:-120}"
-DOCKER_NETWORK_LIFECYCLE_LOCK="${DOCKER_NETWORK_LIFECYCLE_LOCK:-/tmp/openclaw_docker_network_lifecycle.lock}"
+DOCKER_NETWORK_LIFECYCLE_LOCK="${DOCKER_NETWORK_LIFECYCLE_LOCK:-/tmp/lightrl_docker_network_lifecycle.lock}"
 RUN_HEAVY_DF="${RUN_HEAVY_DF:-0}"
 echo "[$(date '+%F %T')] Docker cleanup starting on $(hostname)"
 echo "Docker data root: ${DOCKER_DATA_ROOT}"

@@ -452,14 +452,14 @@ async def generate(
         if safety_enable:
             cs_base = os.getenv("CS_HTTP_URL", "http://127.0.0.1:8090")
             cs_session_id = (
-                f"openclaw-rl:{task_spec.task_name}:{run_ctx.uid}"
+                f"lightrl:{task_spec.task_name}:{run_ctx.uid}"
                 f":g{run_ctx.group_index}:s{run_ctx.sample_index}"
             )
             cs_timeout = _env_float("SAFETY_REWARD_TIMEOUT", 2.0)
             cs_client = ClawSentryClient(
                 base_url=cs_base,
                 session_id=cs_session_id,
-                agent_id="openclaw-rl-trainer",
+                agent_id="lightrl-trainer",
                 auth_token=os.getenv("CS_AUTH_TOKEN") or None,
                 timeout=cs_timeout,
                 enabled=True,
@@ -621,7 +621,11 @@ async def generate(
                 )
                 for tool_call_request in tool_call_requests:
                     assert env_client is not None and lease_id is not None
-                    await env_client.heartbeat(lease_id)
+                    if heartbeat_interval <= 0:
+                        # Background heartbeat is disabled; keep the lease alive
+                        # inline instead of paying one extra HTTP roundtrip per
+                        # tool call when the 30s loop is already doing it.
+                        await env_client.heartbeat(lease_id)
                     cs_dec_dict: dict[str, Any] | None = None
                     if cs_client is not None:
                         cs_dec = await cs_client.pre_action(

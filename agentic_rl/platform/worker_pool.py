@@ -57,7 +57,7 @@ class RunSlot:
     reset_result: dict[str, Any] | None = None
     first_step_ts: float | None = None
     evaluate_completed_ts: float | None = None
-    drop_scheduled: bool = False  # P0 fix: Flag to prevent double-pop race
+    drop_scheduled: bool = False  # Flag to prevent double-pop race
     reset_quarantined: bool = False
     reset_quarantine_reason: str | None = None
     reset_quarantine_started_ts: float | None = None
@@ -134,7 +134,7 @@ class WorkerPool:
             1, _env_int("WORKER_CLOSE_FAILURE_MAX", 256)
         )
 
-        # P0 fix: Track reset count for automatic shim cleanup
+        # Track reset count for automatic shim cleanup
         self._reset_count: int = 0
         self._last_shim_cleanup_ts: float = time.time()
         self._last_orphan_sweep_ts: float = 0.0
@@ -334,7 +334,7 @@ class WorkerPool:
                 if op_name == "reset":
                     run_slot.reset_completed_ts = now
                     run_slot.phase = "ready"
-                    # P0 fix: Track successful resets for shim cleanup trigger
+                    # Track successful resets for shim cleanup trigger
                     self._reset_count += 1
                 elif op_name == "exec_tool":
                     if run_slot.first_step_ts is None:
@@ -350,7 +350,7 @@ class WorkerPool:
             if run_slot.in_flight_ops == 0:
                 run_slot.active_op = None
 
-            # P0 fix: Check drop_scheduled flag to prevent double-pop race
+            # Check drop_scheduled flag to prevent double-pop race
             if (
                 run_slot.close_requested
                 and run_slot.in_flight_ops == 0
@@ -516,7 +516,7 @@ class WorkerPool:
                 reason,
                 timeout,
             )
-            # P0 fix: Apply timeout here at the caller level; env.force_cleanup should not use nested timeout
+            # Apply timeout here at the caller level; env.force_cleanup should not use nested timeout
             await asyncio.wait_for(run_slot.env.force_cleanup(reason=reason), timeout=timeout)
             logger.warning(
                 "Force cleanup finished for run session %s after %s",
@@ -2161,7 +2161,7 @@ class WorkerPool:
                         "Periodic reaper cleaned up %d idle run slots",
                         len(expired_slots),
                     )
-                # P0 fix: Automatic shim cleanup every 50 resets or when pressure detected
+                # Automatic shim cleanup every 50 resets or when pressure detected
                 await self._maybe_cleanup_shims()
                 await self._maybe_cleanup_orphan_docker_containers()
             except Exception:
@@ -2290,7 +2290,7 @@ class WorkerPool:
             )
 
             # Run docker system prune in background with timeout
-            # P0 fix: Add fallback if prune hangs; close stderr pipe immediately to prevent fd leak
+            # Add fallback if prune hangs; close stderr pipe immediately to prevent fd leak
             cleanup_timeout = _env_float("WORKER_SHIM_CLEANUP_TIMEOUT", 30.0)
             proc = None
             try:
@@ -2302,7 +2302,7 @@ class WorkerPool:
                         "-f",
                         "--volumes=false",
                         stdout=asyncio.subprocess.DEVNULL,
-                        stderr=asyncio.subprocess.DEVNULL,  # P0 fix: Use DEVNULL to avoid fd leak
+                        stderr=asyncio.subprocess.DEVNULL,  # Use DEVNULL to avoid fd leak
                     ),
                     timeout=cleanup_timeout,
                 )
@@ -2327,21 +2327,21 @@ class WorkerPool:
                     "Docker shim cleanup timed out after %.1fs; skipping and relying on watchdog (non-fatal)",
                     cleanup_timeout,
                 )
-                # P0 fix: Kill hung subprocess
+                # Kill hung subprocess
                 if proc is not None:
                     try:
                         proc.kill()
                         await asyncio.wait_for(proc.wait(), timeout=5.0)
                     except Exception:
                         pass
-                # P0 fix: Still update timestamp to prevent retry storms
+                # Still update timestamp to prevent retry storms
                 self._last_shim_cleanup_ts = now
             except Exception as exc:
                 logger.warning(
                     "Docker shim cleanup failed: %s (non-fatal, will retry next cycle)",
                     exc,
                 )
-                # P0 fix: Update timestamp on failure to prevent tight retry loop
+                # Update timestamp on failure to prevent tight retry loop
                 self._last_shim_cleanup_ts = now
 
         except Exception:

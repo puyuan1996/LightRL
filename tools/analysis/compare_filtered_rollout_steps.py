@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
-os.environ.setdefault("MPLCONFIGDIR", "/tmp/openclaw-matplotlib")
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/lightrl-matplotlib")
 
 import matplotlib
 
@@ -429,7 +429,7 @@ def write_outputs(
     )
 
     filtered_meta = {
-        "schema": "openclaw.filtered_reward_rollout_comparison.v2",
+        "schema": "lightrl.filtered_reward_rollout_comparison.v2",
         "generated_at": generated_at,
         "snapshot_rule": "only completed records already present in logs/metrics.jsonl",
         "filter": "dataset=seta, phase=train, trainable_count > 0, raw_reward finite",

@@ -328,7 +328,7 @@ class Router:
                     max_attempts,
                     _format_error(exc),
                 )
-                # P0 fix: Exponential backoff with jitter to prevent thundering herd
+                # Exponential backoff with jitter to prevent thundering herd
                 backoff = self.forward_retry_backoff * (2 ** (attempt - 1))
                 jitter = backoff * 0.2 * (hash(f"{worker_url}{path}{attempt}") % 100) / 100.0
                 total_backoff = backoff + jitter

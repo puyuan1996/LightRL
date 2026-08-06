@@ -70,7 +70,7 @@ class ClawSentryClient:
         self,
         base_url: str,
         session_id: str,
-        agent_id: str = "openclaw-rl-trainer",
+        agent_id: str = "lightrl-trainer",
         auth_token: str | None = None,
         timeout: float = 2.0,
         enabled: bool = True,

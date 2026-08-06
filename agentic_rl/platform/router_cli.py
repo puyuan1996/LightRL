@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--forward-timeout",
         type=float,
-        default=float(os.getenv("ROUTER_FORWARD_TIMEOUT", "1800.0")),  # P0 fix: 600→1800s for reset endpoint
+        default=float(os.getenv("ROUTER_FORWARD_TIMEOUT", "1800.0")),  # 600→1800s for reset endpoint
         help="HTTP timeout (seconds) when forwarding to a worker",
     )
     parser.add_argument(
@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--forward-retry-backoff",
         type=float,
-        default=float(os.getenv("ROUTER_FORWARD_RETRY_BACKOFF", "2.0")),  # P0 fix: 0.2→2.0s exponential backoff base
+        default=float(os.getenv("ROUTER_FORWARD_RETRY_BACKOFF", "2.0")),  # 0.2→2.0s exponential backoff base
         help="Exponential backoff base (seconds) between worker retries",
     )
     parser.add_argument(

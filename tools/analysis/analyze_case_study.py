@@ -681,7 +681,7 @@ def analyze(
     )
     (out_dir / "case_study_report.md").write_text(report, encoding="utf-8")
     summary = {
-        "schema": "openclaw.case_study_analysis.v1",
+        "schema": "lightrl.case_study_analysis.v1",
         "run_dir": str(run_dir) if run_dir else None,
         "traj_dir": str(traj_dir),
         "config": str(config_path),

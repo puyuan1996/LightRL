@@ -636,7 +636,7 @@ class ClaudeCodeAgent:
 
     def _default_system_prompt(self) -> str:
         mcp_boundary = (
-            "You are running inside the OpenClaw terminal-rl harness. Use only the "
+            "You are running inside the LightRL terminal-rl harness. Use only the "
             "terminal_rl MCP tools for task inspection and modification; they execute "
             "inside the remote benchmark Docker/container lease. Use shell_exec, "
             "read_file, write_file, list_dir, shell_view, and shell_write_to_process "
@@ -652,7 +652,7 @@ class ClaudeCodeAgent:
         if self._minimal_system_prompt:
             return (
                 "/no_think\n"
-                "You are in OpenClaw agentic_rl. Do not write long reasoning. "
+                "You are in LightRL agentic_rl. Do not write long reasoning. "
                 "Use exactly one terminal_rl MCP tool call for the next concrete action. "
                 "Use only mcp__terminal_rl tools, never local filesystem tools. "
                 "If the task is complete, answer briefly and stop.\n"

@@ -62,7 +62,7 @@ def _default_state_path() -> str:
 
     run_id = os.getenv("RUN_ID", "").strip() or f"pid{os.getpid()}"
     safe_run_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", run_id)
-    return str(Path("/tmp") / f"openclaw_agent57_lite_{safe_run_id}.sqlite3")
+    return str(Path("/tmp") / f"lightrl_agent57_lite_{safe_run_id}.sqlite3")
 
 
 @dataclass(frozen=True)

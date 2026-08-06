@@ -1326,8 +1326,8 @@ probe_ready_endpoint() {
   local timeout_s="${3:-${READY_PROBE_TIMEOUT}}"
   local tmp err_tmp code path body curl_rc curl_error
 
-  tmp="$(mktemp /tmp/openclaw_ready.XXXXXX 2>/dev/null || printf '/tmp/openclaw_ready.%s' "$$")"
-  err_tmp="$(mktemp /tmp/openclaw_ready_err.XXXXXX 2>/dev/null || printf '/tmp/openclaw_ready_err.%s' "$$")"
+  tmp="$(mktemp /tmp/lightrl_ready.XXXXXX 2>/dev/null || printf '/tmp/lightrl_ready.%s' "$$")"
+  err_tmp="$(mktemp /tmp/lightrl_ready_err.XXXXXX 2>/dev/null || printf '/tmp/lightrl_ready_err.%s' "$$")"
   path="/readyz"
   curl_rc=0
   code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
@@ -1416,8 +1416,8 @@ close_stale_worker_runs() {
     return 1
   fi
 
-  tmp="$(mktemp /tmp/openclaw_stale_ready.XXXXXX 2>/dev/null || printf '/tmp/openclaw_stale_ready.%s' "$$")"
-  ids_tmp="$(mktemp /tmp/openclaw_stale_ids.XXXXXX 2>/dev/null || printf '/tmp/openclaw_stale_ids.%s' "$$")"
+  tmp="$(mktemp /tmp/lightrl_stale_ready.XXXXXX 2>/dev/null || printf '/tmp/lightrl_stale_ready.%s' "$$")"
+  ids_tmp="$(mktemp /tmp/lightrl_stale_ids.XXXXXX 2>/dev/null || printf '/tmp/lightrl_stale_ids.%s' "$$")"
   : > "${ids_tmp}"
   for path in /readyz /status; do
     code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
@@ -1432,7 +1432,7 @@ close_stale_worker_runs() {
     return 1
   fi
 
-  repair_tmp="$(mktemp /tmp/openclaw_stale_repair.XXXXXX 2>/dev/null || printf '/tmp/openclaw_stale_repair.%s' "$$")"
+  repair_tmp="$(mktemp /tmp/lightrl_stale_repair.XXXXXX 2>/dev/null || printf '/tmp/lightrl_stale_repair.%s' "$$")"
   repair_code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
     -X POST -H 'Content-Type: application/json' \
     --data "{\"reason\":\"startup_readyz_repair\",\"min_age\":${STALE_WORKER_REPAIR_MIN_AGE},\"max_repairs\":${STALE_WORKER_REPAIR_MAX_REPAIRS}}" \
@@ -1452,7 +1452,7 @@ close_stale_worker_runs() {
   count=0
   while IFS= read -r lease_id; do
     [[ -n "${lease_id}" ]] || continue
-    close_tmp="$(mktemp /tmp/openclaw_stale_close.XXXXXX 2>/dev/null || printf '/tmp/openclaw_stale_close.%s' "$$")"
+    close_tmp="$(mktemp /tmp/lightrl_stale_close.XXXXXX 2>/dev/null || printf '/tmp/lightrl_stale_close.%s' "$$")"
     close_code="$(curl -sS --max-time "${timeout_s}" --noproxy '*' \
       -X POST -H 'Content-Type: application/json' \
       --data "{\"lease_id\":\"${lease_id}\"}" \

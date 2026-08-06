@@ -21,8 +21,8 @@ EVAL_TIMEOUT="${EVAL_TIMEOUT:-1800}"
 CACHE_LEVEL="${CACHE_LEVEL:-env}"
 CLEAN="${CLEAN:-false}"
 
-VENV_DIR="${SWEBENCH_VENV_DIR:-${HOME}/.cache/openclaw/swebench-${OFFICIAL_COMMIT:0:12}}"
-SOURCE_DIR="${SWEBENCH_SOURCE_DIR:-${HOME}/.cache/openclaw/SWE-bench-${OFFICIAL_COMMIT:0:12}}"
+VENV_DIR="${SWEBENCH_VENV_DIR:-${HOME}/.cache/lightrl/swebench-${OFFICIAL_COMMIT:0:12}}"
+SOURCE_DIR="${SWEBENCH_SOURCE_DIR:-${HOME}/.cache/lightrl/SWE-bench-${OFFICIAL_COMMIT:0:12}}"
 SWEBENCH_PYTHON="${SWEBENCH_PYTHON:-${VENV_DIR}/bin/python}"
 if [[ ! -d "${SOURCE_DIR}/.git" ]]; then
   mkdir -p "$(dirname -- "${SOURCE_DIR}")"
@@ -45,7 +45,7 @@ if [[ ! -x "${SWEBENCH_PYTHON}" ]]; then
   python3 -m venv "${VENV_DIR}"
   "${VENV_DIR}/bin/python" -m pip install --upgrade pip
 fi
-INSTALL_MARKER="${VENV_DIR}/.openclaw-swebench-source-commit"
+INSTALL_MARKER="${VENV_DIR}/.lightrl-swebench-source-commit"
 if [[ ! -f "${INSTALL_MARKER}" ]] ||
    [[ "$(<"${INSTALL_MARKER}")" != "${OFFICIAL_COMMIT}" ]]; then
   "${SWEBENCH_PYTHON}" -m pip install --editable "${SOURCE_DIR}"

@@ -172,7 +172,7 @@ def main() -> int:
     json_path.write_text(
         json.dumps(
             {
-                "schema": "openclaw.case_study_compare.v1",
+                "schema": "lightrl.case_study_compare.v1",
                 "config": str(config_path),
                 "runs": [str(path) for path in run_dirs],
                 "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),

@@ -263,7 +263,7 @@ def test_network_pruning_and_compose_lifecycle_share_host_lock() -> None:
     terminal_env = TERMINAL_ENV.read_text(encoding="utf-8")
     watchdog = WATCHDOG.read_text(encoding="utf-8")
     pool = POOL_LAUNCHER.read_text(encoding="utf-8")
-    lock_name = "openclaw_docker_network_lifecycle.lock"
+    lock_name = "lightrl_docker_network_lifecycle.lock"
 
     assert lock_name in terminal_env
     assert lock_name in watchdog

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
-os.environ.setdefault("MPLCONFIGDIR", "/tmp/openclaw-matplotlib")
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/lightrl-matplotlib")
 
 import matplotlib
 

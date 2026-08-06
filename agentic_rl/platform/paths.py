@@ -4,9 +4,9 @@ Usage in shell script:
     RUN_ID=$(python3 -m agentic_rl.platform.paths init --runs-root ./runs --ckpt-root /mnt/.../ckpt)
     # prints JSON with all paths to stdout
 
-Usage in Python (generate.py etc.):
-    from run_paths import RunPaths
-    rp = RunPaths.from_env()  # reads RUN_DIR env var
+Usage in Python (rollout/entrypoint.py etc.):
+    from agentic_rl.platform.paths import RunPaths
+    rp = RunPaths.from_env()  # reads RUN_DIR env var; None when unset
     traj_dir = rp.trajectories_dir
 """
 from __future__ import annotations
@@ -18,6 +18,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+DEFAULT_CKPT_ROOT = "/mnt/shared-storage-gpfs2/narmodel/agenticrl/ckpt"
 
 
 class RunPaths:
@@ -36,19 +39,14 @@ class RunPaths:
         self.meta_file = self.run_dir / "meta.json"
 
     @classmethod
-    def from_env(cls) -> "RunPaths":
+    def from_env(cls) -> "RunPaths | None":
         run_dir = os.getenv("RUN_DIR", "")
         if not run_dir:
             return None
         run_dir = Path(run_dir)
         run_id = run_dir.name
         runs_root = run_dir.parent
-        ckpt_root = Path(os.getenv(
-            "CKPT_ROOT",
-
-            "/mnt/shared-storage-gpfs2/narmodel/agenticrl/ckpt"
-
-        ))
+        ckpt_root = Path(os.getenv("CKPT_ROOT", DEFAULT_CKPT_ROOT))
         return cls(run_id, runs_root, ckpt_root)
 
     def create_all(self) -> None:
@@ -149,7 +147,7 @@ if __name__ == "__main__":
     init_p = sub.add_parser("init")
     init_p.add_argument("--runs-root", default="./runs")
 
-    init_p.add_argument("--ckpt-root", default="/mnt/shared-storage-gpfs2/narmodel/agenticrl/ckpt")
+    init_p.add_argument("--ckpt-root", default=DEFAULT_CKPT_ROOT)
 
     init_p.add_argument("--model", default="qwen3-8b")
     init_p.add_argument("--method", default="grpo")

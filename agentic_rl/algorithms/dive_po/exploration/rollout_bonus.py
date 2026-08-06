@@ -108,9 +108,9 @@ _LPRND_STATS = {"warmup": 0, "n": 0, "mean": 0.0, "m2": 0.0}
 
 # ── T2PO-style turn uncertainty diagnostics ─────────────────────────────────
 # Logging-only. This does not alter sampling or rewards. T2PO's original turn
-# score uses logits entropy + max-logprob during generation; OpenClaw currently
+# score uses logits entropy + max-logprob during generation; LightRL currently
 # persists sampled-token log-probs, so this records a mean-logprob proxy.
-_TURN_UNCERTAINTY_SCHEMA = "openclaw.t2po_turn_uncertainty"
+_TURN_UNCERTAINTY_SCHEMA = "lightrl.t2po_turn_uncertainty"
 _TURN_UNCERTAINTY_SCHEMA_VERSION = 1
 _TURN_UNCERTAINTY_ENABLED = _env_bool("T2PO_TURN_UNCERTAINTY_LOGGING", True)
 _TURN_UNCERTAINTY_WARMUP_TOKENS = max(

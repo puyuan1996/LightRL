@@ -12,15 +12,15 @@
 #
 # USAGE:
 #   bash examples/training/train_qwen3_8b_seta_dive_po.sh
-#   DATASET=safety ALGO=dapo bash ...exploration_pu.sh                   # ASB + DAPO override
-#   EXPLORATION_PROFILE=robust_dapo_lite bash ...exploration_pu.sh       # conservative DAPO exploration override
-#   EXPLORATION_PROFILE=off EXPLORE_AGENT57_LITE=0 bash ...exploration_pu.sh # baseline-style ablation
-#   EXPLORE_ENTROPY_COEF=0.01 bash ...exploration_pu.sh                  # +entropy bonus
-#   EXPLORE_THINK_MODE=1 bash ...exploration_pu.sh                        # +think mode
-#   EXPLORE_INTRINSIC=1 bash ...exploration_pu.sh                         # +intrinsic reward
-#   EXPLORE_SAFETY_FILTER=1 bash ...exploration_pu.sh                     # +safety filter
-#   ALGO=dapo EXPLORE_CDE_ACTOR=1 bash ...exploration_pu.sh               # +CDE actor/PPL bonus
-#   EXPLORE_ENTROPY_COEF=0.01 EXPLORE_INTRINSIC=1 bash ...exploration_pu.sh # combined
+#   DATASET=safety ALGO=dapo bash examples/training/train_qwen3_8b_seta_dive_po.sh                   # ASB + DAPO override
+#   EXPLORATION_PROFILE=robust_dapo_lite bash examples/training/train_qwen3_8b_seta_dive_po.sh       # conservative DAPO exploration override
+#   EXPLORATION_PROFILE=off EXPLORE_AGENT57_LITE=0 bash examples/training/train_qwen3_8b_seta_dive_po.sh # baseline-style ablation
+#   EXPLORE_ENTROPY_COEF=0.01 bash examples/training/train_qwen3_8b_seta_dive_po.sh                  # +entropy bonus
+#   EXPLORE_THINK_MODE=1 bash examples/training/train_qwen3_8b_seta_dive_po.sh                        # +think mode
+#   EXPLORE_INTRINSIC=1 bash examples/training/train_qwen3_8b_seta_dive_po.sh                         # +intrinsic reward
+#   EXPLORE_SAFETY_FILTER=1 bash examples/training/train_qwen3_8b_seta_dive_po.sh                     # +safety filter
+#   ALGO=dapo EXPLORE_CDE_ACTOR=1 bash examples/training/train_qwen3_8b_seta_dive_po.sh               # +CDE actor/PPL bonus
+#   EXPLORE_ENTROPY_COEF=0.01 EXPLORE_INTRINSIC=1 bash examples/training/train_qwen3_8b_seta_dive_po.sh # combined
 #
 # BASELINE OPTIONS:
 #   DATASET                  : seta|safety|agentharm|mixed (default mixed)

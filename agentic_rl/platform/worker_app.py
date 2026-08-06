@@ -148,16 +148,16 @@ async def readyz() -> JSONResponse:
 @app.get("/metrics")
 async def metrics() -> Response:
     lines = [
-        "# HELP openclaw_worker_up Worker process is serving HTTP.",
-        "# TYPE openclaw_worker_up gauge",
-        "openclaw_worker_up 1",
+        "# HELP lightrl_worker_up Worker process is serving HTTP.",
+        "# TYPE lightrl_worker_up gauge",
+        "lightrl_worker_up 1",
     ]
     if POOL is None:
         lines.extend(
             [
-                "# HELP openclaw_worker_pool_initialized Worker pool initialization state.",
-                "# TYPE openclaw_worker_pool_initialized gauge",
-                "openclaw_worker_pool_initialized 0",
+                "# HELP lightrl_worker_pool_initialized Worker pool initialization state.",
+                "# TYPE lightrl_worker_pool_initialized gauge",
+                "lightrl_worker_pool_initialized 0",
             ]
         )
         return Response("\n".join(lines) + "\n", media_type="text/plain")
@@ -173,29 +173,29 @@ async def metrics() -> Response:
     }
     lines.extend(
         [
-            "# HELP openclaw_worker_pool_initialized Worker pool initialization state.",
-            "# TYPE openclaw_worker_pool_initialized gauge",
-            "openclaw_worker_pool_initialized 1",
-            "# HELP openclaw_worker_pool_gauge Worker pool gauges.",
-            "# TYPE openclaw_worker_pool_gauge gauge",
+            "# HELP lightrl_worker_pool_initialized Worker pool initialization state.",
+            "# TYPE lightrl_worker_pool_initialized gauge",
+            "lightrl_worker_pool_initialized 1",
+            "# HELP lightrl_worker_pool_gauge Worker pool gauges.",
+            "# TYPE lightrl_worker_pool_gauge gauge",
         ]
     )
     for name, value in gauges.items():
         lines.append(
-            f'openclaw_worker_pool_gauge{{name="{name}"}} {int(value or 0)}'
+            f'lightrl_worker_pool_gauge{{name="{name}"}} {int(value or 0)}'
         )
 
     phase_counts = pool_status.get("phase_counts", {})
     if isinstance(phase_counts, dict):
         lines.extend(
             [
-                "# HELP openclaw_worker_run_phase_count Active run count by phase.",
-                "# TYPE openclaw_worker_run_phase_count gauge",
+                "# HELP lightrl_worker_run_phase_count Active run count by phase.",
+                "# TYPE lightrl_worker_run_phase_count gauge",
             ]
         )
         for phase, count in sorted(phase_counts.items()):
             lines.append(
-                f'openclaw_worker_run_phase_count{{phase="{phase}"}} {int(count or 0)}'
+                f'lightrl_worker_run_phase_count{{phase="{phase}"}} {int(count or 0)}'
             )
 
     try:
@@ -205,19 +205,19 @@ async def metrics() -> Response:
     else:
         lines.extend(
             [
-                "# HELP openclaw_worker_pressure Worker pressure gauges.",
-                "# TYPE openclaw_worker_pressure gauge",
+                "# HELP lightrl_worker_pressure Worker pressure gauges.",
+                "# TYPE lightrl_worker_pressure gauge",
             ]
         )
         for name in ("tasks", "procs", "zombies", "shim", "runc", "docker_cli_procs"):
             value = pressure.get(name)
             if isinstance(value, (int, float)):
-                lines.append(f'openclaw_worker_pressure{{name="{name}"}} {value}')
+                lines.append(f'lightrl_worker_pressure{{name="{name}"}} {value}')
         pids_pct = pressure.get("pids_pct")
         if isinstance(pids_pct, (int, float)):
-            lines.append(f'openclaw_worker_pressure{{name="pids_pct"}} {pids_pct}')
+            lines.append(f'lightrl_worker_pressure{{name="pids_pct"}} {pids_pct}')
         docker_cli_ok = 1 if pressure.get("docker_cli_ok") else 0
-        lines.append(f'openclaw_worker_pressure{{name="docker_cli_ok"}} {docker_cli_ok}')
+        lines.append(f'lightrl_worker_pressure{{name="docker_cli_ok"}} {docker_cli_ok}')
 
     return Response("\n".join(lines) + "\n", media_type="text/plain")
 

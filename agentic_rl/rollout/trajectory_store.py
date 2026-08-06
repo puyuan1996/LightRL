@@ -29,7 +29,7 @@ from agentic_rl.environments.registry import (
 from agentic_rl.environments.registry import slug_for as _slug_for
 
 
-# ─── Trajectory export (parallels swe-rl/generate_with_swe_remote.py:78-137) ───
+# ─── Trajectory export ───
 # Toggle via env var TERMINAL_SAVE_TRAJ_DIR (empty=disabled).
 # Output layout (one dir per rollout sample):
 #   {save_dir}/t{task}_r{rollout_id}_st{train_step}_g{group}_s{sample}_{uid}_{ts}/
@@ -700,8 +700,9 @@ def _save_rollout_artifacts(
 ) -> None:
     """Persist a full rollout (dialogue + tool calls + ClawSentry + reward) to disk.
 
-    Mirrors swe-rl rollout export format. Failures are logged & swallowed so
-    training is never blocked.
+    Side-channel observability export (training consumes the in-memory samples,
+    not these files).  Failures are logged & swallowed so training is never
+    blocked.
     """
     try:
         save_dir = _get_terminal_save_dir()

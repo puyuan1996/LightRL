@@ -55,7 +55,7 @@ def _docker_network_lifecycle_lock():
     lock_path = Path(
         os.getenv(
             "DOCKER_NETWORK_LIFECYCLE_LOCK",
-            "/tmp/openclaw_docker_network_lifecycle.lock",
+            "/tmp/lightrl_docker_network_lifecycle.lock",
         )
     )
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,7 +115,7 @@ def _docker_cleanup_executor() -> ThreadPoolExecutor:
         workers = max(1, _env_int("TERMINAL_ENV_DOCKER_CLEANUP_WORKERS", 8))
         _DOCKER_CLEANUP_EXECUTOR = ThreadPoolExecutor(
             max_workers=workers,
-            thread_name_prefix="openclaw-docker-cleanup",
+            thread_name_prefix="lightrl-docker-cleanup",
         )
     return _DOCKER_CLEANUP_EXECUTOR
 

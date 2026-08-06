@@ -415,7 +415,7 @@ def build_config(
         }
 
     return {
-        "schema": "openclaw.case_study_samples.v1",
+        "schema": "lightrl.case_study_samples.v1",
         "description": (
             "Fixed case-study samples for SetA, agent-safety-bench, and AgentHarm. "
             "Samples are selected to cover task family, risk level, success/failure "

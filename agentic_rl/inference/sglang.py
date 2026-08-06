@@ -18,9 +18,13 @@ from openai.types.chat.chat_completion_message_function_tool_call import (
     Function,
 )
 from openai.types.completion_usage import CompletionUsage
-from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
 
 from agentic_rl.platform.http_client import post as async_post
+
+# async_post is a module-level function with a static signature; probing it
+# once here avoids per-request inspect.signature() calls in generate_turn().
+_POST_SUPPORTS_HEADERS = "headers" in inspect.signature(async_post).parameters
+_POST_SUPPORTS_TIMEOUT = "timeout" in inspect.signature(async_post).parameters
 
 from agentic_rl.platform.types import Interaction
 
@@ -50,9 +54,8 @@ def process_tool_calls(
     tools: list[Any],
     tool_call_parser: str | None,
     finish_reason: str,
-    use_responses: bool = False,
 ) -> tuple[
-    list[ChatCompletionMessageFunctionToolCall | ResponseFunctionToolCall] | None,
+    list[ChatCompletionMessageFunctionToolCall] | None,
     str,
     str,
 ]:
@@ -60,23 +63,10 @@ def process_tool_calls(
     from sglang.srt.entrypoints.openai.protocol import Tool as SglTool
     from sglang.srt.function_call.function_call_parser import FunctionCallParser
 
-    if use_responses:
-        tools = [
-            SglTool(
-                type=tool["type"],
-                function=SglFunction(
-                    name=tool.get("name"),
-                    description=tool.get("description"),
-                    parameters=tool.get("parameters"),
-                ),
-            )
-            for tool in tools
-        ]
-    else:
-        tools = [
-            SglTool(type=tool["type"], function=SglFunction(**tool["function"]))
-            for tool in tools
-        ]
+    tools = [
+        SglTool(type=tool["type"], function=SglFunction(**tool["function"]))
+        for tool in tools
+    ]
 
     parser = FunctionCallParser(tools, tool_call_parser)
     if parser.has_tool_call(text):
@@ -85,30 +75,17 @@ def process_tool_calls(
         try:
             text, call_info_list = parser.parse_non_stream(text)
 
-            if use_responses:
-                tool_calls = [
-                    ResponseFunctionToolCall(
-                        type="function_call",
-                        id=f"fc-{uuid.uuid4().hex[:24]}",
-                        call_id=f"call_{uuid.uuid4().hex[:24]}",
+            tool_calls = [
+                ChatCompletionMessageFunctionToolCall(
+                    type="function",
+                    id=f"call_{uuid.uuid4().hex[:24]}",
+                    function=Function(
                         name=call_info.name,
                         arguments=_tool_arguments_json(call_info.parameters),
-                        status="completed",
-                    )
-                    for call_info in call_info_list
-                ]
-            else:
-                tool_calls = [
-                    ChatCompletionMessageFunctionToolCall(
-                        type="function",
-                        id=f"call_{uuid.uuid4().hex[:24]}",
-                        function=Function(
-                            name=call_info.name,
-                            arguments=_tool_arguments_json(call_info.parameters),
-                        ),
-                    )
-                    for call_info in call_info_list
-                ]
+                    ),
+                )
+                for call_info in call_info_list
+            ]
             return tool_calls, text, finish_reason
         except Exception as exc:
             logger.error("Tool call parsing error: %s", exc)
@@ -193,7 +170,7 @@ class SGLangTurnClient:
             dropped,
         )
 
-        keep_head_ratio = getattr(self, "keep_head_ratio", 0.3)
+        keep_head_ratio = 0.3
         head = max(1, int(max_toks * keep_head_ratio))
         tail = max_toks - head - len(self.sep_ids)
         if tail <= 0:
@@ -223,19 +200,17 @@ class SGLangTurnClient:
             headers = {"X-SMG-Routing-Key": self.session_id}
 
         t0 = time.monotonic()
-        supports_headers = "headers" in inspect.signature(async_post).parameters
-        supports_timeout = "timeout" in inspect.signature(async_post).parameters
 
         async def _do_post():
             post_kwargs: Dict[str, Any] = {"max_retries": self.max_retries}
-            if self.request_timeout and supports_timeout:
+            if self.request_timeout and _POST_SUPPORTS_TIMEOUT:
                 post_kwargs["timeout"] = self.request_timeout
-            if headers and supports_headers:
+            if headers and _POST_SUPPORTS_HEADERS:
                 return await async_post(
                     self.url, payload, headers=headers, **post_kwargs
                 )
             else:
-                if headers and not supports_headers:
+                if headers and not _POST_SUPPORTS_HEADERS:
                     logger.warning(
                         "async_post() does not accept headers; routing key will be ignored for this request."
                     )
@@ -344,14 +319,5 @@ class SGLangTurnClient:
                     tokenize=True,
                     **self.chat_template_kwargs,
                 )
-
-        if self.chat_template_type == "concat":
-            start = self.messages_delimiter_start
-            end = self.messages_delimiter_end
-            message_strs: List[str] = []
-            for msg in messages:
-                message_strs.append(f"{start}{msg['role']}\n{msg['content']}{end}\n")
-            message_strs.append(f"{start}assistant\n")
-            return self.tokenizer.encode("".join(message_strs))
 
         raise ValueError(f"Unsupported chat_template_type: {self.chat_template_type!r}")

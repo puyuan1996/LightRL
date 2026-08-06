@@ -402,7 +402,7 @@ for item in counts:
     rows.append(row)
 
 summary = {
-    "schema_version": "openclaw_text_jepa_stage_a_eval_summary_v1",
+    "schema_version": "lightrl_text_jepa_stage_a_eval_summary_v1",
     "out_dir": str(out_dir),
     "buckets": rows,
 }
