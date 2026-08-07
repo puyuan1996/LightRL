@@ -1,215 +1,213 @@
 # LightRL
 
-LightRL 是面向智能体环境的强化学习后训练框架。仓库以显式组合的方式组织实验：
+**LightRL is a lightweight, extensible RL post-training framework for agentic
+(tool-use) environments.**
+
+中文文档见 [README_zh.md](README_zh.md)。
+
+Experiments are composed explicitly along four axes:
 
 ```text
 Harness × Model × Algorithm × Environment
 ```
 
-- Harness：Camel-Agent、Claude Code CLI。
-- Model：Qwen3-8B、Qwen3-30B-A3B、GLM-5.1。
-- Algorithm：GRPO、DAPO、DIVE-PO；LWM 尚在开发中。
-- Environment：SETA、Agent-SafetyBench、AgentHarm、SWE-smith 等。
+- **Harness**: Camel-Agent, Claude Code CLI (`agentic_rl/harnesses/`)
+- **Model**: Qwen3-8B, Qwen3-30B-A3B, GLM-5.1 (via configs/rollout templates)
+- **Algorithm**: GRPO / DAPO (provided by the bundled Slime backend),
+  DIVE-PO (LightRL-owned exploration extension)
+- **Environment**: SETA terminal tasks, Agent-SafetyBench, AgentHarm, tau2,
+  SWE-smith / SWE-verified (`agentic_rl/environments/`)
 
-当前主要训练后端是仓库内维护的 Slime 与 Megatron-LM。SETA 等终端环境由独立
-Docker worker 执行，GPU 训练进程通过 `WORKER_URLS` 调用 worker；不要在 GPU
-训练节点上重复启动同一个环境服务。
+The training backends are the in-repo Slime and Megatron-LM checkouts.
+Terminal environments execute in isolated Docker workers; GPU training
+processes reach them over HTTP through `WORKER_URLS` (optionally behind a
+local router when several workers are used).
 
-## 仓库结构
+## Features
+
+- **Recipe-first entrypoints** — a training run is one readable shell script
+  in `examples/training/`; `--dry-run` prints the exact backend command.
+- **Clean rollout/backend contract** — the whole agentic rollout is one slime
+  hook (`--custom-generate-function-path agentic_rl.rollout.entrypoint.generate`),
+  with reward post-processing and logging hooks on the same pattern.
+- **Environment registry** — adding a benchmark environment is one `EnvSpec`
+  line in `agentic_rl/environments/registry.py` plus a runtime class;
+  local/remote selection, scoring mode, safety reward mode and trajectory
+  naming all derive from the table.
+- **DIVE-PO exploration** — intrinsic/episodic/lifelong novelty with a
+  conservative dual-stream advantage injection
+  (`agentic_rl/algorithms/dive_po/`), enabled per recipe; the corrected
+  `dual_stream` reward post-processor is the production default.
+- **Observability** — per-turn trajectory export (`runs/<id>/trajectories/`),
+  structured JSONL metrics, and wandb logging out of the box.
+
+## Architecture
+
+```text
+examples/training/<recipe>.sh
+  → agentic_rl/platform/slime_train.sh          # launcher: data prep, worker discovery, command assembly
+  → slime/train_async.py                        # training backend (GRPO/DAPO)
+      → agentic_rl/rollout/entrypoint.generate  # custom rollout hook
+          ├─ environments/registry.py           #   local runtime vs remote Docker worker
+          ├─ harnesses/factory.py               #   camel-agent / claude-code
+          ├─ inference/sglang.py                #   token-level generation via sglang
+          ├─ rollout/generate_steps.py          #   turn loop, scoring, exploration bonuses
+          └─ rollout/sample_builder.py          #   reward shaping → Sample.reward["score"]
+      → algorithms/dive_po/rewards/dual_stream  # custom reward post-process (group-normalized)
+```
+
+## Repository layout
 
 ```text
 LightRL/
 ├── agentic_rl/
-│   ├── algorithms/             # GRPO、DAPO、DIVE-PO、LWM 扩展点
-│   ├── environments/           # 终端及 benchmark 环境
-│   ├── harnesses/              # Camel-Agent、Claude Code、PRM 适配
-│   ├── misc/                   # 奖励、可观测性与第三方集成
-│   ├── platform/               # 扁平的配置、CLI、后端与服务基础设施
-│   ├── rollout/                # rollout 编排、采样与轨迹管理
-│   └── data/                   # 数据转换与下载
-├── configs/                    # 可组合配置及实验配方
-├── examples/                   # 用户工作流：训练配方与端到端验证
-├── benchmarks/                 # benchmark 数据与任务定义
-├── deploy/workers/             # Docker worker 运维脚本
-├── tools/                      # 分析、评测、诊断等辅助工具
-├── tests/                      # 单元及静态冒烟测试
-├── slime/                      # 训练后端
-├── Megatron-LM/                # 模型训练后端
-├── runs/                       # 所有运行期输出（不应写到仓库根目录）
-└── docs/                       # 架构、算法和运维文档
+│   ├── algorithms/             # DIVE-PO (exploration, rewards, defaults) + PRM bonus agent
+│   ├── data/                   # dataset converters and download helpers (standalone scripts)
+│   ├── environments/           # registry.py, protocol.py, env runtimes, reward rules, HTTP client
+│   ├── evaluation/             # SWE-bench official-format export
+│   ├── harnesses/              # Camel-Agent / Claude Code harnesses + factory
+│   ├── inference/              # sglang turn client + factory
+│   ├── misc/                   # rollout logging, JSONL sink, ClawSentry integration
+│   ├── platform/               # slime launcher, worker/router services, paths, env parsing, http client
+│   └── rollout/                # entrypoint hook, generate_steps, runner, admission, trajectory store
+├── configs/rollout/            # rollout model templates (only retained config layer)
+├── examples/                   # training recipes + bounded end-to-end validation
+├── benchmarks/                 # benchmark data and task definitions
+├── deploy/workers/             # Docker worker operations scripts
+├── tools/                      # analysis, evaluation, diagnostics
+├── tests/                      # unit tests (pytest)
+├── slime/                      # training backend (third-party)
+├── Megatron-LM/                # model training backend (third-party)
+├── runs/                       # all runtime outputs (git-ignored)
+└── docs/                       # architecture, algorithms, operations
 ```
 
-架构和配置扩展方式参见
-[架构说明](docs/architecture.md)与[配置说明](docs/configuration.md)。
+## Requirements
 
-## 运行前提
+- Python ≥ 3.10. Real training expects the prepared cluster image (CUDA,
+  Slime, Megatron-LM, model checkpoints).
+- SETA/terminal tasks require a separate Docker-capable CPU worker.
+- GPU nodes must reach the worker service port (default `18081`).
+- Site addresses, credentials and scheduling parameters belong in environment
+  variables or the git-ignored `local/cluster/` — never in committed configs.
 
-- Python 3.10 及以上；实际训练应使用已准备好 CUDA、Slime、Megatron-LM 和模型
-  checkpoint 的集群环境。
-- SETA/terminal 训练需要一台 Docker 可用的 CPU worker。
-- GPU 节点必须能访问 worker 的服务端口，默认是 `18081`。
-- worker URL、凭据和站点专用调度配置应放在被 Git 忽略的
-  `local/cluster/` 或环境变量中，不要提交到仓库。
-
-只检查 Python 包时可安装：
+For a source-only install of the Python package:
 
 ```bash
 python3 -m pip install -e '.[rollout,worker,train]'
 python3 -c 'import agentic_rl'
 ```
 
-这不会自动准备模型权重、CUDA、Slime 或 Megatron-LM 运行环境。
+This does not provision model weights, CUDA, or the training backends.
 
-## 典型执行流程：Docker worker + GPU 训练
+## Quickstart
 
-以下流程使用两个终端。终端 A 位于 Docker/CPU worker 主机；终端 B 位于具有
-GPU 和训练环境的节点或 rjob。
-
-### 1. 在终端 A 启动 Docker worker
+### 1. Start a Docker worker (CPU host)
 
 ```bash
-cd /mnt/shared-storage-user/puyuan/code/LightRL
-
-# 脚本会先检查 Docker daemon；未运行时尝试启动，然后以前台方式启动 pool server。
+cd LightRL
 bash examples/validation/start_docker_worker.sh
+# prints WORKER_URLS=http://<WORKER_IP>:18081
+
+curl --noproxy '*' --fail http://<WORKER_IP>:18081/healthz
 ```
 
-保持该终端运行。脚本会打印类似：
+See [docs/operations/cpu_workers.md](docs/operations/cpu_workers.md) for
+daemon, proxy, disk and concurrency tuning.
 
-```text
-WORKER_URLS=http://<CPU_WORKER_IP>:18081
-```
-
-另开一个 shell 检查服务：
+### 2. Dry-run a recipe (GPU host)
 
 ```bash
-curl --noproxy '*' --fail http://<CPU_WORKER_IP>:18081/healthz
-curl --noproxy '*' --fail http://<CPU_WORKER_IP>:18081/status \
-  | python3 -m json.tool
-```
-
-Docker daemon、代理、磁盘或并发参数的说明见
-[CPU worker 运维](docs/operations/cpu_workers.md)和
-[Docker 环境稳定性](docs/operations/docker_env_server_stability.md)。
-
-### 2. 在终端 B 检查实验配置
-
-`--dry-run` 只解析配置，不启动 Ray、rollout 或训练：
-
-```bash
-cd /mnt/shared-storage-user/puyuan/code/LightRL
-
 bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 bash examples/training/train_qwen3_8b_seta_dive_po.sh --dry-run
 bash examples/training/train_qwen3_8b_mixed_dapo.sh --dry-run
 ```
 
-各示例所需模型路径和环境变量参见 [examples/README.md](examples/README.md)。
-
-### 3. 启动真实训练
-
-下面是 4-GPU Qwen3-8B + SETA + DAPO 的典型命令。将 worker 地址替换为终端 A
-实际打印的值：
+### 3. Launch training
 
 ```bash
-cd /mnt/shared-storage-user/puyuan/code/LightRL
-
-WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
-NUM_GPUS=4 \
-ACTOR_GPUS=2 \
-ROLLOUT_GPUS=2 \
-TP_SIZE=2 \
-ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
+WORKER_URLS=http://<WORKER_IP>:18081 \
+NUM_GPUS=4 ACTOR_GPUS=2 ROLLOUT_GPUS=2 TP_SIZE=2 ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
 bash examples/training/train_qwen3_8b_seta_dapo.sh
 ```
 
-其他已维护入口：
+### 4. Bounded end-to-end validation (recommended first)
 
 ```bash
-# SETA + DIVE-PO
-WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
-NUM_GPUS=4 ACTOR_GPUS=2 ROLLOUT_GPUS=2 TP_SIZE=2 \
-ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
-bash examples/training/train_qwen3_8b_seta_dive_po.sh
+WORKER_URLS=http://<WORKER_IP>:18081 NUM_ROLLOUT=3 \
+  bash examples/validation/validate_4gpu_seta_dapo.sh
 
-# SETA + Agent-SafetyBench + AgentHarm + DAPO
-WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
-NUM_GPUS=4 ACTOR_GPUS=2 ROLLOUT_GPUS=2 TP_SIZE=2 \
-ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
-bash examples/training/train_qwen3_8b_mixed_dapo.sh
+EXPERIMENT=dive_po WORKER_URLS=http://<WORKER_IP>:18081 \
+  bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
+
+EXPERIMENT=mixed WORKER_URLS=http://<WORKER_IP>:18081 \
+  bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
 ```
 
-默认配方面向正式训练，运行时间较长。首次部署建议先执行下一节的有界验证。
+Each script checks GPUs/resources, static compilation, imports, unit tests,
+CLI dry-run, worker health, rollout metrics, and verifies finite, non-zero
+actor updates (`TRAINING_METRICS_OK` / `EXAMPLE_VALIDATION_OK`).
 
-## 4-GPU 有界端到端验证
+## Configuration
 
-在已经运行的 4-GPU rjob/GPU 节点内执行：
+Training configuration lives directly in the recipe scripts; environment
+variables override defaults. Python-side environment parsing is centralized
+in `agentic_rl/platform/env.py`, whose `ENV_VARS` table documents the
+rollout-domain variables. See [docs/configuration.md](docs/configuration.md).
 
-```bash
-cd /mnt/shared-storage-user/puyuan/code/LightRL
-
-# SETA + DAPO
-WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
-NUM_ROLLOUT=3 \
-bash examples/validation/validate_4gpu_seta_dapo.sh
-
-# DIVE-PO：2 个 rollout
-EXPERIMENT=dive_po \
-WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
-NUM_ROLLOUT=2 \
-bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
-
-# Mixed DAPO：2 个 rollout
-EXPERIMENT=mixed \
-WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
-NUM_ROLLOUT=2 \
-bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
-```
-
-脚本会检查 GPU、内存、磁盘、Python 编译、worker 健康状态、rollout metrics
-和 actor train step；成功时输出 `EXAMPLE_VALIDATION_OK` 或对应的通过标记。
-
-rjob 的 SSH、`brainctl exec` 和日志排查见
-[rjob 调试指南](docs/operations/brainctl_rjob_debug_zh.md)。更完整的人工验证与
-常见报错处理见[验证手册](docs/manual_validation_20260731.md)。
-
-## 输出目录
-
-所有运行期文件应位于：
+## Outputs
 
 ```text
 runs/<RUN_ID>/
-├── config/                   # 配置快照和本次运行生成的数据清单
-├── environment_outputs/     # SETA/terminal 环境及 AgentRunner 输出
-├── logs/                    # 训练与指标日志
-└── manifest.json
+├── config/                # resolved config snapshot, generated dataset manifests
+├── environment_outputs/   # env-side agent runner outputs
+├── logs/                  # train.log, metrics.jsonl
+├── trajectories/          # per-sample traj.json + index.jsonl (side-channel)
+└── metrics/               # wandb / analysis
 ```
 
-`runs/latest` 指向最近一次运行。训练不应在仓库根目录生成
-`build_outputs`、`tmp_doc_latest` 或 benchmark 临时文件。
+## Current validation status
 
-## 当前验证状态
+Latest bounded validations on 4×H200 (2026-08-07, after the P0–P2 refactor
+round; earlier rounds in [docs/manual_validation_20260731.md](docs/manual_validation_20260731.md)):
 
-截至 2026-07-31，当前重构分支已完成以下真实 4×H200 有界验证：
+- SETA + DAPO: 3 rollouts, 6 actor train steps, non-zero finite updates
+  (`TRAINING_METRICS_OK`).
+- SETA + DIVE-PO: 3 rollouts, 7 actor train steps, 4 non-zero updates
+  (`EXAMPLE_VALIDATION_OK`); trajectory artifacts exported.
+- Mixed (SETA + Agent-SafetyBench + AgentHarm) + DAPO: 8 metric records,
+  4 actor train steps, 4 non-zero updates (`EXAMPLE_VALIDATION_OK`).
 
-- SETA + DIVE-PO：连续完成 2 个 rollout、4 个有效 trajectory 和 4 个 actor
-  train step；DIVE-PO intrinsic 指标与环境输出正常生成。
-- Mixed DAPO：连续完成 2 个 rollout、12 个 trajectory 和 4 个非零 actor
-  train step；SETA、Agent-SafetyBench、AgentHarm 三类指标齐全。
-- Mixed DAPO 的 4 个 train step 均为有限值，观测到的 grad norm 为
-  `1.44～3.11`；Ray job 正常退出。
-- 运行结束后 worker 无残留 active task，4 张 GPU 显存均已释放。
+These are short-horizon correctness checks, not convergence or benchmark
+claims.
 
-以上是短程正确性验证，不代表模型已经收敛或取得正式 benchmark 成绩。复现步骤
-和排障说明见 [2026-07-31 人工验证手册](docs/manual_validation_20260731.md)。
+## Development
 
-## 开发状态
+```bash
+python3 -m pytest tests/ -q        # 219 tests
+python3 -m compileall -q agentic_rl
+```
 
-- GRPO 与 DAPO 直接使用 Slime 实现；LightRL 只维护新增的 DIVE-PO 扩展。
-- DIVE-PO 配方位于
-  `examples/training/train_qwen3_8b_seta_dive_po.sh`，算法说明见
-  [DIVE-PO centered gate](docs/algorithms/dive_po_centered_gate.md)。
-- LWM 仍为 Slime 内的 WIP；使用前请阅读
-  [LWM 指南](docs/algorithms/lwm_guide_zh.md)。
-- 重构范围与保守保留项见
-  [重构审查记录](docs/refactor_review_20260731.md)。
+Extension points:
+
+- New environment → one `EnvSpec` in `agentic_rl/environments/registry.py`
+  + a runtime implementing `environments/protocol.py:EnvClient`.
+- New harness → register in `agentic_rl/harnesses/factory.py`
+  (`_HARNESS_ALIASES` + `_HARNESS_TARGETS`) and satisfy the
+  `rollout/runner.py:RolloutAgent` protocol.
+- New reward post-processing → expose `post_process_rewards(args, samples)`
+  and point `CUSTOM_REWARD_POST_PROCESS_PATH` at it.
+
+## Documentation
+
+- [docs/architecture.md](docs/architecture.md) — package boundaries and layering
+- [docs/configuration.md](docs/configuration.md) — recipes and env vars
+- [docs/algorithms/dive_po_dual_stream.md](docs/algorithms/dive_po_dual_stream.md) — DIVE-PO reward math
+- [docs/harnesses/README.md](docs/harnesses/README.md) — harness selection
+- [docs/evaluation/README.md](docs/evaluation/README.md) — evaluation tooling
+- [docs/operations/](docs/operations/) — site-specific runbooks (our cluster;
+  adapt addresses/paths to your site)
+
+## License
+
+[MIT](LICENSE)
