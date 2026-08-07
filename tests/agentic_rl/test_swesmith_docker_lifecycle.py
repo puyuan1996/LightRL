@@ -152,7 +152,11 @@ def test_swesmith_artifact_publication_and_consumers_share_a_lock() -> None:
     downloader = DOWNLOADER.read_text(encoding="utf-8")
     smoke_client = SMOKE_CLIENT.read_text(encoding="utf-8")
     worker = SWE_LAUNCHER.read_text(encoding="utf-8")
-    trainer = TRAIN_LAUNCHER.read_text(encoding="utf-8")
+    trainer = "\n".join(
+        part.read_text(encoding="utf-8")
+        for part in [TRAIN_LAUNCHER]
+        + sorted((AGENTIC_RL / "platform" / "slime_train").glob("lib_*.sh"))
+    )
 
     assert "flock -n 9" in downloader
     assert "PUBLISH_STARTED=1" in downloader

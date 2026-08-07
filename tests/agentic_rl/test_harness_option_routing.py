@@ -9,6 +9,15 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENTIC_RL = ROOT / "agentic_rl"
 
 
+def _launcher_text() -> str:
+    """slime_train.sh plus its sourced stage libraries, in execution order."""
+    platform_dir = AGENTIC_RL / "platform"
+    parts = [platform_dir / "slime_train.sh"] + sorted(
+        (platform_dir / "slime_train").glob("lib_*.sh")
+    )
+    return "\n".join(part.read_text() for part in parts)
+
+
 def test_rollout_configs_default_to_camel_agent():
     for name in ("rollout_qwen3.yaml", "rollout_qwen3_think.yaml"):
         config = yaml.safe_load((ROOT / "configs" / "rollout" / name).read_text())
@@ -16,9 +25,7 @@ def test_rollout_configs_default_to_camel_agent():
 
 
 def test_slime_backend_routes_registered_harnesses():
-    script = (
-        AGENTIC_RL / "platform" / "slime_train.sh"
-    ).read_text()
+    script = _launcher_text()
     assert 'HARNESS_OPTION="${HARNESS_OPTION:-camel-agent}"' in script
     assert 'cfg["harness_option"] = harness_option' in script
     assert "claude-code|claude_code)" in script

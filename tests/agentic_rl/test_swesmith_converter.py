@@ -1358,9 +1358,11 @@ def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
     assert "import yaml" in launcher
     assert 'data_preflight=ok format=v' in launcher
     assert 'export POOL_SERVER_VENV' in launcher
-    training = (
-        MODULE_PATH.parents[1] / "platform" / "slime_train.sh"
-    ).read_text(encoding="utf-8")
+    platform_dir = MODULE_PATH.parents[1] / "platform"
+    launcher_parts = [platform_dir / "slime_train.sh"] + sorted(
+        (platform_dir / "slime_train").glob("lib_*.sh")
+    )
+    training = "\n".join(part.read_text(encoding="utf-8") for part in launcher_parts)
     smoke = (
         MODULE_PATH.parents[2] / "tools" / "dev" / "smoke_swesmith_worker.py"
     ).read_text(encoding="utf-8")
