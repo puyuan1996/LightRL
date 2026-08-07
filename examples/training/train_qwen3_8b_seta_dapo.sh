@@ -51,7 +51,8 @@ die() { printf '[seta-dapo] ERROR: %s\n' "$*" >&2; exit 1; }
 if [[ "${DRY_RUN}" != "1" ]]; then
   command -v nvidia-smi >/dev/null || die "nvidia-smi is required inside the rjob"
   gpu_count="$(nvidia-smi -L | sed -n '/^GPU /p' | wc -l)"
-  [[ "${gpu_count}" == "${NUM_GPUS}" ]] || die "expected ${NUM_GPUS} visible GPUs, found ${gpu_count}"
+  [[ "${gpu_count}" == "${NUM_GPUS}" || "${ALLOW_GPU_COUNT_MISMATCH:-0}" == "1" ]] \
+    || die "expected ${NUM_GPUS} visible GPUs, found ${gpu_count}"
   command -v curl >/dev/null || die "curl is required for the worker health check"
   curl --noproxy '*' --fail --silent --show-error --max-time 10 \
     "${WORKER_URLS%%,*}/healthz" >/dev/null \

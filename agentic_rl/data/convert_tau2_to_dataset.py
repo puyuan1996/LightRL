@@ -9,8 +9,6 @@ import types
 from pathlib import Path
 from typing import Any
 
-from agentic_rl.data.io_utils import write_jsonl  # noqa: F401
-
 
 def _install_deepdiff_stub() -> None:
     if "deepdiff" in sys.modules:
@@ -128,7 +126,48 @@ def ensure_tau2_importable(root: Path) -> None:
     os.environ.setdefault("TAU2_DATA_DIR", str(root / "data"))
 
 
-from agentic_rl.environments.tau2.task_text import task_instruction
+def _structured_instruction_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+
+    lines: list[str] = []
+    for label, attr in (
+        ("Domain", "domain"),
+        ("Reason", "reason_for_call"),
+        ("Known info", "known_info"),
+        ("Unknown info", "unknown_info"),
+        ("Task instructions", "task_instructions"),
+    ):
+        raw = getattr(value, attr, None)
+        if raw:
+            lines.append(f"{label}: {raw}")
+    return "\n".join(lines).strip()
+
+
+def task_instruction(task: Any) -> str:
+    ticket = getattr(task, "ticket", None)
+    if ticket:
+        return str(ticket).strip()
+
+    user_scenario = getattr(task, "user_scenario", None)
+    if user_scenario is not None:
+        instructions = getattr(user_scenario, "instructions", None)
+        structured = _structured_instruction_text(instructions)
+        if structured:
+            return structured
+        if instructions is not None:
+            return str(instructions).strip()
+
+    description = getattr(task, "description", None)
+    if description is not None:
+        for attr in ("notes", "purpose"):
+            raw = getattr(description, attr, None)
+            if raw:
+                return str(raw).strip()
+
+    return str(getattr(task, "id", "unknown")).strip()
 
 
 def convert_task(task: Any, *, domain: str, task_split: str | None, policy_type: str) -> dict[str, Any]:
@@ -150,6 +189,13 @@ def convert_task(task: Any, *, domain: str, task_split: str | None, policy_type:
         "task": [{"role": "user", "content": instruction}],
         "metadata": metadata,
     }
+
+
+def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def main() -> None:
