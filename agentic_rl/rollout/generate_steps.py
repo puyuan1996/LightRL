@@ -96,7 +96,7 @@ from agentic_rl.algorithms.dive_po.exploration.agent57.controller import (
     compute_ngu_lite_bonus as _agent57_compute_ngu_lite_bonus,
     record_arm_event as _agent57_record_arm_event,
 )
-from agentic_rl.inference.factory import (
+from agentic_rl.rollout.sglang_factory import (
     _create_sglang_client,
     _normalize_tool_schemas,
 )

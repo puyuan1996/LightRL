@@ -62,10 +62,10 @@ LightRL/
 │   ├── environments/           # registry.py、protocol.py、环境 runtime、奖励规则、HTTP client
 │   ├── evaluation/             # SWE-bench 官方格式导出
 │   ├── harnesses/              # Camel-Agent / Claude Code harness + 工厂
-│   ├── inference/              # sglang 轮次客户端 + 工厂
+│   ├── inference/              # sglang 轮次客户端库(rollout 与 harness 共用)
 │   ├── misc/                   # rollout 日志、JSONL sink、ClawSentry 集成
 │   ├── platform/               # slime 启动器、worker/router 服务、路径、env 解析、http client
-│   └── rollout/                # entrypoint 钩子、generate_steps、runner、准入、轨迹存储
+│   └── rollout/                # entrypoint 钩子、generate_steps、runner、准入、sglang 装配、轨迹存储
 ├── configs/rollout/            # rollout 模型模板(唯一保留的配置层)
 ├── examples/                   # 训练配方 + 有界端到端验证
 ├── benchmarks/                 # benchmark 数据与任务定义

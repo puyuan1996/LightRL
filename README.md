@@ -66,10 +66,10 @@ LightRL/
 │   ├── environments/           # registry.py, protocol.py, env runtimes, reward rules, HTTP client
 │   ├── evaluation/             # SWE-bench official-format export
 │   ├── harnesses/              # Camel-Agent / Claude Code harnesses + factory
-│   ├── inference/              # sglang turn client + factory
+│   ├── inference/              # sglang turn client library (shared by rollout and harnesses)
 │   ├── misc/                   # rollout logging, JSONL sink, ClawSentry integration
 │   ├── platform/               # slime launcher, worker/router services, paths, env parsing, http client
-│   └── rollout/                # entrypoint hook, generate_steps, runner, admission, trajectory store
+│   └── rollout/                # entrypoint hook, generate_steps, runner, admission, sglang factory, trajectory store
 ├── configs/rollout/            # rollout model templates (only retained config layer)
 ├── examples/                   # training recipes + bounded end-to-end validation
 ├── benchmarks/                 # benchmark data and task definitions

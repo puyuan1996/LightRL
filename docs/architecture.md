@@ -12,7 +12,7 @@ agentic_rl/
 ├── environments/        # 环境运行时、注册表(registry.py)与协议(protocol.py)
 ├── evaluation/          # 评测适配
 ├── harnesses/           # Camel / Claude Code agent harness
-├── inference/           # 推理客户端
+├── inference/           # sglang 轮次客户端库(rollout 与 harnesses 共用的叶子库)
 ├── rollout/             # rollout 编排(entrypoint)+ 步骤实现(generate_steps)+ trajectory
 ├── platform/            # Slime runtime、worker 与 router
 └── misc/                # 日志(rollout_log/jsonl_sink)和第三方集成(clawsentry)
