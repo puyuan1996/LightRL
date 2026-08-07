@@ -7,14 +7,15 @@ examples/training/       # 可直接执行、可审阅的训练 recipe
 configs/rollout/         # rollout 模型模板（唯一保留的组合配置）
 agentic_rl/
 ├── algorithms/dive_po/  # LightRL 新增的 DIVE-PO 实现与 defaults
+├── algorithms/prm/      # PRM(process reward)奖励 agent
 ├── data/                 # 数据转换与下载
-├── environments/        # 环境运行时
+├── environments/        # 环境运行时、注册表(registry.py)与协议(protocol.py)
 ├── evaluation/          # 评测适配
 ├── harnesses/           # Camel / Claude Code agent harness
 ├── inference/           # 推理客户端
-├── rollout/             # rollout 编排与 trajectory
+├── rollout/             # rollout 编排(entrypoint)+ 步骤实现(generate_steps)+ trajectory
 ├── platform/            # Slime runtime、worker 与 router
-└── misc/                # reward、日志和第三方集成
+└── misc/                # 日志(rollout_log/jsonl_sink)和第三方集成(clawsentry)
 slime/                   # 第三方训练后端
 Megatron-LM/             # 第三方模型训练后端
 ```
@@ -31,6 +32,9 @@ GRPO、DAPO 直接由 Slime 提供，`agentic_rl/algorithms/` 不为它们维护
 DIVE-PO 是 LightRL 新增能力，因此其 exploration 与 reward 实现集中在
 `agentic_rl/algorithms/dive_po/`。Harness 的名称映射集中在
 `agentic_rl/harnesses/factory.py`，并通过惰性 import 隔离可选依赖。
+环境（数据源）的判定集中在 `agentic_rl/environments/registry.py` 的 `EnvSpec`
+表：本地/远程选择、打分模式、安全奖励模式与轨迹落盘别名都查这张表，新增
+环境只需注册一行。环境变量解析集中在 `agentic_rl/platform/env.py`。
 
 单个 `WORKER_URLS` 默认由训练进程直接访问；多个 worker 或显式设置
 `START_ENV_POOL_SERVER=1` 时才需要本地 router。站点地址、凭据和调度容量通过环境变量
