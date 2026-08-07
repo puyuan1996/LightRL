@@ -24,9 +24,13 @@ Megatron-LM/             # 第三方模型训练后端
 
 ```text
 examples/training/<recipe>.sh
-  -> agentic_rl/platform/slime_train.sh
+  -> agentic_rl/platform/slime_train.sh   # 68 行编排器,按原序 source slime_train/lib_*.sh
   -> slime/train_async.py
 ```
+
+启动器已拆分为 7 个阶段库(`agentic_rl/platform/slime_train/`):lib_bootstrap、
+lib_run_dir、lib_rollout_cfg、lib_dataset、lib_worker、lib_args、lib_launch;
+调用方路径与行为完全不变(四个 recipe 的 dry-run 命令逐 token 对拍一致)。
 
 GRPO、DAPO 直接由 Slime 提供，`agentic_rl/algorithms/` 不为它们维护占位包。
 DIVE-PO 是 LightRL 新增能力，因此其 exploration 与 reward 实现集中在
