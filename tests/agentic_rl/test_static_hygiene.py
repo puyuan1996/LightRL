@@ -44,3 +44,22 @@ def test_no_undefined_names_in_rollout_path():
         if "undefined name" in line
     ]
     assert not undefined, "undefined names found:\n" + "\n".join(undefined)
+
+
+def test_slime_hook_modules_importable():
+    """Every module path slime_train.sh hands to slime via --custom-*-path
+    must import cleanly; a stale cross-module import only blows up at runtime
+    otherwise (see the r2 validation ImportError)."""
+    import importlib
+
+    sys.path.insert(0, str(REPO_ROOT / "slime"))
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    for module, func in (
+        ("agentic_rl.rollout.entrypoint", "generate"),
+        ("agentic_rl.rollout.generate_steps", "_run_turn_loop"),
+        ("agentic_rl.misc.rollout_log", "rollout_log"),
+        ("agentic_rl.misc.rollout_log", "eval_rollout_log"),
+        ("agentic_rl.algorithms.dive_po.rewards.dual_stream", "post_process_rewards"),
+    ):
+        assert callable(getattr(importlib.import_module(module), func)), module

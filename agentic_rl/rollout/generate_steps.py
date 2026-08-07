@@ -27,7 +27,11 @@ from agentic_rl.platform.types import (
     TurnContext,
     TurnResult,
 )
-from agentic_rl.environments.registry import direct_score_source, safety_reward_mode
+from agentic_rl.environments.registry import (
+    direct_score_source,
+    safety_reward_mode,
+    uses_remote_terminal_env as _uses_remote_terminal_env,
+)
 from agentic_rl.environments.reward_safety import (
     DEFAULT_ZERO_THRESHOLD as _SAFETY_ZERO_THRESHOLD,
     broadcast_to_turns as _safety_broadcast,
@@ -41,7 +45,6 @@ from agentic_rl.rollout.admission import (
     _release_remote_env_admission,
     _remote_env_close_semaphore,
     _task_circuit_open_reason,
-    _uses_remote_terminal_env,
 )
 from agentic_rl.algorithms.dive_po.exploration.rollout_bonus import (
     _AGENT57_CONFIG,
