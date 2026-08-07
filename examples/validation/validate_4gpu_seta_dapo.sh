@@ -113,8 +113,9 @@ static_checks() {
 import_smoke() {
   python3 - <<'PY'
 from agentic_rl.algorithms import ALGORITHMS
-from agentic_rl.rollout import entrypoint, trajectory_store
+from agentic_rl.rollout import entrypoint, generate_steps, trajectory_store
 
+assert callable(entrypoint.generate)
 assert callable(trajectory_store._trajectory_save_decision)
 assert callable(trajectory_store._save_rollout_artifacts)
 for name in (
@@ -134,7 +135,7 @@ for name in (
     "_EXPLORE_SAFETY_FILTER_ENABLED",
     "_EXPLORE_SCORE_BONUS_COMPONENTS",
 ):
-    assert hasattr(entrypoint, name), f"rollout entrypoint is missing {name}"
+    assert hasattr(generate_steps, name), f"rollout generate_steps is missing {name}"
 assert ALGORITHMS == ("dive_po",)
 print("RJOB_IMPORT_SMOKE_OK")
 PY
