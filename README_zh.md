@@ -1,6 +1,6 @@
 # LightRL
 
-**LightRL 是面向智能体（工具调用）环境的轻量、可扩展强化学习后训练框架。**
+**LightRL 是面向智能体环境的轻量、高效、可扩展强化学习后训练框架。**
 
 English README: [README.md](README.md)。
 
@@ -23,19 +23,20 @@ Harness × Model × Algorithm × Environment
 
 ## 特性
 
-- **Recipe 即入口**——一次训练就是 `examples/training/` 里一个可审阅的 shell
-  脚本;`--dry-run` 打印最终后端命令而不启动。
-- **干净的 rollout/后端契约**——整个智能体 rollout 就是一个 slime 钩子
-  (`--custom-generate-function-path agentic_rl.rollout.entrypoint.generate`),
-  奖励后处理与日志钩子同理。
-- **环境注册表**——新增一个 benchmark 环境 =
-  `agentic_rl/environments/registry.py` 里一行 `EnvSpec` + 一个 runtime 类;
-  本地/远程选择、打分模式、安全奖励模式、轨迹命名全部由这张表驱动。
-- **DIVE-PO 探索**——intrinsic/episodic/lifelong 新颖度估计 + 保守的
-  dual-stream advantage 注入(`agentic_rl/algorithms/dive_po/`);修正版
-  `dual_stream` 奖励后处理是生产默认实现。
-- **可观测性**——逐轮轨迹落盘(`runs/<id>/trajectories/`)、结构化 JSONL
-  指标、wandb 曲线开箱即用。
+- **开箱即用的训练配方**——每个实验就是一个可审阅的 shell 脚本；先用
+  `--dry-run` 打印完整后端命令，确认无误再启动。
+- **多智能体环境支持**——SETA 终端任务、Agent-SafetyBench、AgentHarm、
+  tau2、SWE-smith / SWE-verified；终端类环境在独立 Docker worker 中
+  隔离执行，训练侧经 HTTP 调用。
+- **低成本扩展**——新增一个 benchmark 环境，只需在环境注册表中加一行
+  声明并实现一个 runtime 类；harness 与奖励后处理同样有明确的注册入口。
+- **自研 DIVE-PO 探索算法**——episodic / lifelong 新颖度估计 +
+  dual-stream advantage 注入，按配方一键开关；GRPO / DAPO 由内置
+  Slime 后端直接提供。
+- **完整的可观测性**——逐轮对话轨迹、结构化指标（JSONL）、wandb 曲线，
+  默认开启、无需额外配置。
+- **有界验证脚本**——4-GPU 小样本端到端自检（rollout → 奖励 → 梯度更新），
+  数分钟即可确认部署正确性。
 
 ## 架构
 
@@ -207,6 +208,28 @@ python3 -m compileall -q agentic_rl
 - [评测工具](docs/evaluation/README.md)
 - [运维手册](docs/operations/)——站点相关(brainctl/rjob、CPU worker、
   Docker 稳定性),移植时请将其中地址替换为你方站点
+
+## 致谢
+
+LightRL 基于并内置两个训练后端：[Slime](https://github.com/THUDM/slime)
+(rollout/训练运行时）与 [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
+（模型训练）。智能体 RL 技术栈——终端环境、harness、奖励成形与 rollout
+编排——最初在 **OpenClaw-RL** 中研发，后经抽取与重构成为本轻量框架。
+感谢上述项目的作者们。
+
+## 引用
+
+如果 LightRL 对您的工作有帮助，请引用：
+
+```bibtex
+@misc{lightrl,
+  title={LightRL: A Lightweight, Efficient, Scalable RL Post-training Framework for Agentic Environments},
+  author={Pu, Yuan and Zhang, Shaoang and Zhang, Chenhao and Li, Xueyan and Lu, Yudong and Tang, Jia and Wang, Guanchu and Niu, Yazhe},
+  publisher={GitHub},
+  howpublished={\url{https://github.com/opendilab/LightRL}},
+  year={2026},
+}
+```
 
 ## License
 

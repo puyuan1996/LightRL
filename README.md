@@ -1,7 +1,6 @@
 # LightRL
 
-**LightRL is a lightweight, extensible RL post-training framework for agentic
-(tool-use) environments.**
+**LightRL is a lightweight, efficient and scalable RL post-training framework for agentic environments.**
 
 中文文档见 [README_zh.md](README_zh.md)。
 
@@ -25,21 +24,22 @@ local router when several workers are used).
 
 ## Features
 
-- **Recipe-first entrypoints** — a training run is one readable shell script
-  in `examples/training/`; `--dry-run` prints the exact backend command.
-- **Clean rollout/backend contract** — the whole agentic rollout is one slime
-  hook (`--custom-generate-function-path agentic_rl.rollout.entrypoint.generate`),
-  with reward post-processing and logging hooks on the same pattern.
-- **Environment registry** — adding a benchmark environment is one `EnvSpec`
-  line in `agentic_rl/environments/registry.py` plus a runtime class;
-  local/remote selection, scoring mode, safety reward mode and trajectory
-  naming all derive from the table.
-- **DIVE-PO exploration** — intrinsic/episodic/lifelong novelty with a
-  conservative dual-stream advantage injection
-  (`agentic_rl/algorithms/dive_po/`), enabled per recipe; the corrected
-  `dual_stream` reward post-processor is the production default.
-- **Observability** — per-turn trajectory export (`runs/<id>/trajectories/`),
-  structured JSONL metrics, and wandb logging out of the box.
+- **Ready-to-run training recipes** — every experiment is a single reviewable
+  shell script; inspect the exact backend command with `--dry-run` before
+  anything starts.
+- **Agentic environment support** — SETA terminal tasks, Agent-SafetyBench,
+  AgentHarm, tau2, and SWE-smith / SWE-verified; terminal environments run
+  isolated in dedicated Docker workers and are reached over HTTP.
+- **Low-cost extension** — adding a benchmark environment is one declarative
+  line in the environment registry plus a runtime class; harnesses and reward
+  post-processors have equally explicit registration points.
+- **DIVE-PO exploration** — episodic / lifelong novelty estimation with
+  dual-stream advantage injection, toggled per recipe; GRPO / DAPO come from
+  the bundled Slime backend.
+- **Complete observability** — per-turn conversation trajectories, structured
+  JSONL metrics, and wandb curves, all on by default.
+- **Bounded validation scripts** — 4-GPU end-to-end smoke (rollout → reward →
+  gradient updates) that confirms a deployment in minutes.
 
 ## Architecture
 
@@ -207,6 +207,29 @@ Extension points:
 - [docs/evaluation/README.md](docs/evaluation/README.md) — evaluation tooling
 - [docs/operations/](docs/operations/) — site-specific runbooks (our cluster;
   adapt addresses/paths to your site)
+
+## Acknowledgements
+
+LightRL builds on and bundles two training backends: [Slime](https://github.com/THUDM/slime)
+(rollout/training runtime) and [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
+(model training). The agentic RL stack — terminal environments, harnesses,
+reward shaping and the rollout orchestrator — was originally developed inside
+**OpenClaw-RL** and was extracted and refactored into this lightweight
+framework. We thank the authors of all these projects.
+
+## Citation
+
+If LightRL helps your research, please cite:
+
+```bibtex
+@misc{lightrl,
+  title={LightRL: A Lightweight, Efficient, Scalable RL Post-training Framework for Agentic Environments},
+  author={Pu, Yuan and Zhang, Shaoang and Zhang, Chenhao and Li, Xueyan and Lu, Yudong and Tang, Jia and Wang, Guanchu and Niu, Yazhe},
+  publisher={GitHub},
+  howpublished={\url{https://github.com/opendilab/LightRL}},
+  year={2026},
+}
+```
 
 ## License
 
