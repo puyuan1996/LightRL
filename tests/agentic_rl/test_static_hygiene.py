@@ -1,0 +1,46 @@
+"""Static hygiene guard: pyflakes must report no undefined names in the
+rollout path.  Introduced after a refactor moved code between modules and
+dropped imports that only failed at runtime inside the rjob
+(RayTaskError(NameError)); compileall and the unit suite cannot see those."""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+pyflakes_available = (
+    shutil.which("pyflakes") is not None
+    or subprocess.run(
+        [sys.executable, "-m", "pyflakes", "--version"],
+        capture_output=True,
+    ).returncode
+    == 0
+)
+
+
+@pytest.mark.skipif(not pyflakes_available, reason="pyflakes not installed")
+def test_no_undefined_names_in_rollout_path():
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pyflakes",
+            str(REPO_ROOT / "agentic_rl" / "rollout"),
+            str(REPO_ROOT / "agentic_rl" / "environments"),
+            str(REPO_ROOT / "agentic_rl" / "misc"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    undefined = [
+        line
+        for line in (proc.stdout + proc.stderr).splitlines()
+        if "undefined name" in line
+    ]
+    assert not undefined, "undefined names found:\n" + "\n".join(undefined)
