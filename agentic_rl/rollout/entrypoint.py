@@ -7,11 +7,13 @@ from typing import Any, Dict, List
 from slime.rollout.sglang_rollout import GenerateState
 from slime.utils.types import Sample
 
-from agentic_rl.environments.registry import direct_score_source
+from agentic_rl.environments.registry import (
+    direct_score_source,
+    uses_remote_terminal_env as _uses_remote_terminal_env,
+)
 from agentic_rl.rollout.admission import (
     _task_circuit_record_failure,
     _task_circuit_record_success,
-    _uses_remote_terminal_env,
 )
 from agentic_rl.algorithms.dive_po.exploration.rollout_bonus import (
     _finite_float,
@@ -19,7 +21,6 @@ from agentic_rl.algorithms.dive_po.exploration.rollout_bonus import (
 )
 from agentic_rl.rollout.generate_steps import (
     _EnvSession,
-    _RunPlan,
     _TurnClients,
     _TurnLoopResult,
     _build_turn_clients,

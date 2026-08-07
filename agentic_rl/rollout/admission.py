@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +42,6 @@ _REMOTE_ENV_ACTIVE_TOTAL = 0
 _REMOTE_ENV_CLOSE_SEMAPHORE: asyncio.Semaphore | None = None
 _REMOTE_ENV_CLOSE_LIMIT: int | None = None
 _REMOTE_ENV_CLOSE_SEMAPHORE_LOCK: asyncio.Lock | None = None  # Add lock for semaphore recreation
-
-
-from agentic_rl.environments.registry import (
-    uses_remote_terminal_env as _uses_remote_terminal_env,
-)
 
 
 _TASK_CIRCUIT: dict[str, dict[str, Any]] = {}

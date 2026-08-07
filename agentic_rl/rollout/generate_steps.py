@@ -82,10 +82,16 @@ from agentic_rl.rollout.trajectory_store import (
 from agentic_rl.rollout.sample_builder import (
     _build_agent_safetybench_eval_payload,
     _env_flag,
+    _extract_task_meta,
     _last_eval_details,
     _make_task_spec,
     _safety_split_from_meta,
     _sync_reward_aliases,
+)
+from agentic_rl.algorithms.dive_po.exploration.agent57.controller import (
+    compute_lifelong_bonus as _agent57_compute_lifelong_bonus,
+    compute_ngu_lite_bonus as _agent57_compute_ngu_lite_bonus,
+    record_arm_event as _agent57_record_arm_event,
 )
 from agentic_rl.inference.factory import (
     _create_sglang_client,

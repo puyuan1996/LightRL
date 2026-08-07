@@ -4,7 +4,7 @@ import inspect
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
 from agentic_rl.platform.types import TurnContext, TurnResult
-from agentic_rl.harnesses.factory import create_harness, display_harness_name, normalize_harness_name
+from agentic_rl.harnesses.factory import create_harness, display_harness_name
 
 if TYPE_CHECKING:
     from agentic_rl.inference.sglang import SGLangTurnClient
