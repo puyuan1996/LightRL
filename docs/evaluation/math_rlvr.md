@@ -4,7 +4,7 @@
 
 This is the tooling for training a math RLVR run and evaluating it on AIME2025, AIME2024, AMC23 and MATH-500. The one thing to take away before running anything: **on this task the verifier definition, not the model, dominates the number you read.** The same Qwen3-8B samples score `Avg@16 = 20.62%` on AIME2025 under the strict `rm_type=dapo` rule and `67.71%` when a correct `\boxed{}` is also accepted — a 3.3x gap, of which every point is a sample that was correct and finished and still scored wrong. So every metric here is reported on the strict and lenient tracks **at once**, with the per-sample records keeping what the third (pure-boxed) track needs, so all three are recomputable — and a single-track number is not interpretable. The second thing: `rm_type=dapo` cannot score ~30% of MATH-500 at all, and an 8192-token cap costs AIME2025 `Pass@16` 76.67% → 26.67%. Pipeline is five commands: `prepare_math_data.py` → `launch_sglang_math.sh` → `run_math_base_evals.sh` → `rescore_math_eval.py` → `math_paired_stats.py`. Measurements behind all of this: [issue #35](https://github.com/HansBug/OpenClaw-RL/issues/35), [#36](https://github.com/HansBug/OpenClaw-RL/issues/36), [#37](https://github.com/HansBug/OpenClaw-RL/issues/37).
 
-## 1. The two tracks, and why both
+## 1. The tracks, and why more than one
 
 `rm_type=dapo` extracts the answer with `(?i)Answer\s*:\s*([^\n]+)` and scores anything else `[INVALID]`. Qwen3 almost always answers with `\boxed{}` instead — which is what its own model card recommends for math. The result is that the training reward measures output format at least as much as it measures arithmetic.
 
