@@ -5,6 +5,10 @@ Evaluation utilities are grouped under `tools/evaluation/`.
 - Safety: input preparation, official evaluation orchestration, summaries,
   backend validation, and reward-scale validation.
 - SWE: official SWE-bench Verified harness execution.
+- Math RLVR: dataset preparation, Avg@k / Pass@k evaluation on AIME2025 /
+  AIME2024 / AMC23 / MATH-500, re-scoring of stored records, and paired
+  statistics. Read `math_rlvr.md` first: on this task the verifier definition
+  moves the reported number more than the model does.
 - Development checks: rule-reward and environment-backend validators.
 
 These utilities consume existing checkpoints or run artifacts; they are not
