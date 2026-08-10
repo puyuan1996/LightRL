@@ -20,7 +20,7 @@ Two things the lenient track is not. It is a **lower** bound, not an upper one: 
 
 ## 2. What the format rule costs
 
-`format_penalty_rate` counts samples that are lenient-correct, finished (`finish_reason == "stop"`), strict-wrong, and scorable. On AIME2025 it is 47.08% — identical to the 47.08pp gap between the two tracks, which is an identity rather than an approximation: the whole gap is carried by finished, correct answers.
+`format_penalty_rate` counts samples that are lenient-correct, finished (`finish_reason == "stop"`), strict-wrong, and scorable. On AIME2025 it is 47.08%, and the gap between the two tracks is the same 47.08pp — an identity rather than an approximation, because the whole gap is carried by finished, correct answers. In counts: of 480 samples, 99 pass strictly and 325 leniently, and the 226 in between are exactly the penalised set. (Subtracting the rounded percentages in the table below gives 47.09; the identity holds on the underlying counts.)
 
 | dataset | k | strict Avg@k | lenient Avg@k | format penalty | no `Answer:` line | wrote it, regex mis-grabbed |
 |---|---:|---:|---:|---:|---:|---:|
@@ -85,7 +85,7 @@ python tools/evaluation/rescore_math_eval.py
 python tools/evaluation/math_paired_stats.py --help
 ```
 
-Training is `examples/training/train_qwen3_8b_dapo_math.sh`. Note it trains on **AIME2025's 30 problems** with AIME2024 held out, not on the 17,255-prompt DAPO-Math-17k that step 1 also prepares. Switching to the 17k set is not a one-variable change: `ROLLOUT_BATCH_SIZE` is 30 so that one step is exactly one epoch, and the in-training eval list names the training set itself, which at 17k would evaluate 17,255 x 8 samples every two steps. Change all three together. `DRY_RUN=1` prints the resolved argv without launching, `SMOKE=1` runs two steps without checkpointing. It requires `HF_CKPT` and `REF_LOAD` rather than defaulting them, because a stale default silently trains a different model. It defaults to `rm_type=math`, not `dapo`: with `dapo` roughly the first 60 steps go into learning to emit `Answer:`, which on a 30-problem set would dominate the whole run and turn any DAPO-vs-variant comparison into "who learns the format faster".
+Training is `examples/training/train_qwen3_8b_dapo_math.sh`. Note it trains on **AIME2025's 30 problems** with AIME2024 held out, not on the 17,255-prompt DAPO-Math-17k that step 1 also prepares. Switching to the 17k set is not a one-variable change. Three things move together: the dataset path itself, `ROLLOUT_BATCH_SIZE` (30 today, so that one step is exactly one epoch), and the in-training eval list (it names the training set, which at 17k would evaluate 17,255 x 8 samples every two steps). `DRY_RUN=1` prints the resolved argv without launching, `SMOKE=1` runs two steps without checkpointing. It requires `HF_CKPT` and `REF_LOAD` rather than defaulting them, because a stale default silently trains a different model. It defaults to `rm_type=math`, not `dapo`: with `dapo` roughly the first 60 steps go into learning to emit `Answer:`, which on a 30-problem set would dominate the whole run and turn any DAPO-vs-variant comparison into "who learns the format faster".
 
 `eval_math.py` writes `<dataset>_<tag>_n<k>.summary.json` and `.detail.json` per run. The detail file keeps per-sample `completion_tokens`, `finish_reason`, both track verdicts and the last 700 characters of the response, which is what makes every table above recomputable without regenerating.
 
