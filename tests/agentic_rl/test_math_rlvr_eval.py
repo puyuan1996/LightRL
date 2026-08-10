@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -271,7 +272,8 @@ def test_the_sweep_can_reproduce_the_documented_temperature_comparison(tmp_path)
         capture_output=True, text=True, timeout=120,
     )
     assert "--temperature 0.6 --top-p 0.95" in result.stdout
-    assert "--tag T0.6" in result.stdout
+    # The whole tag, not a prefix: "--tag T0.6" also matches "T0.6_p0.95".
+    assert "--tag T0.6_p0.95" in result.stdout
 
 
 class _StubCompletions(BaseHTTPRequestHandler):
@@ -325,6 +327,39 @@ def _run_eval(tmp_path, labels, reply: str, n: int = 2) -> dict:
              "--port", str(port), "--out", str(out), "--tag", "t"]
         ) is not None
     return json.loads(next(out.glob("*.summary.json")).read_text())
+
+
+def test_the_default_sweep_tag_is_the_one_paired_stats_looks_up(tmp_path):
+    """math_paired_stats.py resolves files by tag; the sweep must not rename them.
+
+    It builds "{stem}_{tag}_n{n}.detail.json" from a hardcoded baseline tag, so a
+    sweep that writes a different default name leaves the next pipeline step with
+    nothing to find.
+    """
+    stats_src = (EVAL_DIR / "math_paired_stats.py").read_text()
+    baseline_tag = re.search(r'^BASE = "([^"]+)"', stats_src, re.M).group(1)
+
+    stub = tmp_path / "pystub"
+    stub.write_text('#!/usr/bin/env bash\necho "ARGS: $*"\n')
+    stub.chmod(0o755)
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "MODEL": "m",
+           "PYTHON": str(stub), "DATASETS": "aime-2025",
+           "MATH_DATA_ROOT": str(tmp_path / "data")}
+    default = subprocess.run(
+        ["bash", str(EVAL_DIR / "run_math_base_evals.sh")],
+        env=env, capture_output=True, text=True, timeout=120,
+    )
+    # Whole token, so a renamed "T1.0_p1.0" cannot satisfy a prefix match.
+    assert re.search(rf"--tag {re.escape(baseline_tag)}(\s|$)", default.stdout), (
+        f"the default sweep must still write {baseline_tag}-tagged files"
+    )
+
+    # A top_p-only ablation must not land on that same name.
+    ablation = subprocess.run(
+        ["bash", str(EVAL_DIR / "run_math_base_evals.sh")],
+        env={**env, "TOP_P": "0.95"}, capture_output=True, text=True, timeout=120,
+    )
+    assert "--tag T1.0_p0.95" in ablation.stdout
 
 
 def test_compliance_rate_uses_the_scoreable_denominator(tmp_path):

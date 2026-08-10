@@ -70,7 +70,7 @@ def main(results_dir: Path) -> None:
             f"{summary.name:<42} format_penalty={len(pen)}/{n} ({100*len(pen)/n:.2f}%)  "
             # Same denominator as the stored value, or the printed and stored
             # numbers disagree on any set with unscorable samples.
-            f"compliance={(100*len(comp)/len(scoreable)) if scoreable else float('nan'):.2f}%"
+            f"compliance={f'{100*len(comp)/len(scoreable):.2f}%' if scoreable else 'n/a'}"
             f"  truncated={100*len(trunc)/n:.2f}%"
         )
 
