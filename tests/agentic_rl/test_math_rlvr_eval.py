@@ -359,7 +359,16 @@ def test_the_default_sweep_tag_is_the_one_paired_stats_looks_up(tmp_path):
         ["bash", str(EVAL_DIR / "run_math_base_evals.sh")],
         env={**env, "TOP_P": "0.95"}, capture_output=True, text=True, timeout=120,
     )
-    assert "--tag T1.0_p0.95" in ablation.stdout
+    assert re.search(r"--tag T1\.0_p0\.95(\s|$)", ablation.stdout)
+
+    # 1 and 1.00 are the default spelled differently; a string compare would tag
+    # them as ablations and orphan a full sweep's output.
+    for spelling in ("1", "1.00"):
+        same = subprocess.run(
+            ["bash", str(EVAL_DIR / "run_math_base_evals.sh")],
+            env={**env, "TOP_P": spelling}, capture_output=True, text=True, timeout=120,
+        )
+        assert re.search(rf"--tag {re.escape(baseline_tag)}(\s|$)", same.stdout), spelling
 
 
 def test_compliance_rate_uses_the_scoreable_denominator(tmp_path):

@@ -9,7 +9,7 @@
 #
 # Optional:
 #   TAG            label in the output filenames. Defaults to T<temp>, and to
-#                  T<temp>_p<top_p> when top_p is not 1.0, so a top_p-only
+#                  T<temp>_p<top_p> when top_p is numerically not 1.0, so a top_p-only
 #                  ablation cannot overwrite the default run
 #   PORT=30000      sglang port
 #   CONCURRENCY=128
@@ -35,7 +35,10 @@ CONCURRENCY="${CONCURRENCY:-128}"
 MAX_TOKENS="${MAX_TOKENS:-32768}"
 TEMPERATURE="${TEMPERATURE:-1.0}"
 TOP_P="${TOP_P:-1.0}"
-if [[ "${TOP_P}" == "1.0" ]]; then
+# Numeric compare, not string: TOP_P=1 and TOP_P=1.00 are the default too, and
+# tagging them as an ablation would cost a full sweep and then leave
+# math_paired_stats.py with no file to find.
+if awk -v v="${TOP_P}" 'BEGIN { exit !(v == 1.0) }'; then
   # math_paired_stats.py looks results up by tag, and its published baseline is
   # "T1.0"; keep the default name stable.
   TAG="${TAG:-T${TEMPERATURE}}"
