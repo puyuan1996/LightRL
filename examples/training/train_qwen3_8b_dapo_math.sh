@@ -56,7 +56,7 @@ TRAIN_PYTHON="${TRAIN_PYTHON:-python}"
 export CUDA_HOME="${CUDA_HOME:-}"
 export CUDA_PATH="${CUDA_PATH:-}"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
-export HF_HOME="${HF_HOME:-${HOME}/.cache/huggingface}"
+export HF_HOME="${HF_HOME:-${HOME:-/root}/.cache/huggingface}"
 if [[ -n "${CUDA_ENV_PREFIX:-}" ]]; then
   export CUDA_HOME="${CUDA_ENV_PREFIX}"
   export CUDA_PATH="${CUDA_ENV_PREFIX}"

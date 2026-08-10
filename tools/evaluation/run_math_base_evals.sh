@@ -8,7 +8,8 @@
 #   MODEL           the served model name, passed straight to eval_math.py
 #
 # Optional:
-#   TAG=T1.0        label written into the output filenames
+#   TAG            label in the output filenames; defaults to T<temp>_p<top_p>
+#                  so a top_p-only ablation cannot overwrite the default run
 #   PORT=30000      sglang port
 #   CONCURRENCY=128
 #   MAX_TOKENS=32768   see docs/evaluation/math_rlvr.md on why 8192 is too small
@@ -33,7 +34,7 @@ CONCURRENCY="${CONCURRENCY:-128}"
 MAX_TOKENS="${MAX_TOKENS:-32768}"
 TEMPERATURE="${TEMPERATURE:-1.0}"
 TOP_P="${TOP_P:-1.0}"
-TAG="${TAG:-T${TEMPERATURE}}"
+TAG="${TAG:-T${TEMPERATURE}_p${TOP_P}}"
 DATASETS="${DATASETS:-aime-2025 aime-2024 amc23 math-500}"
 
 mkdir -p "${MATH_DATA_ROOT}/logs" "${MATH_DATA_ROOT}/eval_results"

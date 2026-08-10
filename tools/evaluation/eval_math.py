@@ -208,6 +208,11 @@ async def run(args):
     p50, p90, p99 = toks[len(toks) // 2], toks[int(len(toks) * 0.9)], toks[int(len(toks) * 0.99)]
     invalid = sum(1 for s in all_s if s["pred"] == "[INVALID]") / n_all
     n_scoreable = sum(1 for s in all_s if not s.get("strict_error"))
+    n_format_penalty = sum(
+        1 for s in all_s
+        if s["acc_lenient"] and not s["acc"] and s["finish_reason"] == "stop"
+        and not s.get("strict_error")
+    )
 
     summary = {
         "dataset": data_path.name,
@@ -229,14 +234,12 @@ async def run(args):
         f"avg@{args.n}_lenient_if_cap_8192": round(avg_len_8k * 100, 2),
         f"pass@{args.n}_lenient_if_cap_8192": round(pass_len_8k * 100, 2),
         "finish_reason_dist": finish_dist,
-        # Correct answer + response finished + still scored wrong == pure format cost.
-        "format_penalty_count": sum(
-            1 for s in all_s if s["acc_lenient"] and not s["acc"] and s["finish_reason"] == "stop"
-        ),
+        # Correct answer + response finished + strict-wrong + scorable == pure
+        # format cost. Samples the strict verifier could not score at all are a
+        # different loss and are excluded, matching rescore_math_eval.py.
+        "format_penalty_count": n_format_penalty,
         "format_penalty_denominator": n_all,
-        "format_penalty_rate": round(
-            100 * sum(1 for s in all_s if s["acc_lenient"] and not s["acc"] and s["finish_reason"] == "stop") / n_all, 2
-        ),
+        "format_penalty_rate": round(100 * n_format_penalty / n_all, 2),
         # Denominator is the samples the strict verifier could score at all.
         # Counting [STRICT_ERROR] samples as compliant would report 100% on a
         # dataset it cannot score; rescore_math_eval.py uses the same denominator.
@@ -266,8 +269,8 @@ async def run(args):
     return summary
 
 
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data", required=True)
     ap.add_argument("--n", type=int, default=16)
     ap.add_argument("--temperature", type=float, default=1.0)
@@ -282,4 +285,13 @@ if __name__ == "__main__":
                     help="output directory (default: $MATH_DATA_ROOT/eval_results)")
     ap.add_argument("--concurrency", type=int, default=96)
     ap.add_argument("--tag", default="T1.0")
-    asyncio.run(run(ap.parse_args()))
+    return ap
+
+
+def main(argv: list[str] | None = None) -> dict:
+    """Run one evaluation and return its summary dict."""
+    return asyncio.run(run(build_parser().parse_args(argv)))
+
+
+if __name__ == "__main__":
+    main()

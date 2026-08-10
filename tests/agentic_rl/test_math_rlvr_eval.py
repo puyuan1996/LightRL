@@ -11,8 +11,12 @@ Background: OpenClaw-RL issues #35, #36 and #37.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import subprocess
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import pytest
@@ -217,7 +221,7 @@ def _stub_datasets(tmp_path):
 
 @pytest.mark.parametrize("cuda_env_prefix", [None, "set"], ids=["no-cuda-prefix", "cuda-prefix"])
 def test_a_real_launch_reaches_ray_job_submit(tmp_path, cuda_env_prefix):
-    """The dry run exits ~40 lines before RUNTIME_ENV_JSON.
+    """The dry run exits before RUNTIME_ENV_JSON is built.
 
     That block forwards CUDA_HOME, CUDA_PATH, LD_LIBRARY_PATH and HF_HOME
     verbatim, so if any of them is only conditionally defined the launch dies
@@ -270,20 +274,106 @@ def test_the_sweep_can_reproduce_the_documented_temperature_comparison(tmp_path)
     assert "--tag T0.6" in result.stdout
 
 
-def test_compliance_rate_excludes_samples_the_strict_verifier_cannot_score():
-    """Counting [STRICT_ERROR] as compliant reports 100% on a set it cannot score."""
-    source = (EVAL_DIR / "eval_math.py").read_text()
-    assert 'not s.get("strict_error") and s["pred"] != "[INVALID]"' in source
-    assert '"compliance_denominator_scoreable": n_scoreable,' in source
-    rescore = (EVAL_DIR / "rescore_math_eval.py").read_text()
-    assert "compliance_denominator_scoreable" in rescore, "the two must use one denominator"
+class _StubCompletions(BaseHTTPRequestHandler):
+    """Minimal /v1/chat/completions that always answers with the same body."""
+
+    reply = ""
+
+    def do_POST(self):  # noqa: N802 - BaseHTTPRequestHandler API
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        body = json.dumps({
+            "choices": [{"message": {"content": self.reply}, "finish_reason": "stop"}],
+            "usage": {"completion_tokens": 10, "prompt_tokens": 5},
+        }).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *_args):
+        pass
 
 
-def test_slime_root_override_is_real(tmp_path, monkeypatch):
-    """The error message offers SLIME_ROOT, so it has to be consulted."""
-    source = (EVAL_DIR / "eval_math.py").read_text()
-    assert 'os.environ["SLIME_ROOT"]' in source
-    assert "PYTHONPATH" not in source.split("SLIME_ROOT")[1][:400]
+@contextlib.contextmanager
+def _stub_endpoint(reply: str):
+    _StubCompletions.reply = reply
+    server = HTTPServer(("127.0.0.1", 0), _StubCompletions)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server.server_port
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
+def _run_eval(tmp_path, labels, reply: str, n: int = 2) -> dict:
+    """Run the real evaluator against the stub and return its summary."""
+    if isinstance(labels, str):
+        labels = [labels]
+    data = tmp_path / "sets" / "s"
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "s.jsonl").write_text("".join(
+        json.dumps({"prompt": [{"role": "user", "content": "q"}], "label": label}) + "\n"
+        for label in labels
+    ))
+    out = tmp_path / "out"
+    with _stub_endpoint(reply) as port:
+        assert eval_math.main(
+            ["--data", str(data / "s.jsonl"), "--n", str(n), "--model", "m",
+             "--port", str(port), "--out", str(out), "--tag", "t"]
+        ) is not None
+    return json.loads(next(out.glob("*.summary.json")).read_text())
+
+
+def test_compliance_rate_uses_the_scoreable_denominator(tmp_path):
+    """Counting [STRICT_ERROR] as compliant reports 100% on a set it cannot score.
+
+    Asserted on the computed summary, not on the source text: a mutation that
+    keeps the expression and changes only the divisor has to fail here.
+    """
+    latex_gt = r"\left(3,\frac{\pi}{2}\right)"
+    summary = _run_eval(tmp_path / "latex", latex_gt, rf"Answer: {latex_gt}")
+    assert summary["strict_scoring_error_rate"] == 100.0
+    assert summary["compliance_denominator_scoreable"] == 0
+    assert summary["compliance_rate"] is None, "an unscoreable set must not report 100%"
+
+    ok = _run_eval(tmp_path / "int", "70", "Answer: 70")
+    assert ok["compliance_denominator_scoreable"] == 2
+    assert ok["compliance_rate"] == 100.0
+
+    # The case that separates the two denominators: one scoreable problem and one
+    # the strict verifier cannot score. Over all samples this reads 50%; over the
+    # scoreable ones, which is what compliance means, it is 100%.
+    mixed = _run_eval(tmp_path / "mixed", ["70", r"\frac{1}{2}"], "Answer: 70", n=1)
+    assert mixed["compliance_denominator_scoreable"] == 1
+    assert mixed["strict_scoring_error_rate"] == 50.0
+    assert mixed["compliance_rate"] == 100.0
+
+
+def test_format_penalty_excludes_unscoreable_samples(tmp_path):
+    """§2 defines the penalty as lenient-correct, finished, strict-wrong AND scoreable."""
+    latex_gt = r"\frac{1}{2}"
+    summary = _run_eval(tmp_path / "pen", latex_gt, rf"so \boxed{{{latex_gt}}}")
+    assert summary["strict_scoring_error_rate"] == 100.0
+    assert summary["format_penalty_count"] == 0, "unscoreable is a different loss"
+
+
+def test_slime_root_override_is_honoured(tmp_path, monkeypatch):
+    """The error message offers SLIME_ROOT, so it has to be consulted for real."""
+    import importlib
+
+    monkeypatch.setenv("SLIME_ROOT", str(tmp_path / "absent"))
+    with pytest.raises(SystemExit) as excinfo:
+        importlib.reload(eval_math)
+    assert str(tmp_path / "absent") in str(excinfo.value)
+    assert "PYTHONPATH" not in str(excinfo.value)
+
+    monkeypatch.setenv("SLIME_ROOT", str(ROOT / "slime"))
+    assert importlib.reload(eval_math).SLIME_ROOT == ROOT / "slime"
+    monkeypatch.delenv("SLIME_ROOT")
+    importlib.reload(eval_math)
 
 
 def test_training_script_refuses_to_start_without_the_datasets(tmp_path):

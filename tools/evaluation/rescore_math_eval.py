@@ -68,7 +68,10 @@ def main(results_dir: Path) -> None:
         summary.write_text(json.dumps(js, indent=2))
         print(
             f"{summary.name:<42} format_penalty={len(pen)}/{n} ({100*len(pen)/n:.2f}%)  "
-            f"compliance={100*len(comp)/n:.2f}%  truncated={100*len(trunc)/n:.2f}%"
+            # Same denominator as the stored value, or the printed and stored
+            # numbers disagree on any set with unscorable samples.
+            f"compliance={(100*len(comp)/len(scoreable)) if scoreable else float('nan'):.2f}%"
+            f"  truncated={100*len(trunc)/n:.2f}%"
         )
 
 

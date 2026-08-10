@@ -9,7 +9,7 @@
 #   PORT=30000      HTTP port; eval_math.py talks to 127.0.0.1:$PORT
 #   CTX=40960       context length; must exceed the eval --max-tokens (32768)
 #   MEM_FRAC=0.85   static VRAM fraction
-#   PYTHON=python   interpreter to use
+#   PYTHON=python   interpreter to use; ignored when CUDA_ENV_PREFIX is set
 #   MATH_DATA_ROOT  default <repo>/benchmarks/math; only used to place the log
 #   LOG             log file path
 #   CUDA_ENV_PREFIX when set, its bin/python is used and CUDA_HOME points at it.
