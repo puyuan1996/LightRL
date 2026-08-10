@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-This is the tooling for training a math RLVR run and evaluating it on AIME2025, AIME2024, AMC23 and MATH-500. The one thing to take away before running anything: **on this task the verifier definition, not the model, dominates the number you read.** The same Qwen3-8B samples score `Avg@16 = 20.62%` on AIME2025 under the strict `rm_type=dapo` rule and `67.71%` when a correct `\boxed{}` is also accepted — a 3.3x gap, of which every point is a sample that was correct and finished and still scored wrong. So every metric here is reported on **two tracks at once**, and a single-track number is not interpretable. The second thing: `rm_type=dapo` cannot score ~30% of MATH-500 at all, and an 8192-token cap costs AIME2025 `Pass@16` 76.67% → 26.67%. Pipeline is five commands: `prepare_math_data.py` → `launch_sglang_math.sh` → `run_math_base_evals.sh` → `rescore_math_eval.py` → `math_paired_stats.py`. Measurements behind all of this: [issue #35](https://github.com/HansBug/OpenClaw-RL/issues/35), [#36](https://github.com/HansBug/OpenClaw-RL/issues/36), [#37](https://github.com/HansBug/OpenClaw-RL/issues/37).
+This is the tooling for training a math RLVR run and evaluating it on AIME2025, AIME2024, AMC23 and MATH-500. The one thing to take away before running anything: **on this task the verifier definition, not the model, dominates the number you read.** The same Qwen3-8B samples score `Avg@16 = 20.62%` on AIME2025 under the strict `rm_type=dapo` rule and `67.71%` when a correct `\boxed{}` is also accepted — a 3.3x gap, of which every point is a sample that was correct and finished and still scored wrong. So every metric here is reported on the strict and lenient tracks **at once**, with the per-sample records keeping what the third (pure-boxed) track needs, so all three are recomputable — and a single-track number is not interpretable. The second thing: `rm_type=dapo` cannot score ~30% of MATH-500 at all, and an 8192-token cap costs AIME2025 `Pass@16` 76.67% → 26.67%. Pipeline is five commands: `prepare_math_data.py` → `launch_sglang_math.sh` → `run_math_base_evals.sh` → `rescore_math_eval.py` → `math_paired_stats.py`. Measurements behind all of this: [issue #35](https://github.com/HansBug/OpenClaw-RL/issues/35), [#36](https://github.com/HansBug/OpenClaw-RL/issues/36), [#37](https://github.com/HansBug/OpenClaw-RL/issues/37).
 
 ## 1. The two tracks, and why both
 
@@ -29,7 +29,7 @@ Two things the lenient track is not. It is a **lower** bound, not an upper one: 
 | AMC23 | 16 | 42.19 | 93.44 | 51.25% | 45.78% | 5.47% |
 | MATH-500 | 4 | 36.70 † | 86.20 | 27.45% | 24.00% | 3.45% |
 
-† also contains unscorable samples, see §3; k=4 rather than 16, so it is not comparable across this column. This row is over all 500 problems. §5 and §8 quote MATH-500 on the **349 scorable problems** instead, where the lenient baseline is 92.0 rather than 86.20 — the two populations must not be mixed, and a comparison that changes population silently degrades the lenient track into a boxed-only one.
+† also contains unscorable samples, see §3; k=4 rather than 16, so it is not comparable across this column. This row is over all 500 problems. §5 and §8 quote MATH-500 on the **349 scorable problems** instead, where the lenient baseline is 91.98 rather than 86.20 — the two populations must not be mixed, and a comparison that changes population silently degrades the lenient track into a boxed-only one.
 
 The mis-grab case is the nastier one: `**Answer:**\n$$\boxed{588}$$` parses to `pred='**'`. The model complied and still lost the point.
 
@@ -97,6 +97,6 @@ T=1.0/top_p=1.0 is the default here for one reason: it matches the in-training e
 
 n=30 is small. The strict AIME2024−AIME2025 gap is −0.21pp with 95% CI [−9.79, +9.58]: the two years are not distinguishable from each other, let alone two training configurations. Anything that depends on a small effect needs multiple seeds and paired tests, which is what `math_paired_stats.py` is for.
 
-AMC23 overlaps the training set by at least 40%, so a gain there should not carry weight. The starting point is post-trained Qwen3-8B, not pretrained weights, and its lenient baselines are already at 67.7 / 78.3 / 93.4 (and 92.0 on MATH-500's 349 scorable problems) — "capability barely moved" means "these configurations did not extract more from an already-saturated start", not "RLVR does not improve math".
+AMC23 overlaps the training set by at least 40%, so a gain there should not carry weight. The starting point is post-trained Qwen3-8B, not pretrained weights, and its lenient baselines are already at 67.7 / 78.3 / 93.4 (and 91.98 on MATH-500's 349 scorable problems) — "capability barely moved" means "these configurations did not extract more from an already-saturated start", not "RLVR does not improve math".
 
 This document ships the tooling and the previously measured numbers; nothing here was re-run as part of adding it. The raw per-sample records, environment fingerprints and figures live with the three issues linked at the top.
