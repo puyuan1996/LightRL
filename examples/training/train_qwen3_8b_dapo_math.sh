@@ -32,9 +32,9 @@
 #     25-step eval spacing would miss it entirely.
 #
 # Usage:
-#   bash train_dapo_aime25.sh                 # full run
-#   SMOKE=1 bash train_dapo_aime25.sh         # 2-step smoke, no ckpt
-#   DRY_RUN=1 bash train_dapo_aime25.sh       # print the command only
+#   bash examples/training/train_qwen3_8b_dapo_math.sh                 # full run
+#   SMOKE=1 bash examples/training/train_qwen3_8b_dapo_math.sh         # 2-step smoke, no ckpt
+#   DRY_RUN=1 bash examples/training/train_qwen3_8b_dapo_math.sh       # print the command only
 # ============================================================================
 set -euo pipefail
 
@@ -51,12 +51,20 @@ DATA_DIR="${MATH_DATA_ROOT:-${REPO_ROOT}/benchmarks/math}"
 # ignores torch's RPATH. Both must also reach the Ray workers, hence
 # RUNTIME_ENV_JSON below. Leave it unset when /usr/local/cuda exists.
 TRAIN_PYTHON="${TRAIN_PYTHON:-python}"
+# These four are forwarded verbatim into RUNTIME_ENV_JSON below, so they must be
+# defined on every path or `set -u` kills the launch right after `ray start`.
+export CUDA_HOME="${CUDA_HOME:-}"
+export CUDA_PATH="${CUDA_PATH:-}"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
+export HF_HOME="${HF_HOME:-${HOME}/.cache/huggingface}"
 if [[ -n "${CUDA_ENV_PREFIX:-}" ]]; then
   export CUDA_HOME="${CUDA_ENV_PREFIX}"
   export CUDA_PATH="${CUDA_ENV_PREFIX}"
   export PATH="${CUDA_ENV_PREFIX}/bin:${PATH}"
-  NVIDIA_LIB_DIRS="$(ls -d "${CUDA_ENV_PREFIX}"/lib/python*/site-packages/nvidia/*/lib 2>/dev/null | tr '\n' ':')"
-  export LD_LIBRARY_PATH="${NVIDIA_LIB_DIRS}${CUDA_ENV_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
+  # `|| true`: with no nvidia wheels present, ls fails and pipefail would abort
+  # the whole script with no output.
+  NVIDIA_LIB_DIRS="$(ls -d "${CUDA_ENV_PREFIX}"/lib/python*/site-packages/nvidia/*/lib 2>/dev/null | tr '\n' ':' || true)"
+  export LD_LIBRARY_PATH="${NVIDIA_LIB_DIRS}${CUDA_ENV_PREFIX}/lib:${LD_LIBRARY_PATH}"
   TRAIN_PYTHON="${CUDA_ENV_PREFIX}/bin/python"
 fi
 export PYTHONUNBUFFERED=1
@@ -89,7 +97,6 @@ else
   RUN_ID="${RUN_ID:-aime25-baseline_s${SEED}_${RUN_TAG}}"
 fi
 RUN_DIR="${DATA_DIR}/runs/${RUN_ID}"
-mkdir -p "${RUN_DIR}/logs"
 
 # 30 problems: rollout_batch_size 30 => one step is exactly one epoch.
 ROLLOUT_BATCH_SIZE="${ROLLOUT_BATCH_SIZE:-30}"
@@ -269,6 +276,7 @@ RUNTIME_ENV_JSON="{
   }
 }"
 
+mkdir -p "${RUN_DIR}/logs"
 echo "${RUN_ID}" > "${RUN_DIR}/RUN_ID"
 env | sort > "${RUN_DIR}/logs/launch_env.txt"
 

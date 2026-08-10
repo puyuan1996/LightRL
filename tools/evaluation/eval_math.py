@@ -31,12 +31,13 @@ import aiohttp
 # be the vendored slime one, because the whole point is that base numbers and
 # in-training eval numbers come from the same scoring code.
 REPO = Path(__file__).resolve().parents[2]
-if not (REPO / "slime" / "slime" / "rollout" / "rm_hub").is_dir():
+SLIME_ROOT = Path(os.environ["SLIME_ROOT"]) if os.environ.get("SLIME_ROOT") else REPO / "slime"
+if not (SLIME_ROOT / "slime" / "rollout" / "rm_hub").is_dir():
     raise SystemExit(
-        f"vendored slime not found under {REPO / 'slime'}; "
-        "run this from a LightRL checkout, or set PYTHONPATH to one"
+        f"vendored slime not found under {SLIME_ROOT}; "
+        "run this from a LightRL checkout, or point SLIME_ROOT at one"
     )
-sys.path.insert(0, str(REPO / "slime"))
+sys.path.insert(0, str(SLIME_ROOT))
 from slime.rollout.rm_hub import compute_score_dapo  # noqa: E402
 from slime.rollout.rm_hub import extract_boxed_answer, grade_answer_verl  # noqa: E402
 
@@ -60,7 +61,7 @@ def lenient_acc(text: str, gt: str) -> bool:
         return False
 
 # Where prepare_math_data.py wrote the JSONL sets. Override with MATH_DATA_ROOT.
-DATA_ROOT = Path(os.environ.get("MATH_DATA_ROOT", REPO / "benchmarks" / "math"))
+DATA_ROOT = Path(os.environ.get("MATH_DATA_ROOT") or REPO / "benchmarks" / "math")
 
 
 def avg_and_pass_at_k(per_problem, keep_fn, key="acc"):
@@ -206,6 +207,7 @@ async def run(args):
     mean_tok = sum(toks) / len(toks)
     p50, p90, p99 = toks[len(toks) // 2], toks[int(len(toks) * 0.9)], toks[int(len(toks) * 0.99)]
     invalid = sum(1 for s in all_s if s["pred"] == "[INVALID]") / n_all
+    n_scoreable = sum(1 for s in all_s if not s.get("strict_error"))
 
     summary = {
         "dataset": data_path.name,
@@ -235,7 +237,14 @@ async def run(args):
         "format_penalty_rate": round(
             100 * sum(1 for s in all_s if s["acc_lenient"] and not s["acc"] and s["finish_reason"] == "stop") / n_all, 2
         ),
-        "compliance_rate": round(100 * sum(1 for s in all_s if s["pred"] != "[INVALID]") / n_all, 2),
+        # Denominator is the samples the strict verifier could score at all.
+        # Counting [STRICT_ERROR] samples as compliant would report 100% on a
+        # dataset it cannot score; rescore_math_eval.py uses the same denominator.
+        "compliance_rate": (
+            round(100 * sum(1 for s in all_s if not s.get("strict_error") and s["pred"] != "[INVALID]") / n_scoreable, 2)
+            if n_scoreable else None
+        ),
+        "compliance_denominator_scoreable": n_scoreable,
         # >0 means rm_type=dapo cannot score this dataset (non-integer ground truth).
         "strict_scoring_error_rate": round(100 * sum(1 for s in all_s if s.get("strict_error")) / n_all, 2),
         "truncated_no_answer_rate": round(100 * sum(1 for s in all_s if s["finish_reason"] == "length") / n_all, 2),

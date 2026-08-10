@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-This is the tooling for training a math RLVR run and evaluating it on AIME2025, AIME2024, AMC23 and MATH-500. The one thing to take away before running anything: **on this task the verifier definition, not the model, dominates the number you read.** The same Qwen3-8B samples score `Avg@16 = 20.62%` on AIME2025 under the strict `rm_type=dapo` rule and `67.71%` when a correct `\boxed{}` is also accepted — a 3.3x gap, of which every point is a sample that was correct and finished and still scored wrong. So every metric here is reported on **two tracks at once**, and a single-track number is not interpretable. The second thing: `rm_type=dapo` cannot score ~30% of MATH-500 at all, and an 8192-token cap costs AIME2025 `Pass@16` 76.67% → 26.67%. Pipeline is four commands: `prepare_math_data.py` → `launch_sglang_math.sh` → `run_math_base_evals.sh` → `math_paired_stats.py`. Measurements behind all of this: [issue #35](https://github.com/HansBug/OpenClaw-RL/issues/35), [#36](https://github.com/HansBug/OpenClaw-RL/issues/36), [#37](https://github.com/HansBug/OpenClaw-RL/issues/37).
+This is the tooling for training a math RLVR run and evaluating it on AIME2025, AIME2024, AMC23 and MATH-500. The one thing to take away before running anything: **on this task the verifier definition, not the model, dominates the number you read.** The same Qwen3-8B samples score `Avg@16 = 20.62%` on AIME2025 under the strict `rm_type=dapo` rule and `67.71%` when a correct `\boxed{}` is also accepted — a 3.3x gap, of which every point is a sample that was correct and finished and still scored wrong. So every metric here is reported on **two tracks at once**, and a single-track number is not interpretable. The second thing: `rm_type=dapo` cannot score ~30% of MATH-500 at all, and an 8192-token cap costs AIME2025 `Pass@16` 76.67% → 26.67%. Pipeline is five commands: `prepare_math_data.py` → `launch_sglang_math.sh` → `run_math_base_evals.sh` → `rescore_math_eval.py` → `math_paired_stats.py`. Measurements behind all of this: [issue #35](https://github.com/HansBug/OpenClaw-RL/issues/35), [#36](https://github.com/HansBug/OpenClaw-RL/issues/36), [#37](https://github.com/HansBug/OpenClaw-RL/issues/37).
 
 ## 1. The two tracks, and why both
 
@@ -29,7 +29,7 @@ Two things the lenient track is not. It is a **lower** bound, not an upper one: 
 | AMC23 | 16 | 42.19 | 93.44 | 51.25% | 45.78% | 5.47% |
 | MATH-500 | 4 | 36.70 † | 86.20 | 27.45% | 24.00% | 3.45% |
 
-† also contains unscorable samples, see §3; k=4 rather than 16, so it is not comparable across this column.
+† also contains unscorable samples, see §3; k=4 rather than 16, so it is not comparable across this column. This row is over all 500 problems. §5 and §8 quote MATH-500 on the **349 scorable problems** instead, where the lenient baseline is 92.0 rather than 86.20 — the two populations must not be mixed, and a comparison that changes population silently degrades the lenient track into a boxed-only one.
 
 The mis-grab case is the nastier one: `**Answer:**\n$$\boxed{588}$$` parses to `pred='**'`. The model complied and still lost the point.
 
@@ -58,11 +58,11 @@ There is also a mechanism worth watching rather than a measurement: truncation �
 
 Across three seeds on AIME2025 as the training set, evaluated on held-out AIME2024: the training reward (pure boxed) rose **+8.82pp** while the capability proxy (either format accepted) moved **−1.32pp, not significant**. At most 75–90% of the gain is explained by closing the format gap — an upper bound, since any gain not exceeding the gap is attributed to format regardless of its real cause. Meanwhile the strict track collapsed from 20.42% to 0.35%, because the model dropped the `Answer:` habit it no longer needed.
 
-Each verifier trains the model into its own format and destroys the other. An `Answer:` reward took compliance from 34% to 98.75% and pushed boxed correctness from 68.12% down to **2.50%**; a boxed reward did the reverse.
+In a separate sweep of four configurations at **one seed each** (#36), each verifier trained the model into its own format and destroyed the other — directional evidence, not a statistical result, since those intervals carry problem-level sampling only and no training randomness. An `Answer:` reward took compliance from 34% to 98.75% and pushed boxed correctness from 68.12% down to **2.50%**; a boxed reward did the reverse.
 
 Two consequences for anyone using this as a baseline. Report all three tracks, and make the verifier byte-identical on both sides of a comparison — a single-track number is not interpretable. And on AIME2025 differences below about 5pp are not readable: the seed-to-seed range alone is 5.00pp and re-evaluating one model twice differs by 2.92pp. That is a floor, not a safety line; estimated from n=3 it could itself lie anywhere in 2.6–31pp.
 
-Where capability did move measurably: MATH-500, **+3.41pp**, robust under any multiple-comparison correction (Holm 0.00012, CI [+1.89, +5.18]). So "format explains most of the gain" is the accurate statement; "RLVR does nothing for math" is not.
+Where capability did move measurably: MATH-500 over its 349 scorable problems, **+3.41pp**, robust under any multiple-comparison correction (Holm 0.00012, CI [+1.89, +5.18]). So "format explains most of the gain" is the accurate statement; "RLVR does nothing for math" is not.
 
 ## 6. Running it
 
@@ -85,18 +85,18 @@ python tools/evaluation/rescore_math_eval.py
 python tools/evaluation/math_paired_stats.py --help
 ```
 
-Training is `examples/training/train_qwen3_8b_dapo_math.sh`; `DRY_RUN=1` prints the resolved argv without launching, `SMOKE=1` runs two steps without checkpointing. It requires `HF_CKPT` and `REF_LOAD` rather than defaulting them, because a stale default silently trains a different model. It defaults to `rm_type=math`, not `dapo`: with `dapo` the first 25–60 steps go into learning to emit `Answer:`, which on a 30-problem set would dominate the whole run and turn any DAPO-vs-variant comparison into "who learns the format faster".
+Training is `examples/training/train_qwen3_8b_dapo_math.sh`. Note it trains on **AIME2025's 30 problems** with AIME2024 held out, not on the 17,255-prompt DAPO-Math-17k that step 1 also prepares; point `PROMPT_DATA` at the 17k set for the larger run. `DRY_RUN=1` prints the resolved argv without launching, `SMOKE=1` runs two steps without checkpointing. It requires `HF_CKPT` and `REF_LOAD` rather than defaulting them, because a stale default silently trains a different model. It defaults to `rm_type=math`, not `dapo`: with `dapo` roughly the first 60 steps go into learning to emit `Answer:`, which on a 30-problem set would dominate the whole run and turn any DAPO-vs-variant comparison into "who learns the format faster".
 
 `eval_math.py` writes `<dataset>_<tag>_n<k>.summary.json` and `.detail.json` per run. The detail file keeps per-sample `completion_tokens`, `finish_reason`, both track verdicts and the last 700 characters of the response, which is what makes every table above recomputable without regenerating.
 
 ## 7. Sampling temperature
 
-T=1.0/top_p=1.0 is the default here for one reason: it matches the in-training eval, so offline and curve numbers are comparable. It is not a quality claim. Against Qwen3's recommended T=0.6/top_p=0.95 the strict `Pass@16` differs by 10.00pp, but that is 3 problems at paired McNemar p = 0.250, and the **lenient `Pass@16` is identical at 86.67% with zero discordant pairs**. There is no capability difference to see here; the strict gap is format-compliance noise.
+T=1.0/top_p=1.0 is the default here for one reason: it matches the in-training eval, so offline and curve numbers are comparable. It is not a quality claim. Against Qwen3's recommended T=0.6/top_p=0.95 the strict `Pass@16` differs by 10.00pp, but that is 3 problems at paired McNemar p = 0.250, while the **lenient `Pass@16` is identical at 86.67% with zero discordant pairs**. So this data cannot resolve a capability difference, and the most parsimonious reading of the strict gap is format-compliance fluctuation. Lenient `Avg@16` does differ slightly (67.71 vs 66.04), and that pair was not tested.
 
 ## 8. Limits
 
-n=30 is small. On AIME2025 the strict AIME2024−AIME2025 difference is −0.21pp with 95% CI [−9.79, +9.58]: the two years are not distinguishable from each other, let alone two training configurations. Anything that depends on a small effect needs multiple seeds and paired tests, which is what `math_paired_stats.py` is for.
+n=30 is small. The strict AIME2024−AIME2025 gap is −0.21pp with 95% CI [−9.79, +9.58]: the two years are not distinguishable from each other, let alone two training configurations. Anything that depends on a small effect needs multiple seeds and paired tests, which is what `math_paired_stats.py` is for.
 
-AMC23 overlaps the training set by at least 40%, so a gain there should not carry weight. The starting point is post-trained Qwen3-8B, not pretrained weights, and its lenient baselines are already at 67.7 / 78.3 / 93.4 / 92.0 — "capability barely moved" means "these configurations did not extract more from an already-saturated start", not "RLVR does not improve math".
+AMC23 overlaps the training set by at least 40%, so a gain there should not carry weight. The starting point is post-trained Qwen3-8B, not pretrained weights, and its lenient baselines are already at 67.7 / 78.3 / 93.4 (and 92.0 on MATH-500's 349 scorable problems) — "capability barely moved" means "these configurations did not extract more from an already-saturated start", not "RLVR does not improve math".
 
 This document ships the tooling and the previously measured numbers; nothing here was re-run as part of adding it. The raw per-sample records, environment fingerprints and figures live with the three issues linked at the top.

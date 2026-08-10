@@ -195,6 +195,97 @@ def test_training_script_dry_run_resolves_everything_from_the_repo(tmp_path):
     assert "/mnt/data/deepghs" not in result.stdout
 
 
+def _stub_bin(tmp_path):
+    """A PATH with stub ray/pkill so a real launch can be exercised offline."""
+    binp = tmp_path / "bin"
+    binp.mkdir(exist_ok=True)
+    for cmd in ("ray", "pkill", "nvidia-smi"):
+        target = binp / cmd
+        target.write_text(f'#!/usr/bin/env bash\necho "[stub {cmd}] $*"\nexit 0\n')
+        target.chmod(0o755)
+    return binp
+
+
+def _stub_datasets(tmp_path):
+    root = tmp_path / "data"
+    for name in ("aime-2025", "aime-2024"):
+        d = root / name
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{name}.jsonl").write_text('{"prompt": [], "label": "1"}\n')
+    return root
+
+
+@pytest.mark.parametrize("cuda_env_prefix", [None, "set"], ids=["no-cuda-prefix", "cuda-prefix"])
+def test_a_real_launch_reaches_ray_job_submit(tmp_path, cuda_env_prefix):
+    """The dry run exits ~40 lines before RUNTIME_ENV_JSON.
+
+    That block forwards CUDA_HOME, CUDA_PATH, LD_LIBRARY_PATH and HF_HOME
+    verbatim, so if any of them is only conditionally defined the launch dies
+    under `set -u` right after `ray start` -- with a live Ray head and no job.
+    """
+    env = {
+        "PATH": f"{_stub_bin(tmp_path)}:/usr/bin:/bin", "HOME": str(tmp_path),
+        "HF_CKPT": str(tmp_path), "REF_LOAD": str(tmp_path),
+        "MATH_DATA_ROOT": str(_stub_datasets(tmp_path)),
+    }
+    if cuda_env_prefix:
+        env["CUDA_ENV_PREFIX"] = str(tmp_path / "cudaenv")
+
+    result = subprocess.run(
+        ["bash", str(TRAIN_SCRIPT)], env=env, capture_output=True, text=True, timeout=180
+    )
+    assert "unbound variable" not in result.stderr, result.stderr[-1500:]
+    assert "job submit" in result.stdout, result.stdout[-1500:]
+    assert result.returncode == 0
+
+
+def test_dry_run_does_not_create_directories_in_the_checkout(tmp_path):
+    """RUN_DIR now defaults inside the repo, so it must not be made before the exit."""
+    runs = ROOT / "benchmarks" / "math" / "runs"
+    before = set(runs.iterdir()) if runs.is_dir() else set()
+    subprocess.run(
+        ["bash", str(TRAIN_SCRIPT)],
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "HF_CKPT": str(tmp_path),
+             "REF_LOAD": str(tmp_path), "DRY_RUN": "1"},
+        capture_output=True, text=True, timeout=120,
+    )
+    after = set(runs.iterdir()) if runs.is_dir() else set()
+    assert after == before
+
+
+def test_the_sweep_can_reproduce_the_documented_temperature_comparison(tmp_path):
+    """docs/evaluation/math_rlvr.md quotes a T=0.6/top_p=0.95 run; the entrypoint
+    hardcoded 1.0/1.0, so that comparison could not be reproduced with it."""
+    stub = tmp_path / "pystub"
+    stub.write_text('#!/usr/bin/env bash\necho "ARGS: $*"\n')
+    stub.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(EVAL_DIR / "run_math_base_evals.sh")],
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "MODEL": "m",
+             "PYTHON": str(stub), "DATASETS": "aime-2025", "TEMPERATURE": "0.6",
+             "TOP_P": "0.95", "MATH_DATA_ROOT": str(tmp_path / "data")},
+        capture_output=True, text=True, timeout=120,
+    )
+    assert "--temperature 0.6 --top-p 0.95" in result.stdout
+    assert "--tag T0.6" in result.stdout
+
+
+def test_compliance_rate_excludes_samples_the_strict_verifier_cannot_score():
+    """Counting [STRICT_ERROR] as compliant reports 100% on a set it cannot score."""
+    source = (EVAL_DIR / "eval_math.py").read_text()
+    assert 'not s.get("strict_error") and s["pred"] != "[INVALID]"' in source
+    assert '"compliance_denominator_scoreable": n_scoreable,' in source
+    rescore = (EVAL_DIR / "rescore_math_eval.py").read_text()
+    assert "compliance_denominator_scoreable" in rescore, "the two must use one denominator"
+
+
+def test_slime_root_override_is_real(tmp_path, monkeypatch):
+    """The error message offers SLIME_ROOT, so it has to be consulted."""
+    source = (EVAL_DIR / "eval_math.py").read_text()
+    assert 'os.environ["SLIME_ROOT"]' in source
+    assert "PYTHONPATH" not in source.split("SLIME_ROOT")[1][:400]
+
+
 def test_training_script_refuses_to_start_without_the_datasets(tmp_path):
     result = subprocess.run(
         ["bash", str(TRAIN_SCRIPT)],
