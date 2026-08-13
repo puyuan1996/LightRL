@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import time
 import traceback
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,39 @@ from agentic_rl.platform.worker_admission import (
 )
 
 logger = logging.getLogger("lightrl.env.worker.pool")
+
+_LIFECYCLE_METRIC_NAMES = (
+    "reset_admission_wait",
+    "reset",
+    "exec_tool",
+    "evaluate",
+    "close",
+)
+
+
+def _duration_summary(values: list[float]) -> dict[str, float | int]:
+    """Return compact nearest-rank latency statistics for worker status."""
+    if not values:
+        return {
+            "count": 0,
+            "mean": 0.0,
+            "p50": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+        }
+    ordered = sorted(max(0.0, float(value)) for value in values)
+
+    def percentile(fraction: float) -> float:
+        index = max(0, min(len(ordered) - 1, math.ceil(fraction * len(ordered)) - 1))
+        return ordered[index]
+
+    return {
+        "count": len(ordered),
+        "mean": round(sum(ordered) / len(ordered), 3),
+        "p50": round(percentile(0.50), 3),
+        "p95": round(percentile(0.95), 3),
+        "max": round(ordered[-1], 3),
+    }
 
 @dataclass
 class RunSlot:
@@ -81,11 +116,22 @@ class WorkerPool:
         run_idle_ttl: int,
         output_root: str,
         default_timeouts: TaskTimeouts,
+        max_total_runs: int | None = None,
         idempotency_ttl: int = 300,
         max_concurrent_closes: int = 8,
     ) -> None:
         self.max_tasks = max_tasks
         self.max_runs_per_task = max_runs_per_task
+        self.max_total_runs = max(
+            1,
+            int(
+                max_total_runs
+                if max_total_runs is not None
+                else _env_int(
+                    "WORKER_MAX_TOTAL_RUNS", max_tasks * max_runs_per_task
+                )
+            ),
+        )
         self.run_idle_ttl = run_idle_ttl
         self.output_root = Path(output_root).resolve()
         self.output_root.mkdir(parents=True, exist_ok=True)
@@ -121,6 +167,11 @@ class WorkerPool:
         self._closing_tasks: set[asyncio.Task] = set()
         self._closing_task_started: dict[asyncio.Task, float] = {}
         self._closing_task_labels: dict[asyncio.Task, str] = {}
+        # A lease stops being "active" before its asynchronous Docker cleanup
+        # finishes.  Keep a reference-counted reservation until every cleanup
+        # task for that lease is done so replacement allocations cannot exceed
+        # the daemon's finite network address pools during close/reset churn.
+        self._retiring_run_refs: dict[str, int] = {}
         self._force_cleanup_tasks: set[asyncio.Task] = set()
         self._force_cleanup_task_started: dict[asyncio.Task, float] = {}
         self._force_cleanup_task_labels: dict[asyncio.Task, str] = {}
@@ -150,6 +201,41 @@ class WorkerPool:
             "WORKER_AUTO_SERIALIZE_UNSAFE_COMPOSE", False
         )
         self._unsafe_compose_cache: dict[str, bool] = {}
+        self.lifecycle_history_size = max(
+            16, _env_int("WORKER_LIFECYCLE_HISTORY_SIZE", 512)
+        )
+        self._lifecycle_durations: dict[str, deque[float]] = {
+            name: deque(maxlen=self.lifecycle_history_size)
+            for name in _LIFECYCLE_METRIC_NAMES
+        }
+        self._lifecycle_outcomes: dict[str, deque[bool]] = {
+            name: deque(maxlen=self.lifecycle_history_size)
+            for name in _LIFECYCLE_METRIC_NAMES
+        }
+
+    def _record_lifecycle_duration(
+        self, name: str, started_monotonic: float, *, success: bool
+    ) -> None:
+        if name not in self._lifecycle_durations:
+            return
+        duration = max(0.0, time.monotonic() - started_monotonic)
+        self._lifecycle_durations[name].append(duration)
+        self._lifecycle_outcomes[name].append(success)
+
+    def _lifecycle_latency_snapshot(self) -> dict[str, Any]:
+        snapshot: dict[str, Any] = {"history_size": self.lifecycle_history_size}
+        for name in _LIFECYCLE_METRIC_NAMES:
+            summary = _duration_summary(list(self._lifecycle_durations[name]))
+            outcomes = self._lifecycle_outcomes[name]
+            success_count = sum(outcomes)
+            summary.update(
+                {
+                    "success": success_count,
+                    "failure": len(outcomes) - success_count,
+                }
+            )
+            snapshot[name] = summary
+        return snapshot
 
     def _new_env(self) -> TerminalEnv:
         return TerminalEnv()
@@ -289,7 +375,10 @@ class WorkerPool:
             "heartbeat": "heartbeat",
         }.get(op_name, op_name)
 
-    async def _begin_run_op(self, run_lease_id: str, op_name: str) -> RunSlot:
+    async def _begin_run_op(
+        self, run_lease_id: str, op_name: str
+    ) -> tuple[RunSlot, float]:
+        started_monotonic = time.monotonic()
         async with self._lock:
             if self._shutdown_started:
                 raise RuntimeError(f"Worker is shutting down; rejecting {op_name}")
@@ -318,10 +407,16 @@ class WorkerPool:
                 run_slot.in_flight_ops,
                 self._run_slot_container_ref(run_slot),
             )
-            return run_slot
+            return run_slot, started_monotonic
 
     async def _finish_run_op(
-        self, run_slot: RunSlot, op_name: str, *, success: bool, is_timeout_drop: bool = False
+        self,
+        run_slot: RunSlot,
+        op_name: str,
+        *,
+        success: bool,
+        started_monotonic: float,
+        is_timeout_drop: bool = False,
     ) -> None:
         close_after: tuple[str, str, RunSlot, str] | None = None
         async with self._lock:
@@ -374,6 +469,11 @@ class WorkerPool:
                         popped_slot,
                         close_reason,
                     )
+
+        if op_name != "heartbeat":
+            self._record_lifecycle_duration(
+                op_name, started_monotonic, success=success
+            )
 
         if close_after is not None:
             task_key, run_lease_id, slot_to_close, close_reason = close_after
@@ -446,8 +546,16 @@ class WorkerPool:
         await asyncio.gather(task, return_exceptions=True)
 
     def _track_force_cleanup_task(
-        self, task: asyncio.Task[Any], *, label: str
+        self,
+        task: asyncio.Task[Any],
+        *,
+        label: str,
+        retiring_run_ids: tuple[str, ...] = (),
     ) -> None:
+        for run_lease_id in retiring_run_ids:
+            self._retiring_run_refs[run_lease_id] = (
+                self._retiring_run_refs.get(run_lease_id, 0) + 1
+            )
         self._force_cleanup_tasks.add(task)
         self._force_cleanup_task_started[task] = time.time()
         self._force_cleanup_task_labels[task] = label
@@ -456,6 +564,12 @@ class WorkerPool:
             self._force_cleanup_tasks.discard(done_task)
             self._force_cleanup_task_started.pop(done_task, None)
             self._force_cleanup_task_labels.pop(done_task, None)
+            for run_lease_id in retiring_run_ids:
+                remaining = self._retiring_run_refs.get(run_lease_id, 0) - 1
+                if remaining > 0:
+                    self._retiring_run_refs[run_lease_id] = remaining
+                else:
+                    self._retiring_run_refs.pop(run_lease_id, None)
 
         task.add_done_callback(_on_done)
 
@@ -486,22 +600,30 @@ class WorkerPool:
             self._recent_close_failures.pop(lease_id, None)
 
     async def _close_run_slot_with_semaphore(self, run_slot: RunSlot) -> None:
+        started_monotonic = time.monotonic()
+        success = False
         try:
-            await asyncio.wait_for(
-                self._close_sem.acquire(), timeout=self.close_queue_timeout
-            )
-        except asyncio.TimeoutError:
-            logger.warning(
-                "Timed out waiting %.1fs for close semaphore lease=%s; "
-                "proceeding to force_cleanup",
-                self.close_queue_timeout,
-                run_slot.run_lease_id,
-            )
-            raise
-        try:
-            await self._close_run_slot_under_lock(run_slot)
+            try:
+                await asyncio.wait_for(
+                    self._close_sem.acquire(), timeout=self.close_queue_timeout
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Timed out waiting %.1fs for close semaphore lease=%s; "
+                    "proceeding to force_cleanup",
+                    self.close_queue_timeout,
+                    run_slot.run_lease_id,
+                )
+                raise
+            try:
+                await self._close_run_slot_under_lock(run_slot)
+                success = True
+            finally:
+                self._close_sem.release()
         finally:
-            self._close_sem.release()
+            self._record_lifecycle_duration(
+                "close", started_monotonic, success=success
+            )
 
     async def _force_cleanup_after_close_failure(
         self, run_slot: RunSlot, run_lease_id: str, *, reason: str
@@ -599,6 +721,9 @@ class WorkerPool:
     def _schedule_close(
         self, task_key: str, run_lease_id: str, run_slot: RunSlot, *, reason: str
     ) -> None:
+        self._retiring_run_refs[run_lease_id] = (
+            self._retiring_run_refs.get(run_lease_id, 0) + 1
+        )
         task = asyncio.create_task(
             self._close_run_slot(task_key, run_lease_id, run_slot, reason=reason)
         )
@@ -610,6 +735,11 @@ class WorkerPool:
             self._closing_tasks.discard(done_task)
             self._closing_task_started.pop(done_task, None)
             self._closing_task_labels.pop(done_task, None)
+            remaining = self._retiring_run_refs.get(run_lease_id, 0) - 1
+            if remaining > 0:
+                self._retiring_run_refs[run_lease_id] = remaining
+            else:
+                self._retiring_run_refs.pop(run_lease_id, None)
 
         task.add_done_callback(_on_done)
 
@@ -622,6 +752,7 @@ class WorkerPool:
         self._track_force_cleanup_task(
             task,
             label=f"{reason} leases={','.join(rid for _tk, rid, _slot in slots[:8])}",
+            retiring_run_ids=tuple(rid for _tk, rid, _slot in slots),
         )
 
     def _schedule_close_requested_force_release(
@@ -865,6 +996,20 @@ class WorkerPool:
                         )
                         return {"lease_id": run_lease_id, "reused": True}
 
+            # max_tasks limits distinct task keys and max_runs_per_task limits
+            # fan-out for one key, but neither bounds the number of Docker
+            # networks alive across the pool.  Keep a global lease ceiling so
+            # compose cannot exhaust the daemon's finite default address pools.
+            reserved_run_ids = set(self._run_to_task).union(self._retiring_run_refs)
+            if len(reserved_run_ids) >= self.max_total_runs:
+                raise CapacityError(
+                    "TOTAL_RUN_SLOTS_EXHAUSTED",
+                    "Worker at total run capacity: "
+                    f"{len(reserved_run_ids)}/{self.max_total_runs} "
+                    f"(active={len(self._run_to_task)}, "
+                    f"retiring={len(self._retiring_run_refs)})",
+                )
+
             task_slot = self._tasks.get(task_key)
             if task_slot is not None and any(
                 run.reset_quarantined for run in task_slot.runs.values()
@@ -912,13 +1057,20 @@ class WorkerPool:
         return {"lease_id": run_lease_id, "reused": False}
 
     async def heartbeat(self, run_lease_id: str) -> None:
-        run_slot = await self._begin_run_op(run_lease_id, "heartbeat")
+        run_slot, started_monotonic = await self._begin_run_op(
+            run_lease_id, "heartbeat"
+        )
         success = False
         try:
             async with run_slot.lock:
                 success = True
         finally:
-            await self._finish_run_op(run_slot, "heartbeat", success=success)
+            await self._finish_run_op(
+                run_slot,
+                "heartbeat",
+                success=success,
+                started_monotonic=started_monotonic,
+            )
 
     @staticmethod
     def _reset_operation_timeout(timeouts: TaskTimeouts) -> float:
@@ -1152,6 +1304,8 @@ class WorkerPool:
             )
 
     async def _acquire_reset_admission(self, run_lease_id: str) -> None:
+        started_monotonic = time.monotonic()
+        success = False
         timeout = max(0.0, self.reset_admission_timeout)
         async with self._lock:
             self._reset_admission_waiting += 1
@@ -1163,6 +1317,7 @@ class WorkerPool:
                     )
                 else:
                     await self._reset_admission_sem.acquire()
+                success = True
             except asyncio.TimeoutError as exc:
                 async with self._lock:
                     self._reset_admission_rejected += 1
@@ -1176,6 +1331,9 @@ class WorkerPool:
                 self._reset_admission_waiting = max(
                     0, self._reset_admission_waiting - 1
                 )
+            self._record_lifecycle_duration(
+                "reset_admission_wait", started_monotonic, success=success
+            )
 
     async def _run_reset_once(
         self,
@@ -1205,7 +1363,9 @@ class WorkerPool:
         try:
             await self._acquire_reset_admission(run_lease_id)
             reset_admission_acquired = True
-            run_slot = await self._begin_run_op(run_lease_id, "reset")
+            run_slot, started_monotonic = await self._begin_run_op(
+                run_lease_id, "reset"
+            )
             async with run_slot.lock:
                 reset_task = asyncio.create_task(
                     run_slot.env.reset(
@@ -1253,6 +1413,7 @@ class WorkerPool:
                     run_slot,
                     "reset",
                     success=success,
+                    started_monotonic=started_monotonic,
                     is_timeout_drop=is_timeout_drop,
                 )
             if reset_admission_acquired:
@@ -1374,7 +1535,9 @@ class WorkerPool:
     async def exec_tool(
         self, run_lease_id: str, tool_name: str, arguments: dict[str, Any] | None = None
     ) -> str:
-        run_slot = await self._begin_run_op(run_lease_id, "exec_tool")
+        run_slot, started_monotonic = await self._begin_run_op(
+            run_lease_id, "exec_tool"
+        )
         success = False
         try:
             async with run_slot.lock:
@@ -1382,7 +1545,12 @@ class WorkerPool:
                 success = True
                 return str(observation)
         finally:
-            await self._finish_run_op(run_slot, "exec_tool", success=success)
+            await self._finish_run_op(
+                run_slot,
+                "exec_tool",
+                success=success,
+                started_monotonic=started_monotonic,
+            )
 
     async def handle_agent_reply(
         self, run_lease_id: str, assistant_text: str
@@ -1397,7 +1565,9 @@ class WorkerPool:
     async def evaluate(
         self, run_lease_id: str, trajectory: dict[str, Any] | None = None
     ) -> tuple[float, dict[str, Any] | None]:
-        run_slot = await self._begin_run_op(run_lease_id, "evaluate")
+        run_slot, started_monotonic = await self._begin_run_op(
+            run_lease_id, "evaluate"
+        )
         success = False
         try:
             async with run_slot.lock:
@@ -1406,7 +1576,12 @@ class WorkerPool:
                 success = True
                 return float(score), details
         finally:
-            await self._finish_run_op(run_slot, "evaluate", success=success)
+            await self._finish_run_op(
+                run_slot,
+                "evaluate",
+                success=success,
+                started_monotonic=started_monotonic,
+            )
 
     async def close_run(self, run_lease_id: str, *, reason: str = "external_close") -> bool:
         close_now: tuple[str, str, RunSlot] | None = None
@@ -1610,12 +1785,18 @@ class WorkerPool:
                 "max_tasks": self.max_tasks,
                 "active_tasks": len(self._tasks),
                 "max_runs_per_task": self.max_runs_per_task,
+                "max_total_runs": self.max_total_runs,
                 "serial_task_ids": sorted(self._serial_task_ids),
                 "task_max_runs_overrides": dict(
                     sorted(self._task_max_runs_overrides.items())
                 ),
                 "auto_serialize_unsafe_compose": self._auto_serialize_unsafe_compose,
                 "total_active_runs": total_runs,
+                "total_retiring_runs": len(self._retiring_run_refs),
+                "total_reserved_runs": len(
+                    set(self._run_to_task).union(self._retiring_run_refs)
+                ),
+                "retiring_run_ids": sorted(self._retiring_run_refs),
                 "in_flight_runs": in_flight_runs,
                 "closing_requested_runs": closing_requested_runs,
                 "reset_quarantined_runs": reset_quarantined_runs,
@@ -1640,6 +1821,7 @@ class WorkerPool:
                     "rejected": self._reset_admission_rejected,
                     "timeout": self.reset_admission_timeout,
                 },
+                "lifecycle_latency_sec": self._lifecycle_latency_snapshot(),
                 "docker_image_build": docker_image_build_status(),
                 "close_queue_timeout": self.close_queue_timeout,
                 "close_session_timeout": self.close_session_timeout,

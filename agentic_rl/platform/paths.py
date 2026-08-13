@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_CKPT_ROOT = "/mnt/shared-storage-gpfs2/narmodel/agenticrl/ckpt"
+DEFAULT_PERSIST_ROOT = os.getenv("LIGHTRL_PERSIST_ROOT", "runs/.persistent")
+DEFAULT_CKPT_ROOT = f"{DEFAULT_PERSIST_ROOT}/checkpoints"
 
 
 class RunPaths:
@@ -31,7 +32,7 @@ class RunPaths:
         self.logs_dir = self.run_dir / "logs"
         self.trajectories_dir = self.run_dir / "trajectories"
         self.metrics_dir = self.run_dir / "metrics"
-        self.wandb_dir = self.metrics_dir / "wandb"
+        self.wandb_dir = Path(os.getenv("WANDB_DIR", str(self.metrics_dir / "wandb")))
         self.analysis_dir = self.metrics_dir / "analysis"
         self.environment_outputs_dir = self.run_dir / "environment_outputs"
         self.ckpt_real = ckpt_root / run_id

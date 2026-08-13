@@ -32,6 +32,8 @@ from agentic_rl.rollout.sample_builder import (
     _mark_non_trainable_samples,
     _sync_reward_aliases,
 )
+from agentic_rl.rollout import generate_steps
+from agentic_rl.rollout.generate_steps import _agent57_normalized_outcome
 from agentic_rl.algorithms.dive_po.rewards import postprocess
 
 
@@ -110,6 +112,20 @@ def make_base_sample() -> Sample:
     sample.prompt = "task"
     sample.metadata = {}
     return sample
+
+
+def test_agent57_seta_alias_uses_raw_outcome_not_shaped_score():
+    partial = make_base_sample()
+    partial.reward = {"raw_score": 0.5, "score": -1.25}
+    full = make_base_sample()
+    full.reward = {"raw_score": 1.0, "score": 0.2}
+
+    # Converted SETA data routes rewards under the historical terminal_bench
+    # name.  UCB must still see the task-native partial/full credit (mean .75),
+    # not the negative score after overlong/truncation shaping.
+    assert _agent57_normalized_outcome([partial, full], "terminal_bench") == 0.75
+    assert _agent57_normalized_outcome([partial], "seta_env") == 0.5
+    assert _agent57_normalized_outcome([partial], "agentharm") is None
 
 
 def scores(samples):
@@ -311,3 +327,40 @@ def test_group_normalization_matches_postprocess(dynamic_history):
     expected = postprocess._group_normalize_sample_values(args, samples, values)
     logged = rollout_log._group_normalize_values_for_log(args, samples, values)
     assert logged == expected
+
+
+@pytest.mark.parametrize("dynamic_history", [False, True])
+def test_group_normalization_excludes_non_trainable_samples(dynamic_history):
+    args = SimpleNamespace(grpo_std_normalization=False, dynamic_history=dynamic_history)
+    samples = _norm_samples([(0, 0), (0, 1), (0, 2)])
+    for sample in samples:
+        sample.remove_sample = False
+        sample.loss_mask = [1]
+    samples[1].remove_sample = True
+    samples[1].loss_mask = [0]
+
+    normalized = postprocess._group_normalize_sample_values(
+        args,
+        samples,
+        [1.0, 100.0, 3.0],
+    )
+
+    assert normalized == [-1.0, 0.0, 1.0]
+
+
+def test_evaluation_does_not_mutate_exploration_state(monkeypatch):
+    monkeypatch.setattr(generate_steps, "_EXPLORE_INTRINSIC_ENABLED", True)
+
+    def fail_if_called(_turn_records):
+        raise AssertionError("evaluation entered exploration reward path")
+
+    monkeypatch.setattr(generate_steps, "_explore_intrinsic_bonus", fail_if_called)
+    generate_steps._inject_exploration_bonuses(
+        [],
+        sample=SimpleNamespace(metadata={}),
+        plan=SimpleNamespace(evaluation=True),
+        clients=SimpleNamespace(),
+        loop=SimpleNamespace(),
+        status="completed",
+        eval_error=None,
+    )

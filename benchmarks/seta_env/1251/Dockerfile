@@ -43,7 +43,7 @@ RUN pip install --no-cache-dir \
 RUN mkdir -p /app/test_documents
 
 # Create sample documents using Python
-RUN python3 << 'PYEOF'
+COPY <<'PYEOF' /tmp/1251-input
 import os
 from pathlib import Path
 
@@ -145,6 +145,7 @@ epub.write_epub('/app/test_documents/book_chapter.epub', book)
 
 print('Sample documents created successfully')
 PYEOF
+RUN python3 /tmp/1251-input
 
 # Create a binary file that is not a supported document format
 RUN dd if=/dev/urandom of=/app/test_documents/random_binary bs=1024 count=1 2>/dev/null

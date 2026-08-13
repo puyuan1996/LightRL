@@ -31,7 +31,7 @@ RUN mkdir -p /workspace/log_chunks /workspace/output
 
 # Generate realistic Apache combined log format chunks
 # This script creates log data split into multiple chunks
-RUN python3 << 'GENERATE_LOGS'
+COPY <<'GENERATE_LOGS' /tmp/generate_access_logs.py
 import random
 import os
 
@@ -126,5 +126,6 @@ with open("/workspace/.target_info.json", 'w') as f:
 print(f"Generated {num_chunks} chunks with {total_lines} total lines")
 print(f"Target pattern (192.168.1.100 + 500) appears {len(target_lines)} times")
 GENERATE_LOGS
+RUN python3 /tmp/generate_access_logs.py && rm /tmp/generate_access_logs.py
 
 WORKDIR /workspace

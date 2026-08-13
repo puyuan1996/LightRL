@@ -126,12 +126,18 @@ def _install_import_stubs(monkeypatch):
     class DockerImagePreparationBacklogError(RuntimeError):
         pass
 
+    class DockerImageTransientBuildError(DockerImageBuildError):
+        pass
+
     class TaskImageBlacklistedError(DockerImageBuildError):
         pass
 
     docker_compose_utils_mod.DockerImageBuildError = DockerImageBuildError
     docker_compose_utils_mod.DockerImagePreparationBacklogError = (
         DockerImagePreparationBacklogError
+    )
+    docker_compose_utils_mod.DockerImageTransientBuildError = (
+        DockerImageTransientBuildError
     )
     docker_compose_utils_mod.TaskImageBlacklistedError = TaskImageBlacklistedError
     docker_compose_utils_mod.docker_image_build_status = lambda: {
@@ -249,6 +255,131 @@ def test_close_allocated_run_cleans_up_without_unpack_error(monkeypatch, tmp_pat
         assert lease_id not in pool._run_to_task
         assert env.close_count == 1
         assert (await pool.status())["recent_close_failures"] == []
+
+    asyncio.run(_case())
+
+
+def test_status_reports_worker_lifecycle_latency(monkeypatch, tmp_path):
+    async def _case():
+        pool_server = _install_import_stubs(monkeypatch)
+        env = _DummyEnv()
+        pool = _new_pool(pool_server, env, tmp_path)
+
+        lease = await pool.allocate("task")
+        lease_id = lease["lease_id"]
+        assert await pool.exec_tool(lease_id, "noop", {}) == "observation"
+        score, details = await pool.evaluate(lease_id)
+        assert score == 1.0
+        assert details is None
+
+        status = await pool.status()
+        lifecycle = status["lifecycle_latency_sec"]
+        assert lifecycle["history_size"] >= 16
+        assert lifecycle["exec_tool"]["count"] == 1
+        assert lifecycle["exec_tool"]["success"] == 1
+        assert lifecycle["evaluate"]["count"] == 1
+        assert lifecycle["evaluate"]["success"] == 1
+        assert lifecycle["reset"]["count"] == 0
+
+        assert await pool.close_run(lease_id, reason="latency_metrics") is True
+        if pool._closing_tasks:
+            await asyncio.gather(*pool._closing_tasks, return_exceptions=False)
+        lifecycle = (await pool.status())["lifecycle_latency_sec"]
+        assert lifecycle["close"]["count"] == 1
+        assert lifecycle["close"]["success"] == 1
+        for name in ("exec_tool", "evaluate", "close"):
+            assert lifecycle[name]["p95"] >= 0.0
+
+    asyncio.run(_case())
+
+
+def test_global_run_cap_applies_across_task_keys_and_releases_after_close(
+    monkeypatch, tmp_path
+):
+    async def _case():
+        pool_server = _install_import_stubs(monkeypatch)
+        env = _DummyEnv()
+
+        class TestWorkerPool(pool_server.WorkerPool):
+            def _new_env(self):
+                return env
+
+        pool = TestWorkerPool(
+            max_tasks=8,
+            max_runs_per_task=8,
+            max_total_runs=2,
+            run_idle_ttl=1,
+            output_root=str(tmp_path),
+            default_timeouts=_TaskTimeouts(),
+            max_concurrent_closes=2,
+        )
+        first = await pool.allocate("task-a")
+        await pool.allocate("task-b")
+
+        with pytest.raises(pool_server.CapacityError) as exc_info:
+            await pool.allocate("task-c")
+        assert exc_info.value.code == "TOTAL_RUN_SLOTS_EXHAUSTED"
+        assert (await pool.status())["max_total_runs"] == 2
+
+        assert await pool.close_run(first["lease_id"], reason="release-cap")
+        if pool._closing_tasks:
+            await asyncio.gather(*pool._closing_tasks, return_exceptions=False)
+        third = await pool.allocate("task-c")
+        assert third["lease_id"] in pool._run_to_task
+
+    asyncio.run(_case())
+
+
+def test_global_run_cap_counts_lease_until_async_cleanup_finishes(
+    monkeypatch, tmp_path
+):
+    class BlockingCloseEnv(_DummyEnv):
+        def __init__(self):
+            super().__init__()
+            self.close_started = asyncio.Event()
+            self.release_close = asyncio.Event()
+
+        async def close(self):
+            self.close_count += 1
+            self.close_started.set()
+            await self.release_close.wait()
+
+    async def _case():
+        pool_server = _install_import_stubs(monkeypatch)
+        env = BlockingCloseEnv()
+
+        class TestWorkerPool(pool_server.WorkerPool):
+            def _new_env(self):
+                return env
+
+        pool = TestWorkerPool(
+            max_tasks=2,
+            max_runs_per_task=2,
+            max_total_runs=1,
+            run_idle_ttl=1,
+            output_root=str(tmp_path),
+            default_timeouts=_TaskTimeouts(),
+            max_concurrent_closes=1,
+        )
+        first = await pool.allocate("task-a")
+        assert await pool.close_run(first["lease_id"], reason="replace")
+        await env.close_started.wait()
+
+        status = await pool.status()
+        assert status["total_active_runs"] == 0
+        assert status["total_retiring_runs"] == 1
+        assert status["total_reserved_runs"] == 1
+        with pytest.raises(pool_server.CapacityError) as exc_info:
+            await pool.allocate("task-b")
+        assert exc_info.value.code == "TOTAL_RUN_SLOTS_EXHAUSTED"
+
+        env.release_close.set()
+        await asyncio.gather(*list(pool._closing_tasks), return_exceptions=False)
+        status = await pool.status()
+        assert status["total_retiring_runs"] == 0
+        assert status["total_reserved_runs"] == 0
+        second = await pool.allocate("task-b")
+        assert second["lease_id"] in pool._run_to_task
 
     asyncio.run(_case())
 

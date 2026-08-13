@@ -41,7 +41,7 @@ RUN mkdir -p /root/gpg-keys /var/simulated-repo
 RUN mkdir -p /root/.gnupg && chmod 700 /root/.gnupg
 
 # Generate Key 1 (missing key - not imported to apt keyring)
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/internal-repo-key-input
 %echo Generating key for internal-repo
 Key-Type: RSA
 Key-Length: 2048
@@ -51,12 +51,13 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key < /tmp/internal-repo-key-input
 
 # Export Key 1 to a file (available for the agent to import)
 RUN gpg --armor --export "internal@example.com" > /root/gpg-keys/internal-repo.gpg
 
 # Generate Key 2 (devtools repo key - will be marked as "expired" in our simulation)
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/devtools-repo-key-input
 %echo Generating key for devtools-repo
 Key-Type: RSA
 Key-Length: 2048
@@ -66,12 +67,13 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key < /tmp/devtools-repo-key-input
 
 # Export Key 2
 RUN gpg --armor --export "devtools@example.com" > /root/gpg-keys/devtools-repo.gpg
 
 # Generate Key 3 (custom repo key)
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/custom-repo-key-input
 %echo Generating key for custom-repo
 Key-Type: RSA
 Key-Length: 2048
@@ -81,6 +83,7 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key < /tmp/custom-repo-key-input
 
 # Export Key 3
 RUN gpg --armor --export "custom@example.com" > /root/gpg-keys/custom-repo.gpg

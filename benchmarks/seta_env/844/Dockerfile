@@ -48,8 +48,7 @@ load-module module-native-protocol-unix auth-anonymous=1
 EOF
 
 # Create a PulseAudio client configuration
-RUN mkdir -p /root/.config/pulse && \
-    cat > /root/.config/pulse/client.conf << 'EOF'
+COPY <<'EOF' /root/.config/pulse/client.conf
 autospawn = no
 default-server = unix:/var/run/pulse/native
 EOF

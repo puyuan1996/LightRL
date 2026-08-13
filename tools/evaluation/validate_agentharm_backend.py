@@ -148,9 +148,7 @@ def main() -> None:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path(
-            "/mnt/shared-storage-user/puyuan/code/inspect_evals/src/inspect_evals/agentharm"
-        ),
+        default=Path("../inspect_evals/src/inspect_evals/agentharm"),
     )
     parser.add_argument("--reward-mode", default="dense_rule")
     args = parser.parse_args()

@@ -2155,6 +2155,7 @@ class TerminalEnv:
                 agent_logs_path=self._trial_handler.trial_paths.agent_logging_dir,
                 no_rebuild=True,
                 cleanup=False,
+                disable_recording=task_config.disable_asciinema,
             )
             if namespace != "default":
                 compose_manager = getattr(self._terminal, "_compose_manager", None)
@@ -2584,6 +2585,23 @@ class TerminalEnv:
                     exc,
                     tail,
                 )
+                # A recorded non-zero wrapper exit is a deterministic candidate
+                # failure, not a grader-parser infrastructure failure. This
+                # commonly happens when the candidate leaves apt/dpkg locked or
+                # removes a test dependency. Preserve true parser failures for
+                # exit=0 or a missing exit marker.
+                if test_exit_code not in (None, 0):
+                    self._last_eval = {
+                        "mode": "terminal_tests",
+                        "score": 0.0,
+                        "reason": "test_exit_nonzero",
+                        "task": task_name,
+                        "parser": type(self._parser).__name__,
+                        "exit_code": test_exit_code,
+                        "parser_error": str(exc),
+                        "output_tail": tail,
+                    }
+                    return 0.0
                 self._last_eval = {
                     "mode": "terminal_tests",
                     "score": 0.0,
@@ -2591,6 +2609,8 @@ class TerminalEnv:
                     "task": task_name,
                     "parser": type(self._parser).__name__,
                     "error": str(exc),
+                    "exit_code": test_exit_code,
+                    "output_tail": tail,
                 }
                 return 0.0
 

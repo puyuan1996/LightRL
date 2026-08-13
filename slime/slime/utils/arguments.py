@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import re
 from typing import Any
 
 import yaml
@@ -877,6 +878,19 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
             parser.add_argument("--eval-temperature", type=float, default=None)
             parser.add_argument("--eval-top-p", type=float, default=None)
             parser.add_argument("--eval-top-k", type=int, default=None)
+            parser.add_argument(
+                "--eval-seed",
+                type=int,
+                default=None,
+                help="Base seed used to derive deterministic per-prompt eval sampling seeds.",
+            )
+            parser.add_argument(
+                "--eval-steps",
+                type=int,
+                nargs="+",
+                default=None,
+                help="Explicit completed rollout-step checkpoints at which to evaluate; may include 0.",
+            )
             parser.add_argument("--eval-max-response-len", type=int, default=None)
             parser.add_argument("--eval-max-prompt-len", type=int, default=None)
             parser.add_argument("--eval-min-new-tokens", type=int, default=None)
@@ -905,10 +919,38 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
             reset_arg(parser, "--save", type=str, default=None)
             reset_arg(parser, "--save-interval", type=int, default=None)
             parser.add_argument(
+                "--save-first-rollout",
+                action="store_true",
+                help="Save rollout 0 immediately, then use --save-interval for the steady-state cadence.",
+            )
+            parser.add_argument(
                 "--max-ckpt-keep",
                 type=int,
                 default=1,
                 help="Maximum number of checkpoints to keep. Older checkpoints are auto-deleted. Default: 1.",
+            )
+            parser.add_argument(
+                "--checkpoint-min-free-gb",
+                type=float,
+                default=128,
+                help="Skip checkpoint non-fatally when less space is available. Default: 128 GiB.",
+            )
+            parser.add_argument(
+                "--checkpoint-expected-gb",
+                type=float,
+                default=0,
+                help="Expected checkpoint size for preflight; 0 estimates it or uses 128 GiB for the first save.",
+            )
+            parser.add_argument(
+                "--checkpoint-space-margin-ratio",
+                type=float,
+                default=1.15,
+                help="Free-space margin applied to expected checkpoint bytes. Default: 1.15.",
+            )
+            parser.add_argument(
+                "--checkpoint-save-fatal",
+                action="store_true",
+                help="Restore legacy behavior and abort training when checkpoint persistence fails.",
             )
             reset_arg(parser, "--async-save", action="store_true")
             reset_arg(
@@ -1764,10 +1806,42 @@ def _resolve_eval_datasets(args) -> list[EvalDatasetConfig]:
     defaults: dict[str, Any] = {}
 
     if args.eval_config:
-        from omegaconf import OmegaConf
+        try:
+            from omegaconf import OmegaConf
+        except ModuleNotFoundError:
+            # Some production images predate slime's optional OmegaConf
+            # dependency.  PyYAML is already required by this module; retain a
+            # narrow compatibility path for ${oc.env:NAME} interpolation so an
+            # eval-only config does not make training fail at argument parsing.
+            env_pattern = re.compile(r"\$\{oc\.env:([A-Za-z_][A-Za-z0-9_]*)\}")
 
-        cfg = OmegaConf.load(args.eval_config)
-        cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+            def resolve_env(value):
+                if isinstance(value, dict):
+                    return {key: resolve_env(item) for key, item in value.items()}
+                if isinstance(value, list):
+                    return [resolve_env(item) for item in value]
+                if not isinstance(value, str):
+                    return value
+
+                def replace(match):
+                    name = match.group(1)
+                    if name not in os.environ:
+                        raise ValueError(
+                            f"--eval-config references unset environment variable {name}"
+                        )
+                    return os.environ[name]
+
+                return env_pattern.sub(replace, value)
+
+            with open(args.eval_config, encoding="utf-8") as handle:
+                cfg_dict = resolve_env(yaml.safe_load(handle))
+            logger.warning(
+                "omegaconf is unavailable; parsed --eval-config with the "
+                "PyYAML ${oc.env:NAME} compatibility path"
+            )
+        else:
+            cfg = OmegaConf.load(args.eval_config)
+            cfg_dict = OmegaConf.to_container(cfg, resolve=True)
         if not isinstance(cfg_dict, dict):
             raise ValueError("--eval-config must contain a mapping at the root.")
 

@@ -20,7 +20,7 @@ FROM ghcr.io/laude-institute/t-bench/ubuntu-24-04:20250624
 RUN mkdir -p /home/user && chmod 755 /home/user
 
 # Create a simulated auth.log file with SSH authentication events
-RUN mkdir -p /var/log && cat << 'AUTHLOG' > /var/log/auth.log
+COPY <<'AUTHLOG' /var/log/auth.log
 Aug  5 00:15:22 server sshd[1001]: Failed password for root from 185.234.72.15 port 42001 ssh2
 Aug  5 00:16:33 server sshd[1002]: Failed password for root from 185.234.72.15 port 42002 ssh2
 Aug  5 00:17:44 server sshd[1003]: Failed password for root from 185.234.72.15 port 42003 ssh2

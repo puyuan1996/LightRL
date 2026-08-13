@@ -43,7 +43,7 @@ RUN mkdir -p /root/repo-keys \
 
 # Generate GPG keys for the mock repositories
 # Internal repo key
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/415-internal-key-input
 Key-Type: RSA
 Key-Length: 2048
 Subkey-Type: RSA
@@ -55,11 +55,13 @@ Expire-Date: 0
 %commit
 EOF
 
+RUN gpg --batch --gen-key /tmp/415-internal-key-input
+
 # Export the internal key as ASCII armored
 RUN gpg --armor --export "Internal Repo Signing Key" > /root/repo-keys/internal-repo.asc
 
 # Generate vendor key
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/415-vendor-key-input
 Key-Type: RSA
 Key-Length: 2048
 Subkey-Type: RSA
@@ -70,6 +72,8 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+
+RUN gpg --batch --gen-key /tmp/415-vendor-key-input
 
 # Export the vendor key as ASCII armored
 RUN gpg --armor --export "Vendor Software Signing Key" > /root/repo-keys/vendor-software.asc
@@ -82,7 +86,8 @@ RUN touch /var/local/vendor-repo/dists/stable/main/binary-amd64/Packages \
     && gzip -k /var/local/vendor-repo/dists/stable/main/binary-amd64/Packages
 
 # Create proper Release files with hashes for the internal repo
-RUN cd /var/local/internal-repo/dists/stable && \
+RUN <<OUTER_EOF
+cd /var/local/internal-repo/dists/stable && \
     PACKAGES_SIZE=$(stat -c%s main/binary-amd64/Packages) && \
     PACKAGES_GZ_SIZE=$(stat -c%s main/binary-amd64/Packages.gz) && \
     PACKAGES_MD5=$(md5sum main/binary-amd64/Packages | cut -d' ' -f1) && \
@@ -105,9 +110,11 @@ SHA256:
  ${PACKAGES_SHA256} ${PACKAGES_SIZE} main/binary-amd64/Packages
  ${PACKAGES_GZ_SHA256} ${PACKAGES_GZ_SIZE} main/binary-amd64/Packages.gz
 RELEASE
+OUTER_EOF
 
 # Create proper Release files with hashes for the vendor repo
-RUN cd /var/local/vendor-repo/dists/stable && \
+RUN <<OUTER_EOF
+cd /var/local/vendor-repo/dists/stable && \
     PACKAGES_SIZE=$(stat -c%s main/binary-amd64/Packages) && \
     PACKAGES_GZ_SIZE=$(stat -c%s main/binary-amd64/Packages.gz) && \
     PACKAGES_MD5=$(md5sum main/binary-amd64/Packages | cut -d' ' -f1) && \
@@ -130,6 +137,7 @@ SHA256:
  ${PACKAGES_SHA256} ${PACKAGES_SIZE} main/binary-amd64/Packages
  ${PACKAGES_GZ_SHA256} ${PACKAGES_GZ_SIZE} main/binary-amd64/Packages.gz
 RELEASE
+OUTER_EOF
 
 # Sign the Release files with the appropriate keys (creates Release.gpg)
 RUN gpg --default-key "Internal Repo Signing Key" --armor --detach-sign -o /var/local/internal-repo/dists/stable/Release.gpg /var/local/internal-repo/dists/stable/Release

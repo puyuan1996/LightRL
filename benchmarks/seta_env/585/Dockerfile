@@ -142,8 +142,8 @@ EOF
 
 # Create .ssh directory with config (no actual keys)
 RUN mkdir -p /home/testuser/.ssh && \
-    chmod 700 /home/testuser/.ssh && \
-    cat > /home/testuser/.ssh/config << 'EOF'
+    chmod 700 /home/testuser/.ssh
+COPY <<'EOF' /home/testuser/.ssh/config
 # SSH client configuration
 Host *
     ServerAliveInterval 60
@@ -151,8 +151,8 @@ Host *
 EOF
 
 # Create .config directory with a sample config
-RUN mkdir -p /home/testuser/.config/htop && \
-    cat > /home/testuser/.config/htop/htoprc << 'EOF'
+RUN mkdir -p /home/testuser/.config/htop
+COPY <<'EOF' /home/testuser/.config/htop/htoprc
 # Htop configuration
 fields=0 48 17 18 38 39 40 2 46 47 49 1
 sort_key=46

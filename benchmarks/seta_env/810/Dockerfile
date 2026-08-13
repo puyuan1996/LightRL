@@ -34,7 +34,7 @@ WORKDIR /app
 # We'll create self-signed keys to simulate real repository keys
 
 # Generate key 1: Monitoring Agent (metrics-agent)
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/gpg-key-1-input
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Metrics Agent Repository
@@ -43,9 +43,10 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/gpg-key-1-input
 
 # Generate key 2: CDN Tools (cdn-tools)
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/gpg-key-2-input
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: CDN Tools Repository
@@ -54,9 +55,10 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/gpg-key-2-input
 
 # Generate key 3: Database Server (dbserver)
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/gpg-key-3-input
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: DB Server Repository
@@ -65,6 +67,7 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/gpg-key-3-input
 
 # Export keys and add them to the legacy trusted.gpg keyring using apt-key
 # This simulates keys added via the deprecated apt-key add method

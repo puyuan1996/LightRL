@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import hashlib
 import inspect
 import logging
 import os
@@ -1059,11 +1060,22 @@ async def eval_rollout_single_dataset(
             sample_index += 1
             sample.metadata = dataset_cfg.inject_metadata(getattr(sample, "metadata", None))
             _annotate_rollout_sample(args, sample, rollout_id, evaluation=True)
+            sample.metadata["eval_dataset"] = dataset_cfg.name
+            sample.metadata["eval_prompt_index"] = _i
+            sample.metadata["eval_sample_index"] = j
             sample.generate_function_path = getattr(dataset_cfg, "custom_generate_function_path", None)
             sampling_params = base_sampling_params
-            if getattr(args, "sglang_enable_deterministic_inference", False):
+            eval_seed = getattr(args, "eval_seed", None)
+            if eval_seed is not None:
+                sampling_params = base_sampling_params.copy()
+                seed_payload = f"{eval_seed}:{dataset_cfg.name}:{_i}:{j}".encode()
+                sampling_seed = int.from_bytes(hashlib.sha256(seed_payload).digest()[:4], "big")
+                sampling_params["sampling_seed"] = sampling_seed
+                sample.metadata["eval_sampling_seed"] = sampling_seed
+            elif getattr(args, "sglang_enable_deterministic_inference", False):
                 sampling_params = base_sampling_params.copy()
                 sampling_params["sampling_seed"] = args.rollout_seed + j
+                sample.metadata["eval_sampling_seed"] = args.rollout_seed + j
             tasks.append(
                 asyncio.create_task(
                     _generate_eval_sample(sample, sampling_params=sampling_params)

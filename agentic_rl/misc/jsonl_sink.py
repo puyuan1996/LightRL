@@ -40,7 +40,8 @@ def write_structured_metrics(records: list[dict[str, Any]]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
             for text in lines:
-                handle.write(text)
-                handle.write("\n")
+                # One write per JSONL record minimizes interleaving when the
+                # rollout manager and actor rank append to the shared file.
+                handle.write(text + "\n")
     except Exception as exc:
         logger.warning("Failed to write structured rollout metrics to %s: %s", path, exc)

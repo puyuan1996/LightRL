@@ -30,6 +30,30 @@ from agentic_rl.platform.types import Interaction
 
 logger = logging.getLogger(__name__)
 
+_TRACE_META_KEYS = (
+    "id",
+    "finish_reason",
+    "prompt_tokens",
+    "completion_tokens",
+    "cached_tokens",
+    "queue_time",
+    "e2e_latency",
+    "decode_throughput",
+    "pd_prefill_bootstrap_queue_duration",
+    "pd_prefill_bootstrap_duration",
+    "pd_prefill_alloc_wait_duration",
+    "pd_prefill_forward_duration",
+    "pd_prefill_transfer_queue_duration",
+    "pd_decode_prealloc_duration",
+    "pd_decode_bootstrap_duration",
+    "pd_decode_alloc_wait_duration",
+    "pd_decode_transfer_duration",
+    "pd_decode_forward_duration",
+    "pd_transfer_speed_gb_s",
+    "pd_transfer_total_mb",
+    "pd_prefill_retry_count",
+)
+
 
 def _tool_arguments_json(arguments: Any) -> str:
     """Return a JSON object string suitable for CAMEL ToolCallRequest parsing."""
@@ -295,6 +319,13 @@ class SGLangTurnClient:
             finish_reason=finish_reason,
             messages=deepcopy(messages),
             latency_ms=latency_ms,
+            # Do not retain output_token_logprobs a second time: only compact
+            # serving timings belong in the observability carrier.
+            generation_meta={
+                key: deepcopy(meta_info[key])
+                for key in _TRACE_META_KEYS
+                if key in meta_info
+            },
         )
         return chat_completion, interaction
 

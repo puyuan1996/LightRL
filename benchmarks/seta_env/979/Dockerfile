@@ -35,7 +35,7 @@ RUN dpkg --add-architecture i386
 RUN mkdir -p /usr/share/keyrings
 
 # Create a dummy GPG key for the fake repos (self-signed for testing)
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/fake-repo-key-input
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Fake Repo Key
@@ -44,6 +44,7 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/fake-repo-key-input
 
 RUN gpg --export fake@example.com > /usr/share/keyrings/fake-repo-archive-keyring.gpg
 

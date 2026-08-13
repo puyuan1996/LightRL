@@ -27,8 +27,8 @@ RUN useradd -m -s /bin/bash user && \
 
 # Create UFW user.rules file with pre-configured rules (IPv4)
 # These simulate rules that were configured before disabling the firewall
-RUN mkdir -p /lib/ufw && \
-    cat > /lib/ufw/user.rules << 'UUFW_RULES'
+RUN mkdir -p /lib/ufw
+COPY <<'UUFW_RULES' /lib/ufw/user.rules
 *filter
 :ufw-user-input - [0:0]
 :ufw-user-output - [0:0]

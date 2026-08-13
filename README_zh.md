@@ -99,19 +99,15 @@ python3 -c 'import agentic_rl'
 
 ## 快速开始
 
-### 1. 启动 Docker worker(CPU 主机)
+### 1. 配置 Docker worker
 
 ```bash
-cd LightRL
-bash examples/validation/start_docker_worker.sh
-# 输出 WORKER_URLS=http://<WORKER_IP>:18081
-
+export WORKER_URLS=http://<WORKER_IP>:18081
 curl --noproxy '*' --fail http://<WORKER_IP>:18081/healthz
 ```
 
-daemon、代理、磁盘与并发参数见
-[CPU worker 运维](docs/operations/cpu_workers.md)与
-[Docker 环境稳定性](docs/operations/docker_env_server_stability.md)。
+站点特定的 worker 部署、凭证和调度器启动脚本应放在 ignore 的本地配置中，
+不进入公开仓库。
 
 ### 2. dry-run 检查配方(GPU 主机)
 
@@ -132,22 +128,17 @@ bash examples/training/train_qwen3_8b_seta_dapo.sh
 其余已维护入口(DIVE-PO、mixed、GLM-5.1)见
 [examples/README.md](examples/README.md)。
 
-### 4. 有界端到端验证(首次部署推荐)
+### 4. 验证公开配方
 
 ```bash
-WORKER_URLS=http://<WORKER_IP>:18081 NUM_ROLLOUT=3 \
-  bash examples/validation/validate_4gpu_seta_dapo.sh
-
-EXPERIMENT=dive_po WORKER_URLS=http://<WORKER_IP>:18081 \
-  bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
-
-EXPERIMENT=mixed WORKER_URLS=http://<WORKER_IP>:18081 \
-  bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
+python3 -m compileall -q agentic_rl
+python3 -m pytest tests/agentic_rl -q
+WORKER_URLS=http://127.0.0.1:18081 \
+  bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
-脚本依次检查 GPU/资源、静态编译、imports、单元测试、CLI dry-run、worker
-健康、rollout 指标,并验证 actor 产生有限且非零的更新
-(`TRAINING_METRICS_OK` / `EXAMPLE_VALIDATION_OK`)。
+端到端调度器启动器和集群专用 smoke wrapper 保留在 ignore 的本地配置中，
+因为它们包含站点拓扑和路径。
 
 ## 配置说明
 
@@ -170,8 +161,7 @@ runs/<RUN_ID>/
 
 ## 当前验证状态
 
-最近一次有界验证(2026-08-07,4×H200,P0–P2 重构轮完成后;更早记录见
-[2026-07-31 人工验证手册](docs/manual_validation_20260731.md)):
+最近一次有界验证(2026-08-07,4 GPU,P0–P2 重构轮完成后):
 
 - SETA + DAPO:3 个 rollout、6 个 actor train step、非零有限更新
   (`TRAINING_METRICS_OK`)。
@@ -206,8 +196,29 @@ python3 -m compileall -q agentic_rl
 - [DIVE-PO 奖励数学](docs/algorithms/dive_po_dual_stream.md)
 - [Harness 选择](docs/harnesses/README.md)
 - [评测工具](docs/evaluation/README.md)
-- [运维手册](docs/operations/)——站点相关(brainctl/rjob、CPU worker、
-  Docker 稳定性),移植时请将其中地址替换为你方站点
+- [Checkpoint 与 W&B 存储](docs/operations/checkpoint_wandb_storage_zh.md)
+
+## 致谢
+
+LightRL 基于并内置两个训练后端：[Slime](https://github.com/THUDM/slime)
+(rollout/训练运行时）与 [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
+（模型训练）。智能体 RL 技术栈——终端环境、harness、奖励成形与 rollout
+编排——最初在 **OpenClaw-RL** 中研发，后经抽取与重构成为本轻量框架。
+感谢上述项目的作者们。
+
+## 引用
+
+如果 LightRL 对您的工作有帮助，请引用：
+
+```bibtex
+@misc{lightrl,
+  title={LightRL: A Lightweight, Efficient, Scalable RL Post-training Framework for Agentic Environments},
+  author={Pu, Yuan and Zhang, Shaoang and Zhang, Chenhao and Li, Xueyan and Lu, Yudong and Tang, Jia and Wang, Guanchu and Niu, Yazhe},
+  publisher={GitHub},
+  howpublished={\url{https://github.com/opendilab/LightRL}},
+  year={2026},
+}
+```
 
 ## 致谢
 

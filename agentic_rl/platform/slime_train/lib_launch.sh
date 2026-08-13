@@ -163,11 +163,19 @@ NCCL_P2P_DISABLE="${NCCL_P2P_DISABLE:-0}"
 
 NCCL_IB_DISABLE="${NCCL_IB_DISABLE:-1}"
 export NCCL_NVLS_ENABLE NCCL_P2P_DISABLE NCCL_IB_DISABLE
-log "HAS_NVLINK=${HAS_NVLINK} NCCL_NVLS_ENABLE=${NCCL_NVLS_ENABLE} NCCL_P2P_DISABLE=${NCCL_P2P_DISABLE} NCCL_IB_DISABLE=${NCCL_IB_DISABLE}"
+export NCCL_SOCKET_IFNAME="${NCCL_SOCKET_IFNAME:-}"
+export GLOO_SOCKET_IFNAME="${GLOO_SOCKET_IFNAME:-}"
+log "HAS_NVLINK=${HAS_NVLINK} NCCL_NVLS_ENABLE=${NCCL_NVLS_ENABLE} NCCL_P2P_DISABLE=${NCCL_P2P_DISABLE} NCCL_IB_DISABLE=${NCCL_IB_DISABLE} NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-auto} GLOO_SOCKET_IFNAME=${GLOO_SOCKET_IFNAME:-auto}"
 
 
 # ── Dump run config ──────────────────────────────────────────────────
-cat > "${RUN_DIR}/config/run_config.json" <<CFGEOF
+# Preserve the original provenance on checkpoint resume and record each
+# recovery launch separately.
+RUN_CONFIG_OUTPUT="${RUN_DIR}/config/run_config.json"
+if [[ "${RESUME_EXISTING_RUN:-0}" == "1" ]]; then
+  RUN_CONFIG_OUTPUT="${RUN_DIR}/config/run_config.resume-${RUN_TIMESTAMP}.json"
+fi
+cat > "${RUN_CONFIG_OUTPUT}" <<CFGEOF
 {
   "run_name": "${RUN_NAME}",
   "timestamp": "${RUN_TIMESTAMP}",
@@ -181,17 +189,30 @@ cat > "${RUN_DIR}/config/run_config.json" <<CFGEOF
   "hf_ckpt": "${HF_CKPT}",
   "ref_load": "${REF_LOAD}",
   "save_ckpt": "${SAVE_CKPT}",
+  "save_interval": ${SAVE_INTERVAL},
+  "save_first_rollout": "${SAVE_FIRST_ROLLOUT}",
   "num_gpus": ${NUM_GPUS},
   "actor_gpus": ${ACTOR_GPUS},
   "rollout_gpus": ${ROLLOUT_GPUS},
   "tp_size": ${TP_SIZE},
   "rollout_engine_gpus": ${ROLLOUT_NUM_GPUS_PER_ENGINE},
+  "seta_execution_profile": "${SETA_EXECUTION_PROFILE:-legacy}",
+  "sglang_server_concurrency": "${SGLANG_SERVER_CONCURRENCY:-}",
+  "slime_use_fault_tolerance": "${SLIME_USE_FAULT_TOLERANCE:-0}",
+  "slime_save_debug_rollout_data": "${SLIME_SAVE_DEBUG_ROLLOUT_DATA:-}",
   "dataset": "${DATASET}",
   "includes_seta": "${INCLUDES_SETA}",
   "includes_safety": "${INCLUDES_SAFETY}",
   "includes_agentharm": "${INCLUDES_AGENTHARM}",
   "includes_swesmith": "${INCLUDES_SWESMITH}",
   "prompt_data": "${ROLLOUT_PROMPT_DATA}",
+  "eval_protocol": "${EVAL_PROTOCOL:-legacy}",
+  "eval_config": "${EVAL_CONFIG:-}",
+  "eval_seed": "${EVAL_SEED:-}",
+  "eval_steps": "${EVAL_STEPS:-}",
+  "eval_manifest_sha256": "${EVAL_MANIFEST_SHA256:-}",
+  "eval_set_sha256": "${EVAL_SET_SHA256:-}",
+  "train_set_sha256": "${TRAIN_SET_SHA256:-}",
   "swesmith_source_prompt_data": "${SWESMITH_SOURCE_PROMPT_DATA}",
   "swesmith_artifact_sha256": "${SWESMITH_ARTIFACT_SHA256}",
   "swesmith_conversion_mode": "${SWESMITH_CONVERSION_MODE}",
@@ -201,6 +222,7 @@ cat > "${RUN_DIR}/config/run_config.json" <<CFGEOF
   "num_rollout": ${NUM_ROLLOUT},
   "rollout_batch_size": ${ROLLOUT_BATCH_SIZE},
   "n_samples": ${N_SAMPLES},
+  "max_turn": ${MAX_TURN},
   "rollout_max_response_len": ${ROLLOUT_MAX_RESPONSE_LEN},
   "rollout_max_context_len": ${ROLLOUT_MAX_CONTEXT_LEN},
   "rollout_generation_max_retries": "${ROLLOUT_GENERATION_MAX_RETRIES}",
@@ -276,6 +298,7 @@ cat > "${RUN_DIR}/config/run_config.json" <<CFGEOF
   "trajectory_save_reward_strata": "${TRAJECTORY_SAVE_REWARD_STRATA}",
   "trajectory_save_log_decisions": "${TRAJECTORY_SAVE_LOG_DECISIONS}",
   "exploration_profile": "${EXPLORATION_PROFILE}",
+  "custom_reward_post_process_path": "${CUSTOM_REWARD_POST_PROCESS_PATH:-}",
   "explore_entropy_coef": "${EXPLORE_ENTROPY_COEF}",
   "explore_think_mode": "${EXPLORE_THINK_MODE}",
   "explore_temp_high": "${EXPLORE_TEMP_HIGH}",
@@ -426,6 +449,12 @@ cat > "${RUN_DIR}/config/run_config.json" <<CFGEOF
 }
 CFGEOF
 
+if [[ "${FORMAL_CAPTURE_SOURCE_STATE:-0}" == "1" ]]; then
+  log "Capturing formal-run source state..."
+  "${TRAIN_PYTHON}" "${REPO_ROOT}/tools/reproducibility/capture_formal_run_source.py" \
+    --run-dir "${RUN_DIR}"
+fi
+
 # ── Start Ray head ───────────────────────────────────────────────────
 log "ray start --head ..."
 ray start --head \
@@ -509,9 +538,15 @@ RUNTIME_ENV_JSON="{
     \"NCCL_P2P_DISABLE\": \"${NCCL_P2P_DISABLE}\",
 
     \"NCCL_IB_DISABLE\": \"${NCCL_IB_DISABLE}\",
+    \"NCCL_SOCKET_IFNAME\": \"${NCCL_SOCKET_IFNAME}\",
+    \"GLOO_SOCKET_IFNAME\": \"${GLOO_SOCKET_IFNAME}\",
     \"SLIME_RAY_PLACEMENT_GPU_PROBE\": \"${SLIME_RAY_PLACEMENT_GPU_PROBE}\",
     \"SLIME_SKIP_ZERO_TRAINABLE_ROLLOUT\": \"${SLIME_SKIP_ZERO_TRAINABLE_ROLLOUT}\",
     \"SLIME_SKIP_ZERO_TRAINABLE_TRAIN\": \"${SLIME_SKIP_ZERO_TRAINABLE_TRAIN}\",
+    \"SETA_EXECUTION_PROFILE\": \"${SETA_EXECUTION_PROFILE:-legacy}\",
+    \"SGLANG_SERVER_CONCURRENCY\": \"${SGLANG_SERVER_CONCURRENCY:-}\",
+    \"SLIME_USE_FAULT_TOLERANCE\": \"${SLIME_USE_FAULT_TOLERANCE:-0}\",
+    \"SLIME_SAVE_DEBUG_ROLLOUT_DATA\": \"${SLIME_SAVE_DEBUG_ROLLOUT_DATA:-}\",
     \"MASTER_ADDR\": \"${MASTER_ADDR}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",
     \"USE_REMOTE_ENV\": \"${USE_REMOTE_ENV}\",
@@ -769,21 +804,9 @@ RAY_STATUS_OUTPUT=$(ray job status --address="http://${MASTER_ADDR}:8265" "${RAY
 echo "${RAY_STATUS_OUTPUT}"
 set -e
 
-# ── Checkpoint cleanup: keep only the latest MAX_CKPT_KEEP per-run ───
-# (issue #3 §3: ckpt accumulation is the #1 cause of ENOSPC on shared FS.)
-CKPT_DIR="${SAVE_CKPT}"
-if [[ -d "${CKPT_DIR}" ]] && (( MAX_CKPT_KEEP > 0 )); then
-  CKPT_DIRS=($(ls -1d "${CKPT_DIR}"/iter_* 2>/dev/null | sort -t_ -k2 -n))
-  TOTAL_CKPTS=${#CKPT_DIRS[@]}
-  if (( TOTAL_CKPTS > MAX_CKPT_KEEP )); then
-    NUM_TO_DELETE=$(( TOTAL_CKPTS - MAX_CKPT_KEEP ))
-    log "Ckpt cleanup: found ${TOTAL_CKPTS}, keeping ${MAX_CKPT_KEEP}, deleting ${NUM_TO_DELETE}"
-    for (( i=0; i<NUM_TO_DELETE; i++ )); do
-      log "  Removing: ${CKPT_DIRS[$i]}"
-      rm -rf "${CKPT_DIRS[$i]}"
-    done
-  fi
-fi
+# Checkpoint pruning happens transactionally in checkpoint_utils.py.  Do not
+# delete iter_* directories here: a newer directory can be an incomplete save,
+# while the commit marker still points at the older recoverable checkpoint.
 
 RAY_STATUS_LOWER=$(echo "${RAY_STATUS_OUTPUT}" | tr '[:upper:]' '[:lower:]')
 if [[ "${RAY_STATUS_LOWER}" == *"succeeded"* ]]; then

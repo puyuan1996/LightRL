@@ -24,8 +24,7 @@ RUN apt-get update && apt-get install -y gnupg curl wget
 # Using a deterministic key for reproducibility
 
 # Create a GPG key file simulating a third-party repo key (like Jenkins)
-RUN mkdir -p /tmp/gpg-setup && \
-    gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/1162-input-1
 %no-protection
 Key-Type: RSA
 Key-Length: 2048
@@ -34,12 +33,14 @@ Name-Email: test-repo@example.com
 Expire-Date: 0
 %commit
 EOF
+RUN mkdir -p /tmp/gpg-setup && \
+    gpg --batch --gen-key /tmp/1162-input-1
 
 # Export the key and add it to apt trusted keys
 RUN gpg --armor --export "test-repo@example.com" | apt-key add -
 
 # Also add a second test key to make it more realistic
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/1162-input-2
 %no-protection
 Key-Type: RSA
 Key-Length: 2048
@@ -48,6 +49,7 @@ Name-Email: another-test@example.org
 Expire-Date: 0
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/1162-input-2
 
 RUN gpg --armor --export "another-test@example.org" | apt-key add -
 

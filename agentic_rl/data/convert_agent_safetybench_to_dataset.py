@@ -58,9 +58,7 @@ def main() -> None:
     parser.add_argument(
         "--input",
         type=Path,
-        default=Path(
-            "/mnt/shared-storage-user/puyuan/code/Agent-SafetyBench/data/released_data.json"
-        ),
+        default=Path("../Agent-SafetyBench/data/released_data.json"),
     )
     parser.add_argument(
         "--output-dir",

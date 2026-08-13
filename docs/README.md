@@ -22,20 +22,14 @@
 ## 使用
 
 - [harnesses/README.md](harnesses/README.md)——harness 选择与注册。
-- [evaluation/README.md](evaluation/README.md)——评测工具与 SWE-bench 产物导出。
+- [evaluation/README.md](evaluation/README.md)——评测工具、SETA fixed12 协议与
+  SWE-bench 产物导出。
+- [performance/seta_training_efficiency_zh.md](performance/seta_training_efficiency_zh.md)——
+  SETA 训练耗时、同 Pod 私有 worker 的长窗口提速结果、GPU 等待瓶颈、
+  slime trace 与高吞吐执行 profile。
 - [../examples/README.md](../examples/README.md)——训练与验证入口清单。
 
-## 验证记录
+## 运维
 
-- [manual_validation_20260731.md](manual_validation_20260731.md)——2026-07-31
-  人工验证手册与常见报错处理。最新一轮（2026-08-07,P0–P2 重构后）结论见
-  根目录 README 的"当前验证状态"。
-
-## 运维（站点相关）
-
-`operations/` 是本团队集群（brainctl/rjob + 内网 worker）的运维手册，
-开源移植时请将其中地址、命名空间与路径替换为你方站点：
-
-- [operations/brainctl_rjob_debug_zh.md](operations/brainctl_rjob_debug_zh.md)
-- [operations/cpu_workers.md](operations/cpu_workers.md)
-- [operations/docker_env_server_stability.md](operations/docker_env_server_stability.md)
+- [operations/checkpoint_wandb_storage_zh.md](operations/checkpoint_wandb_storage_zh.md)——
+  tracker 感知的 checkpoint 清理、磁盘满非致命策略与 W&B offline 同步。

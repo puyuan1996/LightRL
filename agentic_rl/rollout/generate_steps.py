@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import uuid
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from slime.utils.types import Sample
+from slime.utils.trace_utils import build_sglang_meta_trace_attrs, trace_span
 
 from agentic_rl.algorithms.prm.agent import TerminalPRMAgent
 from agentic_rl.misc.clawsentry import ClawSentryClient
@@ -30,6 +32,7 @@ from agentic_rl.platform.types import (
 from agentic_rl.environments.registry import (
     direct_score_source,
     safety_reward_mode,
+    slug_for,
     uses_remote_terminal_env as _uses_remote_terminal_env,
 )
 from agentic_rl.environments.reward_safety import (
@@ -122,6 +125,7 @@ logger = logging.getLogger(__name__)
 class _RunPlan:
     task_meta: Dict[str, Any]
     data_source: str
+    evaluation: bool
     task_spec: Any
     run_ctx: RunContext
     run_ctx_payload: dict[str, Any]
@@ -135,6 +139,7 @@ class _RunPlan:
     safety_zero_threshold: float
     task_key: str
     log_tag: str
+    trace_target: Sample
 
 
 @dataclass
@@ -262,6 +267,7 @@ def _prepare_rollout_plan(args, sample: Sample, evaluation: bool) -> _RunPlan:
     return _RunPlan(
         task_meta=task_meta,
         data_source=data_source,
+        evaluation=bool(evaluation),
         task_spec=task_spec,
         run_ctx=run_ctx,
         run_ctx_payload=run_ctx.to_payload(),
@@ -277,6 +283,7 @@ def _prepare_rollout_plan(args, sample: Sample, evaluation: bool) -> _RunPlan:
         ),
         task_key=task_key,
         log_tag=log_tag,
+        trace_target=sample,
     )
 
 
@@ -288,15 +295,10 @@ async def _open_env_session(plan: _RunPlan, session: _EnvSession) -> None:
     run_ctx = plan.run_ctx
     _log_tag = plan.log_tag
 
-    session.env_client, session.lease_id = await _create_env_client(
-        _make_task_spec(task_meta), run_ctx, task_meta
-    )
-    reset_kwargs = {
-        "lease_id": session.lease_id,
-        "task_meta": task_meta,
-        "run_ctx": plan.run_ctx_payload,
-        "task_timeouts": plan.timeouts.to_payload(),
-    }
+    # Admission must precede the remote /allocate call.  Acquiring it after
+    # allocation lets every pending rollout consume (or wait for) a worker
+    # lease before the client-side cap applies, so two independent clients can
+    # overrun the worker's shared capacity and time out while retrying 429s.
     if _uses_remote_terminal_env(task_meta):
         open_reason = _task_circuit_open_reason(plan.task_key)
         if open_reason is not None:
@@ -307,6 +309,15 @@ async def _open_env_session(plan: _RunPlan, session: _EnvSession) -> None:
             plan.task_key,
             log_tag=_log_tag,
         )
+    session.env_client, session.lease_id = await _create_env_client(
+        _make_task_spec(task_meta), run_ctx, task_meta
+    )
+    reset_kwargs = {
+        "lease_id": session.lease_id,
+        "task_meta": task_meta,
+        "run_ctx": plan.run_ctx_payload,
+        "task_timeouts": plan.timeouts.to_payload(),
+    }
     default_reset_http_timeout = (
         float(plan.timeouts.ensure_image) + float(plan.timeouts.reset_session) + 300.0
     )
@@ -591,9 +602,20 @@ async def _run_turn_loop(
             logger.warning("%s Rollout context is empty; aborting loop.", _log_tag)
             break
 
-        turn_state: TurnResult = await agent_runner.run_model_turn(
-            context_result.context_messages
-        )
+        with trace_span(
+            plan.trace_target,
+            "sglang_generate",
+            attrs={"turn_index": agent_runner.model_turn_count},
+        ) as generation_span:
+            turn_state: TurnResult = await agent_runner.run_model_turn(
+                context_result.context_messages
+            )
+            generation_interactions = (
+                getattr(turn_state, "interactions", None) or [turn_state.interaction]
+            )
+            generation_meta = getattr(generation_interactions[-1], "generation_meta", None)
+            if isinstance(generation_meta, dict):
+                generation_span.update(build_sglang_meta_trace_attrs(generation_meta))
         turn_interactions = (
             getattr(turn_state, "interactions", None) or [turn_state.interaction]
         )
@@ -728,11 +750,19 @@ async def _run_turn_loop(
                             "safety_score": cs_score,
                         }
                         loop.cs_per_call_full.append(cs_dec_dict)
-                raw_result = await env_client.exec_tool(
-                    lease_id,
-                    tool_call_request.tool_name,
-                    tool_call_request.args,
-                )
+                with trace_span(
+                    plan.trace_target,
+                    "environment_tool",
+                    attrs={
+                        "turn_index": turn_idx,
+                        "tool_name": tool_call_request.tool_name,
+                    },
+                ):
+                    raw_result = await env_client.exec_tool(
+                        lease_id,
+                        tool_call_request.tool_name,
+                        tool_call_request.args,
+                    )
                 agent_runner.record_tool_result(tool_call_request, raw_result)
                 if clients.prm_agent is not None:
                     clients.prm_agent.record_tool_result(
@@ -877,9 +907,10 @@ async def _evaluate_outcome(
                 )
             elif deferred_sweverified:
                 eval_payload = {"swebench_defer_grading": True}
-            raw_score = await session.env_client.evaluate(
-                session.lease_id, trajectory=eval_payload
-            )
+            with trace_span(plan.trace_target, "environment_evaluate"):
+                raw_score = await session.env_client.evaluate(
+                    session.lease_id, trajectory=eval_payload
+                )
             reward = float(raw_score)
             eval_details = _last_eval_details(session.env_client)
             logger.info("%s Evaluation reward=%.4f", plan.log_tag, reward)
@@ -1015,6 +1046,35 @@ async def _collect_safety_scores(
 # ── Step 7: exploration bonus injection (intrinsic/safety/LP-RND/Agent57/CDE) ──
 
 
+def _agent57_normalized_outcome(
+    samples: List[Sample],
+    data_source: str | None,
+) -> float | None:
+    """Return the task-native [0, 1] outcome used by Agent57's UCB.
+
+    Converted SETA rows deliberately retain ``data_source=terminal_bench`` for
+    reward routing.  Checking only for the literal string ``seta`` therefore
+    silently fed the shaped score (including truncation/overlong penalties)
+    into the controller and classified positive partial credit as failure.
+    Resolve aliases through the environment registry and prefer ``raw_score``.
+    """
+    if slug_for(data_source) != "seta":
+        return None
+    values: list[float] = []
+    for item in samples:
+        if not isinstance(item.reward, dict):
+            continue
+        raw_score = item.reward.get("raw_score", item.reward.get("accuracy"))
+        try:
+            value = float(raw_score)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(value):
+            continue
+        values.append(min(1.0, max(0.0, value)))
+    return sum(values) / len(values) if values else None
+
+
 def _inject_exploration_bonuses(
     samples: List[Sample],
     *,
@@ -1025,6 +1085,11 @@ def _inject_exploration_bonuses(
     status,
     eval_error: str | None,
 ) -> None:
+    # Evaluation must be observational. In particular, fixed-set evaluation
+    # must not advance Agent57 lifelong counts/UCB events or inject an
+    # exploration reward that changes the reported task score.
+    if plan.evaluation:
+        return
     if not (
         _EXPLORE_INTRINSIC_ENABLED
         or _EXPLORE_SAFETY_FILTER_ENABLED
@@ -1075,6 +1140,7 @@ def _inject_exploration_bonuses(
         status=status,
         parse_error_count=parse_error_count,
         metadata=_agent57_lifelong_metadata,
+        state_update_allowed=eval_error is None,
     )
     _agent57_bonus = float(
         _agent57_metrics.get("explore_agent57_lifelong_bonus", 0.0) or 0.0
@@ -1118,24 +1184,9 @@ def _inject_exploration_bonuses(
     _base_score_mean = (
         sum(_base_score_values) / len(_base_score_values) if _base_score_values else 0.0
     )
-    _agent57_dataset_name = str(data_source or "").strip().lower()
-    _agent57_normalized_score_values = []
-    if _agent57_dataset_name == "seta":
-        for _sample in samples:
-            if not isinstance(_sample.reward, dict):
-                continue
-            _raw_score = _sample.reward.get(
-                "raw_score",
-                _sample.reward.get("accuracy"),
-            )
-            try:
-                _agent57_normalized_score_values.append(float(_raw_score))
-            except (TypeError, ValueError):
-                pass
-    _agent57_normalized_score_mean = (
-        sum(_agent57_normalized_score_values) / len(_agent57_normalized_score_values)
-        if _agent57_normalized_score_values
-        else None
+    _agent57_normalized_score_mean = _agent57_normalized_outcome(
+        samples,
+        data_source,
     )
     _cde_actor = _explore_cde_actor_metrics(
         interactions,

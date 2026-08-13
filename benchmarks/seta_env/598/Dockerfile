@@ -110,8 +110,8 @@ RUN echo "smtps     inet  n       -       y       -       -       smtpd" >> /etc
     echo "  -o smtpd_sasl_auth_enable=no" >> /etc/postfix/master.cf
 
 # Configure Dovecot with INTENTIONALLY INSECURE TLS settings
-RUN mkdir -p /etc/dovecot/conf.d && \
-    cat > /etc/dovecot/conf.d/10-ssl.conf << 'EOF'
+RUN mkdir -p /etc/dovecot/conf.d
+COPY <<'EOF' /etc/dovecot/conf.d/10-ssl.conf
 ssl = yes
 ssl_cert = </etc/ssl/certs/server.crt
 ssl_key = </etc/ssl/private/server.key

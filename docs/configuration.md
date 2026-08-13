@@ -8,7 +8,7 @@
 # 查看最终 Slime 参数，不启动训练
 bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 
-# 在 4-GPU rjob 内启动完整训练（前台）
+# 在 4-GPU 计算任务内启动完整训练（前台）
 bash examples/training/train_qwen3_8b_seta_dapo.sh
 
 # 显式后台启动

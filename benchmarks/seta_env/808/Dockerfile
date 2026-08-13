@@ -36,8 +36,7 @@ RUN echo "1" > /var/lib/modules_sim/virtnet_driver/parameters/link_flap && \
 RUN mkdir -p /etc/modprobe.d /etc/modules-load.d
 
 # Create documentation for the module
-RUN mkdir -p /usr/share/doc/virtnet_driver && \
-    cat > /usr/share/doc/virtnet_driver/README << 'DOCEOF'
+COPY <<'DOCEOF' /usr/share/doc/virtnet_driver/README
 VIRTNET_DRIVER - Virtual Network Interface Driver
 =================================================
 
@@ -117,8 +116,7 @@ modprobe(8), modinfo(8), lsmod(8)
 DOCEOF
 
 # Create a simulated modinfo output file
-RUN mkdir -p /usr/local/share && \
-    cat > /usr/local/share/modinfo_virtnet.txt << 'INFOEOF'
+COPY <<'INFOEOF' /usr/local/share/modinfo_virtnet.txt
 filename:       /lib/modules/5.15.0-generic/kernel/drivers/net/virtnet_driver.ko
 description:    Virtual Network Interface Driver
 author:         Virtual Network Simulation Team

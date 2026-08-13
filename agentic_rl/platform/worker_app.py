@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse, Response
 from agentic_rl.environments.terminal.docker_compose import (
     DockerImageBuildError,
     DockerImagePreparationBacklogError,
+    DockerImageTransientBuildError,
     TaskImageBlacklistedError,
 )
 from agentic_rl.platform.http import json_payload
@@ -362,6 +363,30 @@ async def probe_rollout(request: Request) -> JSONResponse:
             },
             status_code=503,
             headers={"Retry-After": os.getenv("WORKER_TASK_IMAGE_RETRY_AFTER", "300")},
+        )
+    except DockerImageTransientBuildError as exc:
+        logger.warning(
+            "Rollout probe deferred by transient Docker image build failure "
+            "lease_id=%s task_key=%s: %s",
+            lease_id,
+            task_key,
+            exc,
+        )
+        return JSONResponse(
+            {
+                "ok": False,
+                "code": "TASK_IMAGE_BUILD_TRANSIENT",
+                "error": str(exc),
+                "task_name": task_meta.get("task_name"),
+                "task_path": task_meta.get("task_path"),
+                "duration_sec": round(time.time() - started_ts, 3),
+            },
+            status_code=503,
+            headers={
+                "Retry-After": os.getenv(
+                    "WORKER_DOCKER_BUILD_TRANSIENT_RETRY_AFTER", "60"
+                )
+            },
         )
     except DockerImageBuildError as exc:
         logger.warning(
@@ -841,6 +866,34 @@ async def reset(request: Request) -> JSONResponse:
             },
             status_code=503,
             headers={"Retry-After": os.getenv("WORKER_TASK_IMAGE_RETRY_AFTER", "300")},
+        )
+    except DockerImageTransientBuildError as exc:
+        logger.warning(
+            "Reset deferred by transient Docker image build failure lease_id=%s: %s",
+            lease_id,
+            exc,
+        )
+        try:
+            await POOL.close_run(str(lease_id), reason="task_image_build_transient")
+        except Exception:
+            logger.exception(
+                "Failed to schedule cleanup after transient image build failure for %s",
+                lease_id,
+            )
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": str(exc),
+                "code": "TASK_IMAGE_BUILD_TRANSIENT",
+                "task_name": task_meta.get("task_name"),
+                "task_path": task_meta.get("task_path"),
+            },
+            status_code=503,
+            headers={
+                "Retry-After": os.getenv(
+                    "WORKER_DOCKER_BUILD_TRANSIENT_RETRY_AFTER", "60"
+                )
+            },
         )
     except DockerImageBuildError as exc:
         logger.warning("Reset failed on Docker image build lease_id=%s: %s", lease_id, exc)

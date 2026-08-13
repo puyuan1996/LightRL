@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 from slime.rollout.sglang_rollout import GenerateState
 from slime.utils.types import Sample
+from slime.utils.trace_utils import bind_trace, trace_span
 
 from agentic_rl.environments.registry import (
     direct_score_source,
@@ -63,15 +64,18 @@ async def generate(
     partial state exactly like the old monolith did.
     """
     state = GenerateState(args)
+    bind_trace(sample)
     plan = _prepare_rollout_plan(args, sample, evaluation)
     session = _EnvSession()
     clients = _TurnClients()
     loop = _TurnLoopResult()
 
     try:
-        await _open_env_session(plan, session)
+        with trace_span(sample, "environment_open"):
+            await _open_env_session(plan, session)
         _build_turn_clients(args, state, plan, session, clients, sampling_params)
-        await _run_turn_loop(plan, session, clients, loop)
+        with trace_span(sample, "agent_turn_loop"):
+            await _run_turn_loop(plan, session, clients, loop)
 
         if loop.final_response is None:
             logger.error(
@@ -138,6 +142,13 @@ async def generate(
             penalize_short_response=not direct_score_source(plan.data_source),
             dapo_overlong_cfg=dapo_overlong_cfg,
         )
+        # AgenticRL emits one training Sample per turn.  All turn samples are
+        # deep copies of the trajectory carrier, so retaining the trace on
+        # every turn would multiply request timing counts.  Keep one canonical
+        # carrier per trajectory for accurate aggregation and visualization.
+        for turn_sample in samples[1:]:
+            if hasattr(turn_sample, "trace"):
+                delattr(turn_sample, "trace")
         if dapo_overlong_cfg is not None:
             logger.info(
                 "%s DAPO overlong cfg: max_resp_len=%s buffer_len=%s expected_len=%s penalty_factor=%s",

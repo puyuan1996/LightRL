@@ -62,6 +62,9 @@ class Interaction:
     finish_reason: str = ""
     messages: list[dict[str, Any]] = field(default_factory=list)
     latency_ms: float = 0.0
+    # Raw serving metadata used by slime's lightweight request trace.  Keep it
+    # off the training tensors; it is only consumed by rollout observability.
+    generation_meta: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

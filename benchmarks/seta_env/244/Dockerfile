@@ -31,7 +31,7 @@ WORKDIR /app
 RUN mkdir -p test_data
 
 # Create sample PDF files for testing using Python
-RUN python3 << 'EOF'
+COPY <<'EOF' /tmp/244-input
 from PyPDF2 import PdfWriter, PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -75,3 +75,5 @@ with open("test_data/rotate_test.pdf", "wb") as output_file:
 
 print("Sample PDFs created successfully")
 EOF
+
+RUN python3 /tmp/244-input && rm /tmp/244-input

@@ -959,6 +959,7 @@ def compute_lifelong_bonus(
     status: Any,
     parse_error_count: int,
     metadata: dict[str, Any] | None = None,
+    state_update_allowed: bool = True,
 ) -> dict[str, Any]:
     beta = config.beta_for_arm(arm_id)
     metrics: dict[str, Any] = {
@@ -1030,6 +1031,7 @@ def compute_lifelong_bonus(
         "explore_agent57_lifelong_warmup_remaining": int(config.lifelong_warmup),
         "explore_agent57_lifelong_eligible": 0.0,
         "explore_agent57_lifelong_suppressed_reason": "",
+        "explore_agent57_lifelong_state_update_allowed": bool(state_update_allowed),
         "explore_agent57_bonus_unclipped": 0.0,
         "explore_agent57_bonus_clipped": 0.0,
     }
@@ -1050,6 +1052,12 @@ def compute_lifelong_bonus(
         )
     if not keys:
         metrics["explore_agent57_lifelong_suppressed_reason"] = "no_actions"
+        return metrics
+    if not state_update_allowed:
+        # Environment/grader failures do not describe policy novelty. Keeping
+        # them out of counts and running statistics prevents transient worker
+        # outages from making real actions look artificially familiar later.
+        metrics["explore_agent57_lifelong_suppressed_reason"] = "infra_failure"
         return metrics
 
     try:

@@ -1,14 +1,9 @@
-# ── Conda env (Python 3.12 with transformer_engine + sglang) ─────────
-# This is THE only python on this worker that has TE installed:
-#   /usr/bin/python3                 → 3.10, no TE
-#   /root/miniconda3/bin/python3     → 3.13, no TE  (default `which python3`!)
-#   lightrft_py312/bin/python        → 3.12, TE 2.14.1   ← required
-# Megatron itself lives in this repo (Megatron-LM/) and is injected via
-# PYTHONPATH on the Ray runtime env below.
-# v1 (run_swe_rl_4b_remote_1node.sh) worked because the user's shell already
-# had this dir on PATH; we make that explicit here so the script is self-contained.
-LIGHTRFT_PY312_BIN="${LIGHTRFT_PY312_BIN:-/mnt/shared-storage-user/puyuan/conda_envs/lightrft_py312/bin}"
-export PATH="${LIGHTRFT_PY312_BIN}:${PATH}"
+# Optional Python environment containing transformer_engine + sglang. Leave
+# unset to use the caller's PATH; site launchers can provide an absolute path.
+LIGHTRFT_PY312_BIN="${LIGHTRFT_PY312_BIN:-}"
+if [[ -n "${LIGHTRFT_PY312_BIN}" ]]; then
+  export PATH="${LIGHTRFT_PY312_BIN}:${PATH}"
+fi
 DRY_RUN="${DRY_RUN:-0}"
 
 # ── Cleanup previous processes ───────────────────────────────────────
@@ -57,10 +52,10 @@ log "GPU config: total=${NUM_GPUS}, actor=${ACTOR_GPUS}, rollout=${ROLLOUT_GPUS}
 MODEL_TAG="${MODEL_TAG:-qwen3-8b}"
 MODEL_DISPLAY_NAME="${MODEL_DISPLAY_NAME:-${MODEL_TAG}}"
 MODEL_ARGS_FILE="${MODEL_ARGS_FILE:-qwen3-8B}"
-HF_CKPT="${HF_CKPT:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B/}"
-REF_LOAD="${REF_LOAD:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B_torch_dist/}"
+HF_CKPT="${HF_CKPT:-${REPO_ROOT}/models/Qwen3-8B}"
+REF_LOAD="${REF_LOAD:-${REPO_ROOT}/models/Qwen3-8B_torch_dist}"
 
-EXPORT_ROOT="${EXPORT_ROOT:-/mnt/shared-storage-gpfs2/narmodel/agenticrl}"
+EXPORT_ROOT="${EXPORT_ROOT:-${REPO_ROOT}/export}"
 
 RUN_TIMESTAMP="${RUN_TIMESTAMP:-$(date +%F_%H%M%S)}"
 DEBUG_MODE="${DEBUG_MODE:-0}"
@@ -247,4 +242,3 @@ EXPLORE_RETRY_ATTEMPTS="${EXPLORE_RETRY_ATTEMPTS:-1}"
 EXPLORE_RETRY_TRAJ_GAMMA="${EXPLORE_RETRY_TRAJ_GAMMA:-1.0}"
 SLIME_SKIP_ZERO_TRAINABLE_ROLLOUT="${SLIME_SKIP_ZERO_TRAINABLE_ROLLOUT:-0}"
 SLIME_SKIP_ZERO_TRAINABLE_TRAIN="${SLIME_SKIP_ZERO_TRAINABLE_TRAIN:-1}"
-

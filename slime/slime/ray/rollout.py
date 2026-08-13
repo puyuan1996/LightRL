@@ -40,6 +40,29 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+_SGLANG_REQUEST_PERF_FIELDS = (
+    ("request/e2e_latency", "e2e_latency"),
+    ("request/queue_time", "queue_time"),
+    ("decode/throughput", "decode_throughput"),
+)
+_SGLANG_PREFILL_PERF_FIELDS = (
+    ("prefill/bootstrap_queue_duration", "pd_prefill_bootstrap_queue_duration"),
+    ("prefill/bootstrap_duration", "pd_prefill_bootstrap_duration"),
+    ("prefill/alloc_wait_duration", "pd_prefill_alloc_wait_duration"),
+    ("prefill/forward_duration", "pd_prefill_forward_duration"),
+    ("prefill/transfer_queue_duration", "pd_prefill_transfer_queue_duration"),
+    ("prefill/transfer_speed_gb_s", "pd_transfer_speed_gb_s"),
+    ("prefill/transfer_total_mb", "pd_transfer_total_mb"),
+    ("prefill/retry_count", "pd_prefill_retry_count"),
+)
+_SGLANG_DECODE_PERF_FIELDS = (
+    ("decode/prealloc_duration", "pd_decode_prealloc_duration"),
+    ("decode/bootstrap_duration", "pd_decode_bootstrap_duration"),
+    ("decode/alloc_wait_duration", "pd_decode_alloc_wait_duration"),
+    ("decode/transfer_duration", "pd_decode_transfer_duration"),
+    ("decode/forward_duration", "pd_decode_forward_duration"),
+)
+
 
 def _env_flag(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
@@ -64,6 +87,19 @@ def _trainable_counts(train_data: dict[str, Any]) -> tuple[int, float]:
     trainable_tokens = sum(max(0.0, _loss_mask_sum(mask)) for mask in masks)
     trainable_samples = sum(1 for mask in masks if _loss_mask_sum(mask) > 0.0)
     return trainable_samples, trainable_tokens
+
+
+def _sample_is_trainable(sample: Sample) -> bool:
+    """Match the actor's eventual zero-loss-mask admission decision."""
+    if bool(getattr(sample, "remove_sample", False)):
+        return False
+    mask = getattr(sample, "loss_mask", None)
+    if mask is None:
+        return True
+    try:
+        return any(float(value) > 0.0 for value in mask)
+    except (TypeError, ValueError):
+        return True
 
 
 @ray.remote
@@ -411,7 +447,7 @@ class RolloutManager:
                     traj_idx = int(sample.index) if sample.index is not None else i
                     key = (group_idx, traj_idx)
                     key_by_sample.append(key)
-                    if key not in traj_reward_by_key:
+                    if _sample_is_trainable(sample) and key not in traj_reward_by_key:
                         traj_reward_by_key[key] = float(raw_rewards[i])
                         group_to_keys.setdefault(group_idx, []).append(key)
 
@@ -427,17 +463,18 @@ class RolloutManager:
                     for j, key in enumerate(keys):
                         normalized_by_key[key] = float(vals[j].item())
 
-                rewards = [normalized_by_key[key] for key in key_by_sample]
+                rewards = [normalized_by_key.get(key, 0.0) for key in key_by_sample]
                 return raw_rewards, rewards
 
             # non-dynamic_history + GRPO/GSPO:
             # normalize reward directly inside each task(group).
             group_to_indices: dict[int, list[int]] = {}
             for i, sample in enumerate(samples):
-                group_idx = int(sample.group_index) if sample.group_index is not None else -1
-                group_to_indices.setdefault(group_idx, []).append(i)
+                if _sample_is_trainable(sample):
+                    group_idx = int(sample.group_index) if sample.group_index is not None else -1
+                    group_to_indices.setdefault(group_idx, []).append(i)
 
-            rewards = list(raw_rewards)
+            rewards = [0.0 for _ in raw_rewards]
             for _, idxs in group_to_indices.items():
                 vals = torch.tensor([raw_rewards[i] for i in idxs], dtype=torch.float32)
                 vals = vals - vals.mean(dim=-1, keepdim=True)
@@ -488,8 +525,12 @@ class RolloutManager:
         raw_rewards = [float(sample.get_reward_value(self.args)) for sample in samples]
         group_to_indices: dict[int, list[int]] = {}
         for i, sample in enumerate(samples):
-            group_idx = int(sample.group_index) if sample.group_index is not None else -1
-            group_to_indices.setdefault(group_idx, []).append(i)
+            if _sample_is_trainable(sample):
+                group_idx = int(sample.group_index) if sample.group_index is not None else -1
+                group_to_indices.setdefault(group_idx, []).append(i)
+
+        if not group_to_indices:
+            return samples
 
         constant_groups: list[int] = []
         for group_idx, idxs in group_to_indices.items():
@@ -1298,8 +1339,69 @@ def compute_perf_metrics_from_samples(args, samples, rollout_time):
 
     token_perf([sample.response_length for sample in samples], non_generation_time, key="")
     token_perf([sample.effective_response_length for sample in samples], non_generation_time, key="effective_")
+    log_dict |= _compute_sglang_request_perf_metrics(samples)
 
     return log_dict
+
+
+def _compute_sglang_request_perf_metrics(all_samples: list[Sample]) -> dict[str, float]:
+    """Aggregate one compact set of request timings per rollout.
+
+    This is selectively backported from THUDM/slime main.  AgenticRL keeps one
+    canonical trace carrier per trajectory so multi-turn samples do not
+    multiply request counts.
+    """
+    attrs_by_request = list(_iter_sglang_generate_attrs(all_samples))
+    if not attrs_by_request:
+        return {}
+
+    values_by_metric: dict[str, list[float]] = {}
+    profiled_request_count = 0
+
+    def add_value(metric_key: str, source_key: str, attrs: dict) -> bool:
+        value = attrs.get(source_key)
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not np.isfinite(value):
+            return False
+        values_by_metric.setdefault(metric_key, []).append(float(value))
+        return True
+
+    for attrs in attrs_by_request:
+        request_has_perf = False
+        for metric_key, source_key in (
+            *_SGLANG_REQUEST_PERF_FIELDS,
+            *_SGLANG_PREFILL_PERF_FIELDS,
+            *_SGLANG_DECODE_PERF_FIELDS,
+        ):
+            request_has_perf |= add_value(metric_key, source_key, attrs)
+        profiled_request_count += int(request_has_perf)
+
+    metrics: dict[str, float] = {
+        "request/count": float(len(attrs_by_request)),
+        "request/profiled_count": float(profiled_request_count),
+    }
+    for key, values in values_by_metric.items():
+        if values:
+            metrics |= dict_add_prefix(compute_statistics(values), f"{key}/")
+    return metrics
+
+
+def _iter_sglang_generate_attrs(all_samples: list[Sample]):
+    seen_trace_ids: set[str] = set()
+    for sample in all_samples:
+        trace = getattr(sample, "trace", None)
+        if not isinstance(trace, dict):
+            continue
+        trace_id = str(trace.get("trace_id") or "")
+        if trace_id and trace_id in seen_trace_ids:
+            continue
+        if trace_id:
+            seen_trace_ids.add(trace_id)
+        for event in trace.get("events") or []:
+            if event.get("type") != "span_end" or event.get("name") != "sglang_generate":
+                continue
+            attrs = event.get("attrs")
+            if isinstance(attrs, dict):
+                yield attrs
 
 
 def _compute_zero_std_metrics(args, all_samples: list[Sample]):

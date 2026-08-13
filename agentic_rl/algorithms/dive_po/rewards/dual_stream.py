@@ -83,9 +83,7 @@ def _configured_max_beta(observed_betas: list[float]) -> float:
 
 
 def _trajectory_key(sample: Any, sample_position: int) -> tuple[int, int]:
-    group = base._sample_group_key(sample)
-    index = getattr(sample, "index", None)
-    return group, int(index) if index is not None else int(sample_position)
+    return base._sample_traj_key(sample, sample_position)
 
 
 def _arm_weight(beta: float, mode: str, max_beta: float) -> float:
@@ -182,13 +180,14 @@ def _centered_dual_stream(
     groups: dict[int, list[tuple[int, int]]] = {}
     for key in traj_order:
         idxs = indices_by_traj[key]
-        first = idxs[0]
+        trainable_idxs = [i for i in idxs if base._sample_is_trainable(samples[i])]
+        first = trainable_idxs[0] if trainable_idxs else idxs[0]
         # Generated turn samples repeat trajectory-level DiVE-PO metrics.  Use
         # one value per trajectory and the most conservative gate across turns.
-        gates = [_soft_gate(samples[i], quality_blend) for i in idxs]
+        gates = [_soft_gate(samples[i], quality_blend) for i in (trainable_idxs or idxs)]
         gate_info = min(gates, key=lambda item: item["gate"])
         arm_weight = _arm_weight(betas[first], arm_mode, max_beta)
-        weight = arm_weight * gate_info["gate"]
+        weight = arm_weight * gate_info["gate"] if trainable_idxs else 0.0
         traj_info[key] = {
             "adv": _finite(intrinsic_adv[first]),
             "intrinsic": intrinsic_values[first],

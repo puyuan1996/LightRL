@@ -30,6 +30,12 @@ def parse_args() -> argparse.Namespace:
         default=int(os.getenv("WORKER_MAX_RUNS_PER_TASK", "8")),
     )
     parser.add_argument(
+        "--max-total-runs",
+        type=int,
+        default=int(os.getenv("WORKER_MAX_TOTAL_RUNS", "128")),
+        help="Global active lease ceiling across all task keys",
+    )
+    parser.add_argument(
         "--run-idle-ttl",
         type=int,
         default=int(os.getenv("WORKER_RUN_IDLE_TTL", "600")),
@@ -80,6 +86,7 @@ def main() -> None:
     worker_app.POOL = WorkerPool(
         max_tasks=args.max_tasks,
         max_runs_per_task=args.max_runs_per_task,
+        max_total_runs=args.max_total_runs,
         run_idle_ttl=args.run_idle_ttl,
         output_root=args.output_root,
         default_timeouts=TaskTimeouts(
@@ -92,11 +99,12 @@ def main() -> None:
     )
 
     logger.info(
-        "Starting worker server on %s:%s  max_tasks=%s  max_runs_per_task=%s",
+        "Starting worker server on %s:%s  max_tasks=%s  max_runs_per_task=%s  max_total_runs=%s",
         args.host,
         args.port,
         args.max_tasks,
         args.max_runs_per_task,
+        args.max_total_runs,
     )
 
     uvicorn.run(worker_app.app, host=args.host, port=args.port, log_level="info")

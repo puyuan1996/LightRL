@@ -41,7 +41,7 @@ RUN echo "Private content" > /home/testuser/private/secret.txt \
     && echo "Private PDF" > /home/testuser/private/confidential.pdf
 
 # Create initial activity database with simulated history
-RUN sqlite3 /home/testuser/.local/share/activity-tracker/activity.sqlite << 'EOF'
+COPY <<'EOF' /tmp/622-input
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT NOT NULL,
@@ -62,6 +62,8 @@ INSERT INTO events (timestamp, event_type, uri, mimetype, application, title) VA
 ('2024-01-15T13:00:00', 'app-launch', 'application://libreoffice-writer.desktop', NULL, 'libreoffice-writer', 'LibreOffice Writer'),
 ('2024-01-15T14:00:00', 'file-access', 'file:///tmp/tempfile.pdf', 'application/pdf', 'evince', 'tempfile.pdf');
 EOF
+
+RUN sqlite3 /home/testuser/.local/share/activity-tracker/activity.sqlite < /tmp/622-input
 
 # Set ownership
 RUN chown -R testuser:testuser /home/testuser

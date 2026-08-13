@@ -162,7 +162,7 @@ examples/training/world_model/train_seta_latent.sh
 
 ```bash
 WM_ENCODER=hf-policy \
-WM_HF_MODEL=/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B \
+WM_HF_MODEL=/path/to/Qwen3-8B \
 WM_MAX_TRAJECTORIES=100 \
 WM_MAX_TRANSITIONS=1000 \
 WM_OUTPUT_DIR=runs/world_model_seta_latent/qwen_frozen \
@@ -176,7 +176,7 @@ WM_ENCODER=hf-policy \
 WM_BACKPROP_TO_LLM=1 \
 WM_SAVE_UPDATED_LLM=1 \
 WM_LLM_LR=1e-6 \
-WM_HF_MODEL=/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B \
+WM_HF_MODEL=/path/to/Qwen3-8B \
 WM_OUTPUT_DIR=runs/world_model_seta_latent/qwen_e2e \
 examples/training/world_model/train_seta_latent.sh
 ```

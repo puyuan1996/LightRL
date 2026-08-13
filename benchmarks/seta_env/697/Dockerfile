@@ -29,8 +29,8 @@ RUN mkdir -p /workspace/incoming_shipments /workspace/output
 
 # Create a Python script to generate test barcode images
 RUN python3 -m venv /tmp/barcode_setup && \
-    /tmp/barcode_setup/bin/pip install qrcode pillow && \
-    /tmp/barcode_setup/bin/python3 << 'EOF'
+    /tmp/barcode_setup/bin/pip install qrcode pillow
+COPY <<'BARCODE_SCRIPT' /tmp/generate_barcodes.py
 import qrcode
 import json
 import os
@@ -154,7 +154,8 @@ print(f"Generated {ground_truth['total_images']} test images")
 print(f"Valid tracking numbers: {ground_truth['valid_tracking_numbers']}")
 print(f"Valid URLs: {len(ground_truth['valid_urls'])}")
 print(f"Corrupted files: {len(ground_truth['corrupted_files'])}")
-EOF
+BARCODE_SCRIPT
+RUN /tmp/barcode_setup/bin/python3 /tmp/generate_barcodes.py
 
 # Clean up the temporary venv used for setup
 RUN rm -rf /tmp/barcode_setup

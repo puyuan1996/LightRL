@@ -65,6 +65,7 @@ fi
 # When enabled, only the latest N checkpoints are kept; older ones are auto-deleted.
 MAX_CKPT_KEEP="${MAX_CKPT_KEEP:-2}"
 SAVE_INTERVAL="${SAVE_INTERVAL:-8}"
+SAVE_FIRST_ROLLOUT="${SAVE_FIRST_ROLLOUT:-0}"
 if [[ "${DEBUG_MODE}" == "1" ]]; then
   if [[ "${DATASET}" == "swesmith" ]]; then
     RUN_NAME="${RUN_NAME:-terminal-rl_${MODEL_TAG}_${NUM_GPUS}gpu_debug_swesmith_${RUN_ALGO_NAME_TAG}_think_harness-${RUN_HARNESS_TAG}_mt${MAX_TURN}_${RUN_TIMESTAMP}}"
@@ -84,11 +85,13 @@ fi
 # ── Unified run directory (see STORAGE.md) ───────────────────────────────
 # All outputs for this run go under runs/{RUN_ID}/ with structured subdirs.
 RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
-CKPT_ROOT="${CKPT_ROOT:-${EXPORT_ROOT}/ckpt}"
+LIGHTRL_PERSIST_ROOT="${LIGHTRL_PERSIST_ROOT:-${RUNS_ROOT}/.persistent}"
+CKPT_ROOT="${CKPT_ROOT:-${LIGHTRL_PERSIST_ROOT}/checkpoints}"
 RUN_ID="${RUN_ID:-${RUN_NAME}}"
 RUN_DIR="${RUNS_ROOT}/${RUN_ID}"
 TBENCH_OUTPUT_ROOT="${TBENCH_OUTPUT_ROOT:-${RUN_DIR}/environment_outputs}"
-export RUNS_ROOT RUN_ID RUN_DIR TBENCH_OUTPUT_ROOT
+WANDB_DIR="${WANDB_DIR:-${LIGHTRL_PERSIST_ROOT}/wandb/${RUN_ID}}"
+export RUNS_ROOT RUN_ID RUN_DIR TBENCH_OUTPUT_ROOT CKPT_ROOT WANDB_DIR
 
 # Create directory structure via run_paths.py
 # A dry-run must be executable on a login/debug node where the production
@@ -98,11 +101,33 @@ export RUNS_ROOT RUN_ID RUN_DIR TBENCH_OUTPUT_ROOT
 RUN_PATHS_CKPT_ROOT="${CKPT_ROOT}"
 if [[ "${DRY_RUN}" == "1" ]]; then
   RUN_PATHS_CKPT_ROOT="${RUN_DIR}/checkpoints"
+  WANDB_DIR="${RUN_DIR}/metrics/wandb"
+  export WANDB_DIR
+else
+  # Persistent artifacts must never prevent the metric/train logs from being
+  # produced.  Disable checkpointing or fall back to run-local W&B storage if
+  # either external path is unavailable at startup.
+  if (( MAX_CKPT_KEEP > 0 )) && { ! mkdir -p "${CKPT_ROOT}/${RUN_ID}" || [[ ! -w "${CKPT_ROOT}/${RUN_ID}" ]]; }; then
+    echo "[WARN] CHECKPOINT_STORAGE_UNAVAILABLE_NONFATAL path=${CKPT_ROOT}/${RUN_ID}; checkpointing disabled, training continues" >&2
+    MAX_CKPT_KEEP=0
+  fi
+  if ! mkdir -p "${WANDB_DIR}" || [[ ! -w "${WANDB_DIR}" ]]; then
+    echo "[WARN] WANDB_STORAGE_UNAVAILABLE path=${WANDB_DIR}; falling back to ${RUN_DIR}/metrics/wandb" >&2
+    WANDB_DIR="${RUN_DIR}/metrics/wandb"
+    export WANDB_DIR
+  fi
 fi
-MAX_CKPT_KEEP="${MAX_CKPT_KEEP}" python3 -m agentic_rl.platform.paths init \
-  --runs-root "${RUNS_ROOT}" \
-  --ckpt-root "${RUN_PATHS_CKPT_ROOT}" \
-  --run-id "${RUN_ID}" > /dev/null
+if [[ "${RESUME_EXISTING_RUN:-0}" == "1" ]]; then
+  [[ -f "${RUN_DIR}/meta.json" ]] || {
+    echo "[ERROR] Resume requested but original run metadata is missing: ${RUN_DIR}/meta.json" >&2
+    exit 1
+  }
+else
+  MAX_CKPT_KEEP="${MAX_CKPT_KEEP}" python3 -m agentic_rl.platform.paths init \
+    --runs-root "${RUNS_ROOT}" \
+    --ckpt-root "${RUN_PATHS_CKPT_ROOT}" \
+    --run-id "${RUN_ID}" > /dev/null
+fi
 
 # Derive all paths from RUN_DIR
 RUN_LOG_DIR="${RUN_DIR}/logs"
@@ -111,7 +136,6 @@ if [[ "${TERMINAL_SAVE_TRAJ_DIR+x}" ]]; then
 else
   TERMINAL_SAVE_TRAJ_DIR="${RUN_DIR}/trajectories"
 fi
-WANDB_DIR="${WANDB_DIR:-${RUN_DIR}/metrics/wandb}"
 TERMINAL_STRUCTURED_METRICS="${TERMINAL_STRUCTURED_METRICS:-1}"
 TERMINAL_METRICS_JSONL="${TERMINAL_METRICS_JSONL:-${RUN_LOG_DIR}/metrics.jsonl}"
 TERMINAL_WANDB_METRIC_PROFILE="${TERMINAL_WANDB_METRIC_PROFILE:-full}"
@@ -221,4 +245,3 @@ claude_code_preflight() {
     echo "[WARN] claude-code auth env vars are empty. This is OK only if the Claude Code CLI is already authenticated via its own config."
   fi
 }
-

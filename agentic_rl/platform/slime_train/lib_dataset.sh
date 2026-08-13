@@ -37,10 +37,10 @@ DATASET="$(normalize_dataset "${DATASET:-mixed}")"
 SETA_SAFETY="${SETA_SAFETY:-none}"
 SAFETY_BENCH_REWARD="${SAFETY_BENCH_REWARD:-dense_rule}"
 AGENT_SAFETYBENCH_REMOTE_ENV="${AGENT_SAFETYBENCH_REMOTE_ENV:-0}"
-AGENT_SAFETYBENCH_ROOT="${AGENT_SAFETYBENCH_ROOT:-/mnt/shared-storage-user/puyuan/code/Agent-SafetyBench}"
+AGENT_SAFETYBENCH_ROOT="${AGENT_SAFETYBENCH_ROOT:-${REPO_ROOT}/../Agent-SafetyBench}"
 AGENTHARM_REWARD="${AGENTHARM_REWARD:-dense_rule}"
 AGENTHARM_REMOTE_ENV="${AGENTHARM_REMOTE_ENV:-0}"
-AGENTHARM_ROOT="${AGENTHARM_ROOT:-/mnt/shared-storage-user/puyuan/code/inspect_evals/src/inspect_evals/agentharm}"
+AGENTHARM_ROOT="${AGENTHARM_ROOT:-${REPO_ROOT}/../inspect_evals/src/inspect_evals/agentharm}"
 
 SETA_DATA="${REPO_ROOT}/benchmarks/seta_env_convert/train.jsonl"
 SAFETY_DATA="${REPO_ROOT}/benchmarks/agent_safetybench_convert/train.jsonl"
@@ -521,4 +521,3 @@ PY
   ROLLOUT_PROMPT_DATA="${FILTERED_DATA}"
   echo "[blacklist] using filtered dataset: ${ROLLOUT_PROMPT_DATA}"
 fi
-

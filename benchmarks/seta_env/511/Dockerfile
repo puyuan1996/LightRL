@@ -98,7 +98,7 @@ SHEOF
 RUN chmod +x /app/run_pipeline.sh /app/process_documents.py
 
 # Create sample input files using Python to ensure correct byte sequences
-RUN python3 << 'PYEOF'
+COPY <<'PYEOF' /tmp/511-input
 import os
 
 # UTF-8 file with em-dashes, en-dashes, smart quotes, ellipsis, and non-breaking space
@@ -131,5 +131,7 @@ with open('/data/input/doc_latin1.txt', 'wb') as f:
 
 print("Input files created successfully")
 PYEOF
+
+RUN python3 /tmp/511-input
 
 WORKDIR /app

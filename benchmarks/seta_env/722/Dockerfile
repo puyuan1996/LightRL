@@ -170,8 +170,8 @@ RUN mkdir -p /tmp/deb-build/DEBIAN && \
     mkdir -p /tmp/deb-build/usr/bin && \
     mkdir -p /tmp/deb-build/usr/share/doc/legacy-analyzer && \
     cp /opt/legacy-software/legacy-analyzer /tmp/deb-build/usr/bin/ && \
-    echo "This is the legacy-analyzer package." > /tmp/deb-build/usr/share/doc/legacy-analyzer/README && \
-    cat > /tmp/deb-build/DEBIAN/control << 'CTRL'
+    echo "This is the legacy-analyzer package." > /tmp/deb-build/usr/share/doc/legacy-analyzer/README
+COPY <<'CTRL' /tmp/deb-build/DEBIAN/control
 Package: legacy-analyzer
 Version: 2.3.1
 Section: science
@@ -186,7 +186,8 @@ RUN dpkg-deb --build /tmp/deb-build /opt/legacy-repo/pool/main/legacy-analyzer_2
     rm -rf /tmp/deb-build
 
 # Update the Packages file with correct size and checksums
-RUN cd /opt/legacy-repo && \
+RUN <<'OUTER_PACKAGES'
+cd /opt/legacy-repo && \
     SIZE=$(stat -c%s pool/main/legacy-analyzer_2.3.1_i386.deb) && \
     MD5=$(md5sum pool/main/legacy-analyzer_2.3.1_i386.deb | cut -d' ' -f1) && \
     SHA256=$(sha256sum pool/main/legacy-analyzer_2.3.1_i386.deb | cut -d' ' -f1) && \
@@ -204,6 +205,7 @@ SHA256: ${SHA256}
 Description: Legacy data analysis tool
  A legacy 32-bit data analysis application used by data science teams.
 EOF
+OUTER_PACKAGES
 
 # Make sure multi-arch is NOT enabled (agent needs to enable it)
 # This is the default state on fresh Ubuntu installs

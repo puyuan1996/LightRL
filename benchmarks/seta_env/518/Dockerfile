@@ -52,7 +52,7 @@ RUN echo '#!/bin/bash' > /packages/monitoring-agent.bin && \
     echo 'echo "echo \"Monitoring Agent v1.0 active\"" >> /opt/monitoring-agent/bin/monitoring-agent' >> /packages/monitoring-agent.bin && \
     echo 'chmod 755 /opt/monitoring-agent/bin/monitoring-agent' >> /packages/monitoring-agent.bin && \
     echo 'mkdir -p /etc/systemd/system' >> /packages/monitoring-agent.bin && \
-    echo 'cat > /etc/systemd/system/monitoring-agent.service << EOF' >> /packages/monitoring-agent.bin && \
+    printf 'cat > /etc/systemd/system/monitoring-agent.service \074\074 EOF\n' >> /packages/monitoring-agent.bin && \
     echo '[Unit]' >> /packages/monitoring-agent.bin && \
     echo 'Description=Monitoring Agent Service' >> /packages/monitoring-agent.bin && \
     echo '[Service]' >> /packages/monitoring-agent.bin && \

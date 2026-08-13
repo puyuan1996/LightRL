@@ -26,8 +26,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create the netdiscover-daemon service unit file
-RUN mkdir -p /etc/systemd/system && \
-    cat > /etc/systemd/system/netdiscover-daemon.service << 'EOF'
+COPY <<'EOF' /etc/systemd/system/netdiscover-daemon.service
 [Unit]
 Description=Network Discovery Daemon - Automatic Network Share Discovery
 Documentation=man:netdiscover-daemon(8)

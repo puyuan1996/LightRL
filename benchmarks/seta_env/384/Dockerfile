@@ -26,8 +26,9 @@ RUN apt-get update && \
     rm -f /etc/nginx/sites-available/default
 
 # Create a basic default site configuration without HTTP/2
-RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled && \
-    cat > /etc/nginx/sites-available/default << 'EOF'
+RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
+
+COPY <<'EOF' /etc/nginx/sites-available/default
 server {
     listen 80 default_server;
     listen [::]:80 default_server;

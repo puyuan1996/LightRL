@@ -79,7 +79,7 @@ RUN printf '%s\n' \
     '' \
     '# Issue 3: Here-doc is malformed (missing closing delimiter on its own line)' \
     '# This causes syntax errors' \
-    'cat <<EOF > /tmp/summary_header.txt' \
+    'cat <''<EOF > /tmp/summary_header.txt' \
     '=== Log Processing Summary ===' \
     'Generated: $(date)' \
     'EOF' \

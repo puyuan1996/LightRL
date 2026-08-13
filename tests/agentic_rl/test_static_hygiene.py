@@ -1,6 +1,6 @@
 """Static hygiene guard: pyflakes must report no undefined names in the
 rollout path.  Introduced after a refactor moved code between modules and
-dropped imports that only failed at runtime inside the rjob
+dropped imports that only failed at runtime inside the cluster job
 (RayTaskError(NameError)); compileall and the unit suite cannot see those."""
 
 from __future__ import annotations

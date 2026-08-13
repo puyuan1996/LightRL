@@ -61,8 +61,8 @@ echo "Build completed successfully!"
 SCRIPT
 
 # config.sh - configuration loader
-RUN mkdir -p /app/project/scripts && \
-    cat > /app/project/config.sh << 'SCRIPT'
+RUN mkdir -p /app/project/scripts
+COPY <<'SCRIPT' /app/project/config.sh
 #!/bin/sh
 # Configuration loading script
 # Contains bashisms that break under dash

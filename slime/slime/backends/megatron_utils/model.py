@@ -24,7 +24,7 @@ from megatron.training.global_vars import get_args
 from megatron.training.training import get_model
 
 from slime.utils import logging_utils
-from slime.utils.checkpoint_utils import check_disk_space_and_cleanup, cleanup_old_checkpoints
+from slime.utils.checkpoint_utils import checkpoint_preflight, cleanup_old_checkpoints
 from slime.utils.memory_utils import clear_memory
 
 from .checkpoint import load_checkpoint, save_checkpoint
@@ -660,6 +660,62 @@ def train(
             log_dict["train/legacy_accumulated_step"] = legacy_accumulated_step_id
             logging_utils.log(args, log_dict, step_key="train/step")
 
+            # Keep the plasticity/stability signals in the same durable JSONL
+            # as rollout metrics.  The LR x clipped-grad value is explicitly a
+            # cheap scale proxy (Adam's exact parameter delta would require an
+            # extra full-model scan every update).
+            try:
+                from agentic_rl.misc.jsonl_sink import write_structured_metrics
+
+                grad_value = float(grad_norm)
+                clip_limit = float(getattr(args, "clip_grad", 0.0) or 0.0)
+                effective_grad_norm = (
+                    min(grad_value, clip_limit) if clip_limit > 0.0 else grad_value
+                )
+                learning_rates = [
+                    float(opt_param_scheduler.get_lr(group))
+                    for group in optimizer.param_groups
+                ]
+                actor_metrics = {
+                    key.removeprefix(f"train/{role_tag}"): value
+                    for key, value in log_dict.items()
+                    if key.startswith(f"train/{role_tag}")
+                    and key not in {f"train/{role_tag}grad_norm"}
+                }
+                actor_metrics.update(
+                    {
+                        "grad_norm_pre_clip": grad_value,
+                        "grad_clip_limit": clip_limit,
+                        "grad_clip_scale": (
+                            min(1.0, clip_limit / grad_value)
+                            if clip_limit > 0.0 and grad_value > 0.0
+                            else 1.0
+                        ),
+                        "grad_norm_effective": effective_grad_norm,
+                        "learning_rates": learning_rates,
+                        "lr_x_effective_grad_norm_proxy": (
+                            max(learning_rates, default=0.0) * effective_grad_norm
+                        ),
+                    }
+                )
+                write_structured_metrics(
+                    [
+                        {
+                            "schema": "terminal_rl.actor_update_metrics.v1",
+                            "phase": "actor_train",
+                            "role": role,
+                            "global_step": int(rollout_id) + 1,
+                            "rollout_id": int(rollout_id),
+                            "actor_train_step": int(train_step_id),
+                            "rollout_step_id": int(step_id),
+                            "num_steps_per_rollout": int(num_steps_per_rollout),
+                            "metrics": actor_metrics,
+                        }
+                    ]
+                )
+            except Exception as exc:
+                logger.warning("Failed to write actor update diagnostics: %s", exc)
+
             if args.ci_test and not args.ci_disable_kl_checker:
                 if step_id == 0 and "train/ppo_kl" in log_dict and "train/pg_clipfrac" in log_dict:
                     if args.multi_latent_attention:
@@ -699,7 +755,7 @@ def train(
 
 def save(
     iteration: int, model: Sequence[DDP], optimizer: MegatronOptimizer, opt_param_scheduler: OptimizerParamScheduler
-) -> None:
+) -> bool:
     """Persist a training checkpoint safely with forward hooks disabled.
 
     Args:
@@ -710,39 +766,64 @@ def save(
     """
     args = get_args()
 
-    # Pre-save: ensure enough disk space (rank 0 only).
     save_dir = getattr(args, "save", None)
-    is_rank0 = torch.distributed.is_initialized() and torch.distributed.get_rank() == 0
+    distributed = torch.distributed.is_initialized()
+    is_rank0 = not distributed or torch.distributed.get_rank() == 0
+    should_save = True
     if save_dir and is_rank0:
-        check_disk_space_and_cleanup(save_dir)
+        should_save = checkpoint_preflight(
+            save_dir,
+            max_keep=getattr(args, "max_ckpt_keep", 1),
+            min_free_bytes=int(getattr(args, "checkpoint_min_free_gb", 128) * 1024**3),
+            expected_bytes=(
+                int(getattr(args, "checkpoint_expected_gb", 0) * 1024**3)
+                if getattr(args, "checkpoint_expected_gb", 0) > 0
+                else None
+            ),
+            margin_ratio=getattr(args, "checkpoint_space_margin_ratio", 1.15),
+        )
 
-    if should_disable_forward_pre_hook(args):
-        disable_forward_pre_hook(model)
-    if getattr(args, "use_megatron_lora", False) and getattr(args, "megatron_lora_save_adapter_only", True):
-        save_megatron_lora_checkpoint(model, args, iteration)
+    # Every distributed rank must make the same decision or save_checkpoint's
+    # collectives can deadlock when rank 0 skips a save.
+    if distributed:
+        backend = str(torch.distributed.get_backend()).lower()
+        device = torch.device("cuda", torch.cuda.current_device()) if "nccl" in backend else torch.device("cpu")
+        decision = torch.tensor([1 if should_save else 0], dtype=torch.int32, device=device)
+        torch.distributed.broadcast(decision, src=0)
+        should_save = bool(decision.item())
+    if not should_save:
+        return False
+
+    hooks_disabled = False
+    try:
         if should_disable_forward_pre_hook(args):
+            disable_forward_pre_hook(model)
+            hooks_disabled = True
+        if getattr(args, "use_megatron_lora", False) and getattr(args, "megatron_lora_save_adapter_only", True):
+            save_megatron_lora_checkpoint(model, args, iteration)
+        else:
+            save_checkpoint(
+                iteration,
+                model,
+                optimizer,
+                opt_param_scheduler,
+                num_floating_point_operations_so_far=0,
+                checkpointing_context=None,
+                train_data_iterator=None,
+                preprocess_common_state_dict_fn=None,
+            )
+    finally:
+        # A failed save must not leave the training model with hooks disabled.
+        if hooks_disabled:
             enable_forward_pre_hook(model)
-        max_keep = getattr(args, "max_ckpt_keep", 1)
-        if save_dir and is_rank0:
-            cleanup_old_checkpoints(save_dir, max_keep=max_keep)
-        return
-    save_checkpoint(
-        iteration,
-        model,
-        optimizer,
-        opt_param_scheduler,
-        num_floating_point_operations_so_far=0,
-        checkpointing_context=None,
-        train_data_iterator=None,
-        preprocess_common_state_dict_fn=None,
-    )
-    if should_disable_forward_pre_hook(args):
-        enable_forward_pre_hook(model)
 
-    # Post-save: prune old checkpoints (rank 0 only).
+    # For async saves the commit marker may advance only during finalization;
+    # cleanup will then occur at the next preflight.  Tracker-aware pruning is
+    # safe to call here for synchronous saves.
     max_keep = getattr(args, "max_ckpt_keep", 1)
     if save_dir and is_rank0:
         cleanup_old_checkpoints(save_dir, max_keep=max_keep)
+    return True
 
 
 def save_hf_model(args, rollout_id: int, model: Sequence[DDP]) -> None:

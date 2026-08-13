@@ -72,7 +72,7 @@ RUN mkdir -p /workspace/.original_files && \
 RUN rm -rf /tmp/document1.txt /tmp/document2.txt /tmp/logfile.txt /tmp/data
 
 # Now introduce FAT32 corruption
-RUN python3 << 'PYTHON_CORRUPT'
+COPY <<'PYTHON_CORRUPT' /tmp/corrupt_fat32.py
 import os
 
 with open('/workspace/corrupted_drive.img', 'r+b') as f:
@@ -112,6 +112,7 @@ with open('/workspace/corrupted_drive.img', 'r+b') as f:
     print(f"Bytes per sector: {bytes_per_sector}")
     print(f"Reserved sectors: {reserved_sectors}")
 PYTHON_CORRUPT
+RUN python3 /tmp/corrupt_fat32.py && rm /tmp/corrupt_fat32.py
 
 # Create backup of corrupted image
 RUN cp /workspace/corrupted_drive.img /workspace/corrupted_drive.img.backup

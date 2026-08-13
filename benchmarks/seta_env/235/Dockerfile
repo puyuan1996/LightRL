@@ -33,9 +33,15 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Create a test C++ project that requires CMake 3.10+
-RUN mkdir -p /app/test_project && \
-    echo 'cmake_minimum_required(VERSION 3.10)' > /app/test_project/CMakeLists.txt && \
-    echo 'project(TestProject)' >> /app/test_project/CMakeLists.txt && \
-    echo 'add_executable(hello main.cpp)' >> /app/test_project/CMakeLists.txt && \
-    echo '#include <iostream>' > /app/test_project/main.cpp && \
-    echo 'int main() { std::cout << "Hello" << std::endl; return 0; }' >> /app/test_project/main.cpp
+RUN mkdir -p /app/test_project
+
+COPY <<'EOF' /app/test_project/CMakeLists.txt
+cmake_minimum_required(VERSION 3.10)
+project(TestProject)
+add_executable(hello main.cpp)
+EOF
+
+COPY <<'EOF' /app/test_project/main.cpp
+#include <iostream>
+int main() { std::cout << "Hello" << std::endl; return 0; }
+EOF

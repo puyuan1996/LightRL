@@ -90,8 +90,8 @@ DOCKERWRAPPER
 RUN chmod +x /usr/bin/docker
 
 # Create the run_build.sh script for buildbot
-RUN mkdir -p /home/buildbot && \
-    cat > /home/buildbot/run_build.sh << 'BUILDSCRIPT'
+RUN mkdir -p /home/buildbot
+COPY <<'BUILDSCRIPT' /home/buildbot/run_build.sh
 #!/bin/bash
 # CI/CD Build Script
 # This script runs Docker commands as part of the build pipeline

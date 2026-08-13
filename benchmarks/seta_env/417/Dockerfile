@@ -47,7 +47,8 @@ RUN mkdir -p /etc/wireguard
 # 2. Wrong port in the config (51821 instead of 51820)
 # 3. Uses PrivateKey inline instead of referencing the file correctly
 # 4. Missing PostUp/PostDown scripts
-RUN PRIVATE_KEY=$(cat /tmp/wg_private.key) && \
+RUN <<OUTER_EOF
+PRIVATE_KEY=$(cat /tmp/wg_private.key) && \
     PEER_PUBLIC_KEY=$(cat /tmp/peer_public.key) && \
     cat > /etc/wireguard/wg0.conf << EOF
 [Interface]
@@ -70,6 +71,7 @@ ListenPort = 51821
 PublicKey = ${PEER_PUBLIC_KEY}
 AllowedIPs = 10.0.0.2/32
 EOF
+OUTER_EOF
 
 # Set WRONG permissions on the config file (should be 600, currently 644)
 RUN chmod 644 /etc/wireguard/wg0.conf

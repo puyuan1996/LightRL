@@ -20,8 +20,9 @@ FROM ghcr.io/laude-institute/t-bench/ubuntu-24-04:20250624
 RUN apt-get update && apt-get install -y bash-completion
 
 # Create the devctl stub binary
-RUN mkdir -p /usr/local/bin && \
-    cat > /usr/local/bin/devctl << 'DEVCTL_EOF'
+RUN mkdir -p /usr/local/bin
+
+COPY <<'DEVCTL_EOF' /usr/local/bin/devctl
 #!/bin/bash
 # devctl - DevOps CLI tool stub
 # Usage: devctl <component> <action> [options]

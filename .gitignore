@@ -32,9 +32,32 @@ export/
 nohup.out
 
 # Local infrastructure and secrets
-/experiments/**/rjob/
-/experiments/**/*rjob*.sh
-/local/cluster/
+/experiments/**/*job*/
+/experiments/**/*job*.sh
+/local/
+/deploy/*job*/
+/deploy/workers/*job*
+/deploy/workers/*runtime_proxy.py
+/deploy/workers/*watchdog*
+/deploy/workers/*worker_doctor.sh
+/deploy/workers/fix_docker_overlay2_no_space.sh
+/deploy/workers/fix_dockerd_and_proxy.sh
+/deploy/workers/lightrl-pool*-*.conf
+/deploy/workers/*seta-runtime-proxy*
+/deploy/workers/prebuild_proxied_base_images.sh
+/deploy/workers/setup_new_worker.sh
+/deploy/workers/start_server.sh
+/deploy/workers/start_watchdog.sh
+/docs/manual_validation_*.md
+/docs/operations/*job*
+/docs/operations/*workers.md
+/docs/operations/docker_env_*.md
+/examples/validation/internal/
+/examples/validation/*.sh
+/tests/agentic_rl/test_*job*
+/tests/agentic_rl/test_*runtime_proxy*
+/tools/reproducibility/*local*worker*state*
+/tools/reproducibility/download_*docker_bundle.py
 /configs/site/local.yaml
 /agentic_rl/worker_urls*.txt
 swe.pem

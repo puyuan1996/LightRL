@@ -146,8 +146,8 @@ Ensure proper file permissions (600) are set on the connection file.
 EOF
 
 # Create reference examples directory with valid connection profile examples
-RUN mkdir -p /usr/share/doc/network-manager/examples && \
-    cat > /usr/share/doc/network-manager/examples/valid-ethernet.nmconnection << 'EOF'
+RUN mkdir -p /usr/share/doc/network-manager/examples
+COPY <<'EOF' /usr/share/doc/network-manager/examples/valid-ethernet.nmconnection
 [connection]
 id=Example-Ethernet
 uuid=11111111-2222-3333-4444-555555555555

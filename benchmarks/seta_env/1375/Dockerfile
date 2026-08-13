@@ -38,7 +38,7 @@ RUN mkdir -p /var/www/apt-repo/conf \
     && mkdir -p /root/packages
 
 # Generate GPG key non-interactively for repository signing
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/gpg-key-params
     Key-Type: RSA
     Key-Length: 2048
     Subkey-Type: RSA
@@ -49,6 +49,7 @@ RUN gpg --batch --gen-key <<EOF
     %no-protection
     %commit
 EOF
+RUN gpg --batch --gen-key /tmp/gpg-key-params
 
 # Export the public key for apt to use
 RUN gpg --armor --export apt-repo@localhost > /var/www/apt-repo/repo-key.gpg

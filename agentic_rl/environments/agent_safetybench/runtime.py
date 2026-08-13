@@ -24,6 +24,10 @@ from agentic_rl.environments.reward_rules import (
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_AGENT_SAFETYBENCH_ROOT = (
+    Path(__file__).resolve().parents[3].parent / "Agent-SafetyBench"
+)
+
 
 class AgentSafetyBenchEnv:
     """Mock-tool backend for Agent-SafetyBench samples.
@@ -38,7 +42,7 @@ class AgentSafetyBenchEnv:
             root
             or os.getenv(
                 "AGENT_SAFETYBENCH_ROOT",
-                "/mnt/shared-storage-user/puyuan/code/Agent-SafetyBench",
+                str(_DEFAULT_AGENT_SAFETYBENCH_ROOT),
             )
         ).resolve()
         self.env_dir = self.root / "environments"

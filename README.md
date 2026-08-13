@@ -102,18 +102,15 @@ This does not provision model weights, CUDA, or the training backends.
 
 ## Quickstart
 
-### 1. Start a Docker worker (CPU host)
+### 1. Configure a Docker worker
 
 ```bash
-cd LightRL
-bash examples/validation/start_docker_worker.sh
-# prints WORKER_URLS=http://<WORKER_IP>:18081
-
+export WORKER_URLS=http://<WORKER_IP>:18081
 curl --noproxy '*' --fail http://<WORKER_IP>:18081/healthz
 ```
 
-See [docs/operations/cpu_workers.md](docs/operations/cpu_workers.md) for
-daemon, proxy, disk and concurrency tuning.
+Site-specific worker provisioning, credentials and scheduler launchers should
+live in ignored local configuration rather than the public repository.
 
 ### 2. Dry-run a recipe (GPU host)
 
@@ -131,22 +128,17 @@ NUM_GPUS=4 ACTOR_GPUS=2 ROLLOUT_GPUS=2 TP_SIZE=2 ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
 bash examples/training/train_qwen3_8b_seta_dapo.sh
 ```
 
-### 4. Bounded end-to-end validation (recommended first)
+### 4. Validate the public recipe
 
 ```bash
-WORKER_URLS=http://<WORKER_IP>:18081 NUM_ROLLOUT=3 \
-  bash examples/validation/validate_4gpu_seta_dapo.sh
-
-EXPERIMENT=dive_po WORKER_URLS=http://<WORKER_IP>:18081 \
-  bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
-
-EXPERIMENT=mixed WORKER_URLS=http://<WORKER_IP>:18081 \
-  bash examples/validation/validate_4gpu_dive_po_or_mixed.sh
+python3 -m compileall -q agentic_rl
+python3 -m pytest tests/agentic_rl -q
+WORKER_URLS=http://127.0.0.1:18081 \
+  bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
-Each script checks GPUs/resources, static compilation, imports, unit tests,
-CLI dry-run, worker health, rollout metrics, and verifies finite, non-zero
-actor updates (`TRAINING_METRICS_OK` / `EXAMPLE_VALIDATION_OK`).
+End-to-end scheduler launchers and cluster-specific smoke wrappers are kept in
+ignored local configuration because they contain site topology and paths.
 
 ## Configuration
 
@@ -168,8 +160,8 @@ runs/<RUN_ID>/
 
 ## Current validation status
 
-Latest bounded validations on 4×H200 (2026-08-07, after the P0–P2 refactor
-round; earlier rounds in [docs/manual_validation_20260731.md](docs/manual_validation_20260731.md)):
+Latest bounded validations on 4 GPUs (2026-08-07, after the P0–P2 refactor
+round):
 
 - SETA + DAPO: 3 rollouts, 6 actor train steps, non-zero finite updates
   (`TRAINING_METRICS_OK`).

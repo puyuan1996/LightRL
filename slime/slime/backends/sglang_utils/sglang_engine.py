@@ -36,8 +36,23 @@ def _to_local_gpu_id(physical_gpu_id: int) -> int:
     cvd = os.environ.get("CUDA_VISIBLE_DEVICES")
     if not cvd:
         return physical_gpu_id  # no remapping
-    # CUDA_VISIBLE_DEVICES can be like "4,5,6,7"
-    visible = [int(x) for x in cvd.split(",") if x.strip() != ""]
+    # CUDA_VISIBLE_DEVICES may contain physical indices ("4,5,6,7") or
+    # scheduler-provided GPU/MIG UUIDs.  A UUID list already defines the local
+    # CUDA ordinal space, so callers must address it as 0..N-1.
+    visible_tokens = [x.strip() for x in cvd.split(",") if x.strip()]
+    if not visible_tokens:
+        return physical_gpu_id
+
+    try:
+        visible = [int(x) for x in visible_tokens]
+    except ValueError:
+        if 0 <= physical_gpu_id < len(visible_tokens):
+            return physical_gpu_id
+        raise RuntimeError(
+            f"GPU id {physical_gpu_id} is not valid under CUDA_VISIBLE_DEVICES={cvd}. "
+            f"UUID-based visibility expects a local id in 0..{len(visible_tokens)-1}."
+        ) from None
+
     # In a remapped process, valid torch device indices are 0..len(visible)-1
     if physical_gpu_id in visible:
         return visible.index(physical_gpu_id)

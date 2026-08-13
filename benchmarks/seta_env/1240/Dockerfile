@@ -18,7 +18,7 @@ RUN mkdir -p /var/www/html/apt-repo/pool/main \
     && mkdir -p /var/www/html/apt-repo/dists/stable/main/binary-amd64
 
 # Generate a GPG key for signing packages (non-interactive)
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/1240-input
 %no-protection
 Key-Type: RSA
 Key-Length: 2048
@@ -27,6 +27,7 @@ Name-Email: repo@localhost
 Expire-Date: 0
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/1240-input
 
 # Export the public key to a file (armor format for humans)
 RUN gpg --armor --export repo@localhost > /var/www/html/apt-repo/repo-key.asc

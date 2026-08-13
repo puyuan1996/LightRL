@@ -31,8 +31,7 @@ RUN mkdir -p /var/log/custom-pkg-tracker
 RUN mkdir -p /opt/test-packages
 
 # Create a dummy regular package (not requiring reboot)
-RUN cd /opt/test-packages && \
-    cat > dummy-app-control <<'EOF'
+COPY <<'EOF' /opt/test-packages/dummy-app-control
 Section: misc
 Priority: optional
 Standards-Version: 3.9.2
@@ -47,8 +46,7 @@ EOF
 RUN cd /opt/test-packages && equivs-build dummy-app-control
 
 # Create a dummy kernel package (requiring reboot)
-RUN cd /opt/test-packages && \
-    cat > linux-image-test-control <<'EOF'
+COPY <<'EOF' /opt/test-packages/linux-image-test-control
 Section: kernel
 Priority: optional
 Standards-Version: 3.9.2
@@ -63,8 +61,7 @@ EOF
 RUN cd /opt/test-packages && equivs-build linux-image-test-control
 
 # Create a dummy systemd package (requiring reboot)
-RUN cd /opt/test-packages && \
-    cat > systemd-test-control <<'EOF'
+COPY <<'EOF' /opt/test-packages/systemd-test-control
 Section: admin
 Priority: optional
 Standards-Version: 3.9.2

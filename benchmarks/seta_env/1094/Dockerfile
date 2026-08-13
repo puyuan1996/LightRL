@@ -31,7 +31,7 @@ RUN mkdir -p /srv/repo-8080/packages/dists/stable/main/binary-amd64 \
     && mkdir -p /srv/repo-8081/test-packages/dists/testing/main/binary-amd64
 
 # Generate a GPG key for signing the private repository
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/1094-input
 %echo Generating key
 Key-Type: RSA
 Key-Length: 2048
@@ -41,6 +41,7 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/1094-input
 
 # Export the GPG public key for the agent to import
 RUN gpg --armor --export "private-repo@example.com" > /root/private-repo-key.gpg

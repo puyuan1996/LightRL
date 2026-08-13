@@ -94,6 +94,25 @@ def should_run_periodic_action(
     return (step % interval == 0) or (num_rollout_per_epoch is not None and step % num_rollout_per_epoch == 0)
 
 
+def should_save_checkpoint(
+    rollout_id: int,
+    interval: int | None,
+    num_rollout_per_epoch: int | None = None,
+    num_rollout: int | None = None,
+    save_first_rollout: bool = False,
+) -> bool:
+    """Return whether the just-completed rollout needs a durable checkpoint.
+
+    ``save_first_rollout`` closes the potentially long startup window before
+    the first periodic checkpoint without changing the steady-state cadence.
+    """
+    if interval is None:
+        return False
+    if save_first_rollout and rollout_id == 0:
+        return True
+    return should_run_periodic_action(rollout_id, interval, num_rollout_per_epoch, num_rollout)
+
+
 class Box:
     def __init__(self, inner):
         self._inner = inner

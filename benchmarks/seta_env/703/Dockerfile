@@ -46,8 +46,7 @@ RUN mkdir -p /sys/bus/usb/devices/1-1 && \
     echo "5678" > /sys/bus/usb/devices/1-1/idProduct 2>/dev/null || true
 
 # Create initial (intentionally incomplete) libvirt VM XML definition
-RUN mkdir -p /etc/libvirt/qemu && \
-    cat > /etc/libvirt/qemu/testvm.xml << 'EOF'
+COPY <<'EOF' /etc/libvirt/qemu/testvm.xml
 <domain type='kvm'>
   <name>testvm</name>
   <uuid>12345678-1234-1234-1234-123456789abc</uuid>

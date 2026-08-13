@@ -468,6 +468,31 @@ def test_soft_trust_gate_keeps_failed_lifelong_signal(monkeypatch):
     assert "parse_error" in metrics["explore_agent57_lifelong_suppressed_reason"]
 
 
+def test_infra_failure_does_not_pollute_lifelong_state(monkeypatch):
+    _reset_local_agent57_state()
+    monkeypatch.setenv("EXPLORE_AGENT57_LITE", "1")
+    monkeypatch.setenv("EXPLORE_AGENT57_LIFELONG", "1")
+    monkeypatch.setenv("EXPLORE_AGENT57_LIFELONG_BACKEND", "local")
+    config = a57.config_from_env()
+
+    metrics = a57.compute_lifelong_bonus(
+        config=config,
+        arm_id=0,
+        actions=[{"tool_name": "shell", "signature": "shell|pytest", "raw": "pytest"}],
+        turn_records=[{"turn_idx": 0, "result": {"exit_code": 0}}],
+        status="failed",
+        parse_error_count=0,
+        metadata={"data_source": "seta"},
+        state_update_allowed=False,
+    )
+
+    assert metrics["explore_agent57_lifelong_state_update_allowed"] is False
+    assert metrics["explore_agent57_lifelong_suppressed_reason"] == "infra_failure"
+    assert metrics["explore_agent57_lifelong_eligible"] == 0.0
+    assert a57._LOCAL_TRAJ_SEEN == 0
+    assert a57._LOCAL_COUNTS == {}
+
+
 def test_lifelong_local_counts_support_decay_and_capacity(monkeypatch):
     _reset_local_agent57_state()
     monkeypatch.setenv("EXPLORE_AGENT57_LITE", "1")

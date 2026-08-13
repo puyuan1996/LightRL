@@ -55,33 +55,37 @@ fi\n\
 exit 0\n' > /usr/sbin/grub-install && chmod +x /usr/sbin/grub-install
 
 # Create simulated grub-mkconfig command
-RUN printf '#!/bin/bash\n\
-echo "grub-mkconfig called with args: $@" >> /app/grub_recovery.log\n\
-OUTPUT_FILE=""\n\
-while [[ $# -gt 0 ]]; do\n\
-    case $1 in\n\
-        -o) OUTPUT_FILE="$2"; shift 2 ;;\n\
-        -o*) OUTPUT_FILE="${1#-o}"; shift ;;\n\
-        *) shift ;;\n\
-    esac\n\
-done\n\
-if [ -n "$OUTPUT_FILE" ]; then\n\
-    mkdir -p "$(dirname "$OUTPUT_FILE")"\n\
-    cat > "$OUTPUT_FILE" <<EOF\n\
-set timeout=5\n\
-set default=0\n\
-menuentry "Ubuntu 24.04 LTS" {\n\
-    linux /vmlinuz root=/dev/sda1 ro\n\
-    initrd /initrd.img\n\
-}\n\
-menuentry "Other OS" {\n\
-    chainloader +1\n\
-}\n\
-EOF\n\
-    echo "Configuration written to $OUTPUT_FILE" >> /app/grub_recovery.log\n\
-    exit 0\n\
-fi\n\
-exit 1\n' > /usr/sbin/grub-mkconfig && chmod +x /usr/sbin/grub-mkconfig
+COPY <<'EOFSCRIPT' /usr/sbin/grub-mkconfig
+#!/bin/bash
+echo "grub-mkconfig called with args: $@" >> /app/grub_recovery.log
+OUTPUT_FILE=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -o) OUTPUT_FILE="$2"; shift 2 ;;
+        -o*) OUTPUT_FILE="${1#-o}"; shift ;;
+        *) shift ;;
+    esac
+done
+if [ -n "$OUTPUT_FILE" ]; then
+    mkdir -p "$(dirname "$OUTPUT_FILE")"
+    cat > "$OUTPUT_FILE" <<EOF
+set timeout=5
+set default=0
+menuentry "Ubuntu 24.04 LTS" {
+    linux /vmlinuz root=/dev/sda1 ro
+    initrd /initrd.img
+}
+menuentry "Other OS" {
+    chainloader +1
+}
+EOF
+    echo "Configuration written to $OUTPUT_FILE" >> /app/grub_recovery.log
+    exit 0
+fi
+exit 1
+EOFSCRIPT
+
+RUN chmod +x /usr/sbin/grub-mkconfig
 
 # Create simulated disk environment
 RUN mkdir -p /fake_root/boot/grub /fake_root/etc /fake_root/dev /fake_root/proc /fake_root/sys && \

@@ -25,8 +25,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create the default resolved.conf with commented out settings (as it would be on a fresh system)
-RUN mkdir -p /etc/systemd && \
-    cat > /etc/systemd/resolved.conf << 'EOF'
+RUN mkdir -p /etc/systemd
+COPY <<'EOF' /etc/systemd/resolved.conf
 #  This file is part of systemd.
 #
 #  systemd is free software; you can redistribute it and/or modify it under the

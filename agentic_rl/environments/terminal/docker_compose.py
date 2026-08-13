@@ -41,6 +41,7 @@ _BUILD_LOCKS_GUARD = threading.Lock()
 _BUILD_LOCKS: dict[str, threading.Lock] = {}
 _BUILD_DONE: set[str] = set()
 _BUILD_FAILED: dict[str, tuple[float, str]] = {}
+_BUILD_TRANSIENT_FAILED: dict[str, tuple[float, str]] = {}
 _TASK_IMAGE_BLACKLISTED: dict[str, tuple[float, str]] = {}
 
 _DOCKERFILE_INSTRUCTION_RE = re.compile(
@@ -52,6 +53,10 @@ _DOCKERFILE_INSTRUCTION_RE = re.compile(
 
 class DockerImageBuildError(RuntimeError):
     """Deterministic task image build failure cached per task image."""
+
+
+class DockerImageTransientBuildError(DockerImageBuildError):
+    """Retryable registry/network build failure under a short cooldown."""
 
 
 class DockerImagePreparationBacklogError(RuntimeError):
@@ -82,6 +87,22 @@ def _shorten_output(text: str | None, max_chars: int = 4000) -> str:
     if len(stripped) <= max_chars:
         return stripped
     return f"{stripped[:max_chars]}...(truncated, total={len(stripped)} chars)"
+
+
+def _docker_build_args_with_proxy(env: dict[str, str]) -> list[str]:
+    """Pass configured proxy variables to BuildKit without exposing their values."""
+    args = ["build"]
+    for name in (
+        "http_proxy",
+        "https_proxy",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "no_proxy",
+        "NO_PROXY",
+    ):
+        if env.get(name):
+            args.extend(["--build-arg", name])
+    return args
 
 
 def _build_docker_pull_error_message(
@@ -187,6 +208,7 @@ def docker_image_build_status() -> dict[str, int]:
             "cancelled_before_build": _BUILD_CANCELLED,
             "cached_done": len(_BUILD_DONE),
             "cached_failed": len(_BUILD_FAILED),
+            "cached_transient_failed": len(_BUILD_TRANSIENT_FAILED),
             "blacklisted": len(_TASK_IMAGE_BLACKLISTED),
         }
 
@@ -271,6 +293,15 @@ def _build_failed_ttl() -> float:
     return max(0.0, value)
 
 
+def _build_transient_failed_ttl() -> float:
+    raw = os.getenv("WORKER_DOCKER_BUILD_TRANSIENT_TTL", "60")
+    try:
+        value = float(raw)
+    except ValueError:
+        return 60.0
+    return max(0.0, value)
+
+
 def _task_image_blacklist_ttl() -> float:
     raw = os.getenv("WORKER_DOCKER_TASK_BLACKLIST_TTL", "86400")
     try:
@@ -291,6 +322,20 @@ def _cached_build_failure(build_key: str) -> str | None:
     if time.time() - ts <= ttl:
         return message
     _BUILD_FAILED.pop(build_key, None)
+    return None
+
+
+def _cached_transient_build_failure(build_key: str) -> str | None:
+    ttl = _build_transient_failed_ttl()
+    if ttl <= 0:
+        return None
+    cached = _BUILD_TRANSIENT_FAILED.get(build_key)
+    if cached is None:
+        return None
+    ts, message = cached
+    if time.time() - ts <= ttl:
+        return message
+    _BUILD_TRANSIENT_FAILED.pop(build_key, None)
     return None
 
 
@@ -326,6 +371,30 @@ def _is_deterministic_build_failure(message: str) -> bool:
         "services must be a mapping",
     )
     return any(marker in lowered for marker in deterministic_markers)
+
+
+def _is_transient_build_failure(message: str) -> bool:
+    """Recognize registry/network failures that must never poison a task image."""
+    lowered = message.lower()
+    transient_markers = (
+        "429 too many requests",
+        "toomanyrequests",
+        "rate limit",
+        "tls handshake timeout",
+        "connection reset by peer",
+        "connection refused",
+        "temporary failure in name resolution",
+        "no such host",
+        "context deadline exceeded",
+        "i/o timeout",
+        "unexpected eof",
+        "service unavailable",
+        "bad gateway",
+        "gateway timeout",
+    )
+    if any(marker in lowered for marker in transient_markers):
+        return True
+    return bool(re.search(r"(?:head|http|https|get).*\b(?:502|503|504)\b", lowered))
 
 
 def _dockerfile_precheck_error(task_path: Path) -> str | None:
@@ -452,14 +521,22 @@ def build_docker_image(
             logger.debug("Docker image already exists locally; skip build: %s", build_key)
             _BUILD_DONE.add(build_key)
             _BUILD_FAILED.pop(build_key, None)
+            _BUILD_TRANSIENT_FAILED.pop(build_key, None)
             _TASK_IMAGE_BLACKLISTED.pop(build_key, None)
             return
+        cached_transient_failure = _cached_transient_build_failure(build_key)
+        if cached_transient_failure is not None:
+            raise DockerImageTransientBuildError(
+                "TASK_BUILD_TRANSIENT cached cooldown "
+                f"for image={build_key}: {cached_transient_failure}"
+            )
         precheck_error = _dockerfile_precheck_error(task_path)
         if precheck_error is not None:
             message = (
                 f"TASK_DOCKERFILE_PRECHECK_FAILED task={task_name}: {precheck_error}"
             )
             _BUILD_FAILED[build_key] = (time.time(), message)
+            _BUILD_TRANSIENT_FAILED.pop(build_key, None)
             _blacklist_task_image(build_key, message)
             raise TaskImageBlacklistedError(
                 f"TASK_IMAGE_BLACKLISTED image={build_key}: {message}"
@@ -478,9 +555,18 @@ def build_docker_image(
             _raise_if_cancelled(cancel_event, build_key=build_key, stage="before_build")
             logger.info("Building Docker image for task=%s image=%s", task_name, build_key)
             try:
-                command = compose_manager.get_docker_compose_command(["build"])
-                compose_manager.env["http_proxy"] = os.getenv("HTTP_PROXY", "")
-                compose_manager.env["https_proxy"] = os.getenv("HTTPS_PROXY", "")
+                for uppercase, lowercase in (
+                    ("HTTP_PROXY", "http_proxy"),
+                    ("HTTPS_PROXY", "https_proxy"),
+                    ("NO_PROXY", "no_proxy"),
+                ):
+                    value = os.getenv(uppercase) or os.getenv(lowercase) or ""
+                    if value:
+                        compose_manager.env[uppercase] = value
+                        compose_manager.env[lowercase] = value
+                command = compose_manager.get_docker_compose_command(
+                    _docker_build_args_with_proxy(compose_manager.env)
+                )
                 subprocess.run(
                     command,
                     env=compose_manager.env,
@@ -491,14 +577,34 @@ def build_docker_image(
                 )
             except Exception as exc:
                 message = _shorten_output(str(exc), max_chars=1200) or type(exc).__name__
-                _BUILD_FAILED[build_key] = (time.time(), message)
+                if isinstance(exc, subprocess.CalledProcessError):
+                    # str(exc) only carries the exit status; surface the build's
+                    # stderr tail so the cached failure is self-diagnosing.
+                    detail = _shorten_output(exc.stderr or exc.stdout, max_chars=1200)
+                    if detail:
+                        message = f"{message} | output: {detail}"
                 if _is_deterministic_build_failure(message):
+                    _BUILD_FAILED[build_key] = (time.time(), message)
+                    _BUILD_TRANSIENT_FAILED.pop(build_key, None)
                     _blacklist_task_image(build_key, message)
-                raise DockerImageBuildError(
-                    f"TASK_BUILD_FAILED image={build_key} task={task_name}: {message}"
+                    raise DockerImageBuildError(
+                        f"TASK_BUILD_FAILED image={build_key} task={task_name}: {message}"
+                    ) from exc
+                # Unknown build errors are treated as retryable. Deterministic
+                # failures are explicitly recognized above; poisoning an image
+                # for an hour is more harmful than a bounded retry here.
+                _BUILD_TRANSIENT_FAILED[build_key] = (time.time(), message)
+                marker = (
+                    "TASK_BUILD_TRANSIENT"
+                    if _is_transient_build_failure(message)
+                    else "TASK_BUILD_RETRYABLE"
+                )
+                raise DockerImageTransientBuildError(
+                    f"{marker} image={build_key} task={task_name}: {message}"
                 ) from exc
             _BUILD_DONE.add(build_key)
             _BUILD_FAILED.pop(build_key, None)
+            _BUILD_TRANSIENT_FAILED.pop(build_key, None)
             _TASK_IMAGE_BLACKLISTED.pop(build_key, None)
         finally:
             _record_build_active(-1)
@@ -601,7 +707,7 @@ def prepare_task_docker_image(
 
 
 _DEFAULT_CONTAINER_MEMORY_LIMIT = os.getenv("CONTAINER_MEMORY_LIMIT", "16g")
-_DEFAULT_CONTAINER_PIDS_LIMIT = os.getenv("CONTAINER_PIDS_LIMIT", "64")
+_DEFAULT_CONTAINER_PIDS_LIMIT = os.getenv("CONTAINER_PIDS_LIMIT", "512")
 
 
 def _apply_container_memory_limit(

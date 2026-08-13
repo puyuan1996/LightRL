@@ -27,10 +27,13 @@ class DummySample:
         eligible: float = 1.0,
         status: str = "completed",
         turn_idx: int = 0,
+        remove_sample: bool = False,
     ) -> None:
         self.group_index = group_index
         self.index = index
         self.status = status
+        self.remove_sample = remove_sample
+        self.loss_mask = [0] if remove_sample else [1]
         self.metadata = {"turn_idx": turn_idx, "train_step": 10}
         self.reward = {
             "score": score,
@@ -132,6 +135,43 @@ def test_ineligible_trajectory_receives_no_intrinsic_bonus(monkeypatch):
     # With only one eligible trajectory, weighted centering also correctly
     # produces no within-group learning signal.
     assert samples[1].reward["explore_post_norm_bonus"] == 0.0
+
+
+def test_non_trainable_trajectory_does_not_shift_valid_bonus(monkeypatch):
+    _base_env(monkeypatch)
+    samples = [
+        DummySample(group_index=0, index=0, score=0.0, intrinsic=0.0, beta=0.01),
+        DummySample(
+            group_index=0,
+            index=1,
+            score=0.0,
+            intrinsic=100.0,
+            beta=0.02,
+            remove_sample=True,
+            status="failed",
+        ),
+        DummySample(group_index=0, index=2, score=0.0, intrinsic=2.0, beta=0.02),
+    ]
+
+    centered.post_process_rewards(_args(), samples)
+    bonuses = [sample.reward["explore_post_norm_bonus"] for sample in samples]
+
+    assert bonuses[1] == 0.0
+    assert bonuses[0] < 0.0 < bonuses[2]
+    assert math.isclose(bonuses[0] + bonuses[2], 0.0, abs_tol=1e-12)
+
+
+def test_malformed_trajectory_index_falls_back_to_position(monkeypatch):
+    _base_env(monkeypatch)
+    samples = [
+        DummySample(group_index=0, index=0, score=0.0, intrinsic=0.0, beta=0.01),
+        DummySample(group_index=0, index=1, score=0.0, intrinsic=1.0, beta=0.02),
+    ]
+    samples[1].index = "not-an-integer"
+
+    _, adjusted = centered.post_process_rewards(_args(), samples)
+
+    assert all(math.isfinite(value) for value in adjusted)
 
 
 def test_group_scale_clip_preserves_bound_and_zero_sum(monkeypatch):

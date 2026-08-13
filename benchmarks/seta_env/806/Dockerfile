@@ -32,7 +32,7 @@ RUN mkdir -p /etc/apt/keyrings
 WORKDIR /setup
 
 # Generate a test GPG key pair for our mock repository
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/keygen-mock1.conf
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Mock Repository
@@ -41,6 +41,7 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/keygen-mock1.conf && rm /tmp/keygen-mock1.conf
 
 # Export the public key in ASCII-armored format
 RUN gpg --armor --export mock@example.com > /setup/mock-repo.asc
@@ -96,7 +97,7 @@ RUN echo "  ASCII-armored: /setup/mock-repo.asc" >> /app/key-info.txt
 RUN echo "  Binary format: /setup/mock-repo.gpg" >> /app/key-info.txt
 
 # Set up second mock repository with different key
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/keygen-mock2.conf
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Second Mock Repository
@@ -105,6 +106,7 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/keygen-mock2.conf && rm /tmp/keygen-mock2.conf
 
 # Export the second key
 RUN gpg --armor --export mock2@example.com > /setup/mock-repo2.asc

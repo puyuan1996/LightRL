@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /etc/apt/keyrings /usr/share/keyrings
 
 # Create a GPG key for signing our mock repositories
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/997-input-1
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Mock DevTools
@@ -39,8 +39,9 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/997-input-1
 
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/997-input-2
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Mock NodeJS
@@ -49,8 +50,9 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/997-input-2
 
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/997-input-3
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Mock Docker
@@ -59,6 +61,7 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/997-input-3
 
 # Export public keys to files that the agent can find
 RUN mkdir -p /root/gpg-keys && \

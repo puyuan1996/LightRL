@@ -32,7 +32,7 @@ RUN mkdir -p /opt/repos/alpha/dists/stable/main/binary-amd64 \
 
 # Generate three test GPG keys and create mock repositories
 # Key 1: Test Repo Alpha
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/keygen-alpha.conf
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Test Repo Alpha
@@ -41,9 +41,10 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/keygen-alpha.conf && rm /tmp/keygen-alpha.conf
 
 # Key 2: Test Repo Beta
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/keygen-beta.conf
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Test Repo Beta
@@ -52,9 +53,10 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/keygen-beta.conf && rm /tmp/keygen-beta.conf
 
 # Key 3: Test Repo Gamma
-RUN gpg --batch --gen-key <<EOF
+COPY <<'EOF' /tmp/keygen-gamma.conf
 Key-Type: RSA
 Key-Length: 2048
 Name-Real: Test Repo Gamma
@@ -63,6 +65,7 @@ Expire-Date: 0
 %no-protection
 %commit
 EOF
+RUN gpg --batch --gen-key /tmp/keygen-gamma.conf && rm /tmp/keygen-gamma.conf
 
 # Export all keys to the legacy trusted.gpg keyring (deprecated location)
 RUN gpg --export "Test Repo Alpha" | apt-key add - \
@@ -80,7 +83,8 @@ RUN gzip -k /opt/repos/alpha/dists/stable/main/binary-amd64/Packages \
     && gzip -k /opt/repos/gamma/dists/stable/main/binary-amd64/Packages
 
 # Create proper Release files with hash entries for Alpha repository
-RUN cd /opt/repos/alpha/dists/stable && \
+RUN <<'MAKE_ALPHA_RELEASE'
+cd /opt/repos/alpha/dists/stable && \
     PACKAGES_FILE="main/binary-amd64/Packages" && \
     PACKAGES_GZ="main/binary-amd64/Packages.gz" && \
     MD5_PKG=$(md5sum $PACKAGES_FILE | cut -d' ' -f1) && \
@@ -110,9 +114,11 @@ SHA256:
  $SHA256_PKG $SIZE_PKG $PACKAGES_FILE
  $SHA256_GZ $SIZE_GZ $PACKAGES_GZ
 RELEASE
+MAKE_ALPHA_RELEASE
 
 # Create proper Release files with hash entries for Beta repository
-RUN cd /opt/repos/beta/dists/stable && \
+RUN <<'MAKE_BETA_RELEASE'
+cd /opt/repos/beta/dists/stable && \
     PACKAGES_FILE="main/binary-amd64/Packages" && \
     PACKAGES_GZ="main/binary-amd64/Packages.gz" && \
     MD5_PKG=$(md5sum $PACKAGES_FILE | cut -d' ' -f1) && \
@@ -142,9 +148,11 @@ SHA256:
  $SHA256_PKG $SIZE_PKG $PACKAGES_FILE
  $SHA256_GZ $SIZE_GZ $PACKAGES_GZ
 RELEASE
+MAKE_BETA_RELEASE
 
 # Create proper Release files with hash entries for Gamma repository
-RUN cd /opt/repos/gamma/dists/stable && \
+RUN <<'MAKE_GAMMA_RELEASE'
+cd /opt/repos/gamma/dists/stable && \
     PACKAGES_FILE="main/binary-amd64/Packages" && \
     PACKAGES_GZ="main/binary-amd64/Packages.gz" && \
     MD5_PKG=$(md5sum $PACKAGES_FILE | cut -d' ' -f1) && \
@@ -174,6 +182,7 @@ SHA256:
  $SHA256_PKG $SIZE_PKG $PACKAGES_FILE
  $SHA256_GZ $SIZE_GZ $PACKAGES_GZ
 RELEASE
+MAKE_GAMMA_RELEASE
 
 # Sign the Release files with the corresponding keys
 RUN gpg --default-key "Test Repo Alpha" --armor --detach-sign -o /opt/repos/alpha/dists/stable/Release.gpg /opt/repos/alpha/dists/stable/Release \

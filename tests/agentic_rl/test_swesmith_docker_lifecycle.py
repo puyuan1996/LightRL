@@ -148,6 +148,89 @@ def test_docker_build_and_start_paths_are_bounded() -> None:
     assert "timeout=timeout" in compose_source
 
 
+def test_terminal_honors_task_recording_configuration() -> None:
+    tree = ast.parse(TERMINAL_ENV.read_text(encoding="utf-8"))
+    terminal_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "Terminal"
+    ]
+    assert len(terminal_calls) == 1
+    disable_recording = next(
+        (
+            keyword.value
+            for keyword in terminal_calls[0].keywords
+            if keyword.arg == "disable_recording"
+        ),
+        None,
+    )
+    assert disable_recording is not None
+    assert ast.unparse(disable_recording) == "task_config.disable_asciinema"
+
+
+def test_docker_build_passes_configured_proxy_as_value_free_build_args() -> None:
+    tree = ast.parse(COMPOSE_UTILS.read_text(encoding="utf-8"))
+    helper = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_docker_build_args_with_proxy"
+    )
+    namespace: dict[str, object] = {}
+    exec(
+        compile(ast.Module(body=[helper], type_ignores=[]), str(COMPOSE_UTILS), "exec"),
+        namespace,
+    )
+    build_args = namespace["_docker_build_args_with_proxy"](
+        {"HTTP_PROXY": "sensitive", "NO_PROXY": "localhost"}
+    )
+    assert build_args == [
+        "build",
+        "--build-arg",
+        "HTTP_PROXY",
+        "--build-arg",
+        "NO_PROXY",
+    ]
+    assert "sensitive" not in build_args
+
+
+def test_docker_build_failure_cache_separates_transient_registry_errors() -> None:
+    source = COMPOSE_UTILS.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    helper = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_is_transient_build_failure"
+    )
+    namespace: dict[str, object] = {"re": re}
+    exec(
+        compile(ast.Module(body=[helper], type_ignores=[]), str(COMPOSE_UTILS), "exec"),
+        namespace,
+    )
+    is_transient = namespace["_is_transient_build_failure"]
+    assert is_transient("429 Too Many Requests from registry-1.docker.io")
+    assert is_transient("HEAD manifest returned 503 Service Unavailable")
+    assert is_transient("net/http: TLS handshake timeout")
+    assert not is_transient("Dockerfile parse error line 7: unknown instruction")
+
+    assert "_BUILD_TRANSIENT_FAILED" in source
+    assert "DockerImageTransientBuildError" in source
+    assert '"cached_transient_failed"' in source
+
+
+def test_seta_worker_pid_limit_has_uv_thread_pool_headroom() -> None:
+    launcher = SETA_LAUNCHER.read_text(encoding="utf-8")
+    compose_source = COMPOSE_UTILS.read_text(encoding="utf-8")
+
+    assert 'CONTAINER_PIDS_LIMIT="${CONTAINER_PIDS_LIMIT:-512}"' in launcher
+    assert 'visible_cpu_count="$(nproc 2>/dev/null || echo 1)"' in launcher
+    assert "CONTAINER_PIDS_LIMIT <= visible_cpu_count" in launcher
+    assert 'os.getenv("CONTAINER_PIDS_LIMIT", "512")' in compose_source
+
+
 def test_swesmith_artifact_publication_and_consumers_share_a_lock() -> None:
     downloader = DOWNLOADER.read_text(encoding="utf-8")
     smoke_client = SMOKE_CLIENT.read_text(encoding="utf-8")

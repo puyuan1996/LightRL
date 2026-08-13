@@ -33,8 +33,7 @@ RUN apt-get update && apt-get install -y \
 ######################################################################
 
 # Create libexample-utils 1.0.0 control file
-RUN mkdir -p /tmp/build-pkgs && \
-    cat > /tmp/build-pkgs/libexample-utils.ctl << 'EOF'
+COPY <<'EOF' /tmp/build-pkgs/libexample-utils.ctl
 Section: misc
 Priority: optional
 Standards-Version: 3.9.2

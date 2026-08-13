@@ -114,7 +114,7 @@ def main() -> None:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path("/mnt/shared-storage-user/puyuan/code/Agent-SafetyBench"),
+        default=Path("../Agent-SafetyBench"),
     )
     parser.add_argument("--reward-mode", default="rule")
     args = parser.parse_args()

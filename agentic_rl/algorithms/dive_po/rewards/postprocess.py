@@ -12,6 +12,7 @@ from agentic_rl.algorithms.dive_po.rewards.shared import (
     _outcome_score,
     _quality_gate,
     _sample_group_key,
+    _sample_is_trainable,
     _sample_train_step,
     _sample_traj_key,
     _status_intrinsic_scale,

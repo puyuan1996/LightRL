@@ -33,7 +33,7 @@
 #   WORKER_MAX_CONCURRENT_RESETS (default 16) — cap reset admission before image prep
 #   WORKER_DOCKER_BUILD_QUEUE_TIMEOUT (default 90) — fail queued image prep before reset storm
 #   WORKER_PRESSURE_GUARD_ENABLED (default 1) — pids/shim/docker-cli admission guard
-#   CONTAINER_PIDS_LIMIT        (default 64) — docker update --pids-limit per task container
+#   CONTAINER_PIDS_LIMIT        (default 512) — docker update --pids-limit per task container
 #
 # Logs written by default:
 #   runs/<run>/remote_logs/<worker>/<server-run>/cpu_pool.log
@@ -96,6 +96,7 @@ PY
 # through WORKER_SERIAL_TASK_IDS or explicit WORKER_TASK_MAX_RUNS_OVERRIDES.
 WORKER_MAX_TASKS="${WORKER_MAX_TASKS:-16}"
 WORKER_MAX_RUNS_PER_TASK="${WORKER_MAX_RUNS_PER_TASK:-8}"
+export WORKER_MAX_TOTAL_RUNS="${WORKER_MAX_TOTAL_RUNS:-$((WORKER_MAX_TASKS * WORKER_MAX_RUNS_PER_TASK))}"
 export TERMINAL_RL_POOL_NAMESPACE="${TERMINAL_RL_POOL_NAMESPACE:-default}"
 if [[ ! "${TERMINAL_RL_POOL_NAMESPACE}" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ ]]; then
     echo "[ERROR] TERMINAL_RL_POOL_NAMESPACE must match ^[a-z0-9][a-z0-9_-]{0,62}$." >&2
@@ -209,11 +210,22 @@ WORKER_REPAIR_RESETTING_MIN_AGE="${WORKER_REPAIR_RESETTING_MIN_AGE:-2100}"  # ma
 WORKER_DOCKER_BUILD_DEDUP="${WORKER_DOCKER_BUILD_DEDUP:-1}"
 WORKER_DOCKER_BUILD_SKIP_EXISTING="${WORKER_DOCKER_BUILD_SKIP_EXISTING:-1}"
 WORKER_DOCKER_BUILD_FAILED_TTL="${WORKER_DOCKER_BUILD_FAILED_TTL:-3600}"
+WORKER_DOCKER_BUILD_TRANSIENT_TTL="${WORKER_DOCKER_BUILD_TRANSIENT_TTL:-60}"
+WORKER_DOCKER_BUILD_TRANSIENT_RETRY_AFTER="${WORKER_DOCKER_BUILD_TRANSIENT_RETRY_AFTER:-60}"
 WORKER_DOCKER_TASK_BLACKLIST_TTL="${WORKER_DOCKER_TASK_BLACKLIST_TTL:-86400}"
 WORKER_DOCKERFILE_PRECHECK="${WORKER_DOCKERFILE_PRECHECK:-1}"
 WORKER_TASK_IMAGE_RETRY_AFTER="${WORKER_TASK_IMAGE_RETRY_AFTER:-300}"
-CONTAINER_PIDS_LIMIT="${CONTAINER_PIDS_LIMIT:-64}"
+CONTAINER_PIDS_LIMIT="${CONTAINER_PIDS_LIMIT:-512}"
 CONTAINER_MEMORY_LIMIT="${CONTAINER_MEMORY_LIMIT:-16g}"
+if [[ ! "${CONTAINER_PIDS_LIMIT}" =~ ^[0-9]+$ ]]; then
+    echo "[ERROR] CONTAINER_PIDS_LIMIT must be a non-negative integer." >&2
+    exit 1
+fi
+visible_cpu_count="$(nproc 2>/dev/null || echo 1)"
+if (( CONTAINER_PIDS_LIMIT > 0 && CONTAINER_PIDS_LIMIT <= visible_cpu_count )); then
+    echo "[ERROR] CONTAINER_PIDS_LIMIT=${CONTAINER_PIDS_LIMIT} must exceed visible CPUs=${visible_cpu_count}; SETA uv graders create a CPU-sized thread pool." >&2
+    exit 1
+fi
 CPU_POOL_LOG_MAX_BYTES="${CPU_POOL_LOG_MAX_BYTES:-209715200}"
 CPU_POOL_LOG_TAIL_BYTES="${CPU_POOL_LOG_TAIL_BYTES:-52428800}"
 CPU_ERR_SCAN_LINES="${CPU_ERR_SCAN_LINES:-5000}"
@@ -279,7 +291,7 @@ log "  build_queue_timeout=${WORKER_DOCKER_BUILD_QUEUE_TIMEOUT}s retry_after=${W
 log "  close_timeout queue=${WORKER_CLOSE_QUEUE_TIMEOUT}s session=${WORKER_CLOSE_SESSION_TIMEOUT}s legacy=${WORKER_CLOSE_TASK_TIMEOUT}s"
 log "  port=${ENV_SERVER_PORT}  skip_cleanup=${SKIP_PREFLIGHT_CLEANUP}"
 log "  preflight_kill_orphan_running=${PREFLIGHT_KILL_ORPHAN_RUNNING} final_docker_cleanup=${FINAL_DOCKER_CLEANUP}"
-log "  total_capacity=$((WORKER_MAX_TASKS * WORKER_MAX_RUNS_PER_TASK)) slots"
+log "  potential_capacity=$((WORKER_MAX_TASKS * WORKER_MAX_RUNS_PER_TASK)) leases effective_max_total=${WORKER_MAX_TOTAL_RUNS}"
 log "  docker_data_root=${DOCKER_DATA_ROOT} disk_guard=${WORKER_DISK_GUARD_ENABLED}"
 log "  pressure_guard=${WORKER_PRESSURE_GUARD_ENABLED} pids_pause=${WORKER_PIDS_PAUSE_ALLOCATE_PCT}% pids_reset=${WORKER_PIDS_REJECT_RESET_PCT}% pids_free_allocate=${WORKER_PIDS_MIN_FREE_ALLOCATE} pids_free_reset=${WORKER_PIDS_MIN_FREE_RESET}"
 log "  pressure_guard shim_pause=${WORKER_SHIM_PAUSE_ALLOCATE} shim_reset=${WORKER_SHIM_REJECT_RESET} pending_pause=${WORKER_PENDING_CLOSES_PAUSE_ALLOCATE} pending_reset=${WORKER_PENDING_CLOSES_REJECT_RESET}"
@@ -294,7 +306,7 @@ log "  close_requested_repair=${WORKER_REPAIR_CLOSE_REQUESTED_RUNS} min_age=${WO
 log "  orphan_sweep=${WORKER_ORPHAN_DOCKER_SWEEP} interval=${WORKER_ORPHAN_DOCKER_SWEEP_INTERVAL}s min_age=${WORKER_ORPHAN_DOCKER_SWEEP_MIN_AGE}s max_remove=${WORKER_ORPHAN_DOCKER_SWEEP_MAX_REMOVE} timeout=${WORKER_ORPHAN_DOCKER_SWEEP_TIMEOUT}s"
 log "  docker_degraded fail_streak=${WORKER_DOCKER_DEGRADED_FAIL_STREAK} cooldown=${WORKER_DOCKER_DEGRADED_COOLDOWN}s reset_storm=${WORKER_RESET_STORM_GUARD} min=${WORKER_RESET_STORM_MIN_RESETTING} age=${WORKER_RESET_STORM_MIN_AGE}s ratio=${WORKER_RESET_STORM_RATIO_PCT}%"
 log "  auto_repair_on_capacity=${WORKER_AUTO_REPAIR_ON_CAPACITY} close_min_age=${WORKER_AUTO_REPAIR_CLOSE_REQUESTED_MIN_AGE}s stale_min_age=${WORKER_AUTO_REPAIR_STALE_MIN_AGE}s max_repairs=${WORKER_AUTO_REPAIR_MAX_REPAIRS}"
-log "  docker_build_dedup=${WORKER_DOCKER_BUILD_DEDUP} skip_existing=${WORKER_DOCKER_BUILD_SKIP_EXISTING} failed_ttl=${WORKER_DOCKER_BUILD_FAILED_TTL}s blacklist_ttl=${WORKER_DOCKER_TASK_BLACKLIST_TTL}s precheck=${WORKER_DOCKERFILE_PRECHECK}"
+log "  docker_build_dedup=${WORKER_DOCKER_BUILD_DEDUP} skip_existing=${WORKER_DOCKER_BUILD_SKIP_EXISTING} failed_ttl=${WORKER_DOCKER_BUILD_FAILED_TTL}s transient_ttl=${WORKER_DOCKER_BUILD_TRANSIENT_TTL}s transient_retry=${WORKER_DOCKER_BUILD_TRANSIENT_RETRY_AFTER}s blacklist_ttl=${WORKER_DOCKER_TASK_BLACKLIST_TTL}s precheck=${WORKER_DOCKERFILE_PRECHECK}"
 log "  supervise=${POOL_SERVER_SUPERVISE} max_restarts=${POOL_SERVER_MAX_RESTARTS} backoff=${POOL_SERVER_RESTART_BACKOFF_INITIAL}-${POOL_SERVER_RESTART_BACKOFF_MAX}s reset_window=${POOL_SERVER_RESTART_RESET_WINDOW}s child_exit_cleanup=${POOL_SERVER_CHILD_EXIT_CLEANUP}"
 
 if [[ "${SKIP_PROXY_ENV}" != "1" && -f "${PROXY_ENV_FILE}" ]]; then
@@ -652,7 +664,8 @@ echo "  max_runs_per_task:     ${WORKER_MAX_RUNS_PER_TASK}"
 echo "  serial_task_ids:       ${WORKER_SERIAL_TASK_IDS}"
 echo "  task_run_overrides:    ${WORKER_TASK_MAX_RUNS_OVERRIDES:-<none>}"
 echo "  auto_serial_compose:   ${WORKER_AUTO_SERIALIZE_UNSAFE_COMPOSE}"
-echo "  total_capacity:        $((WORKER_MAX_TASKS * WORKER_MAX_RUNS_PER_TASK)) leases"
+echo "  potential_capacity:    $((WORKER_MAX_TASKS * WORKER_MAX_RUNS_PER_TASK)) leases"
+echo "  effective_max_total:   ${WORKER_MAX_TOTAL_RUNS} leases"
 echo "  max_concurrent_closes: ${WORKER_MAX_CONCURRENT_CLOSES}"
 echo "  max_concurrent_builds: ${WORKER_MAX_CONCURRENT_BUILDS}"
 echo "  max_concurrent_resets: ${WORKER_MAX_CONCURRENT_RESETS} admission_timeout=${WORKER_RESET_ADMISSION_TIMEOUT}s retry_after=${WORKER_RESET_BACKLOG_RETRY_AFTER}s"
@@ -671,7 +684,7 @@ export DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/benchmarks}"
 export TBENCH_OUTPUT_ROOT="${TBENCH_OUTPUT_ROOT:-${OPENCLAW_REMOTE_LOG_DIR}/task_outputs}"
 export TBENCH_DOCKER_IMAGE_SOURCE="${TBENCH_DOCKER_IMAGE_SOURCE:-build}"
 export TBENCH_DOCKER_PULL_PREFIX="${TBENCH_DOCKER_PULL_PREFIX:-}"
-export AGENT_SAFETYBENCH_ROOT="${AGENT_SAFETYBENCH_ROOT:-/mnt/shared-storage-user/puyuan/code/Agent-SafetyBench}"
+export AGENT_SAFETYBENCH_ROOT="${AGENT_SAFETYBENCH_ROOT:-${REPO_ROOT}/../Agent-SafetyBench}"
 export COMPOSE_OVERRIDE_PATH="${COMPOSE_OVERRIDE_PATH:-}"
 export PYTHONUNBUFFERED=1
 export DOCKER_DATA_ROOT
@@ -753,53 +766,73 @@ export WORKER_AUTO_REPAIR_MAX_REPAIRS
 export WORKER_DOCKER_BUILD_DEDUP
 export WORKER_DOCKER_BUILD_SKIP_EXISTING
 export WORKER_DOCKER_BUILD_FAILED_TTL
+export WORKER_DOCKER_BUILD_TRANSIENT_TTL
+export WORKER_DOCKER_BUILD_TRANSIENT_RETRY_AFTER
 export WORKER_DOCKER_TASK_BLACKLIST_TTL
 export WORKER_DOCKERFILE_PRECHECK
 export WORKER_TASK_IMAGE_RETRY_AFTER
 export CONTAINER_PIDS_LIMIT
 export CONTAINER_MEMORY_LIMIT
 
-pool_server_env_ok() {
-    local env_dir="$1"
-    [[ -x "${env_dir}/bin/python" ]] || return 1
-    "${env_dir}/bin/python" - <<'PY' >/dev/null 2>&1
-import importlib.util
+pool_server_python_ok() {
+    local python_bin="$1"
+    [[ -x "${python_bin}" ]] || return 1
+    PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" \
+      "${python_bin}" - <<'PY' >/dev/null 2>&1
 import sys
 
 if sys.version_info < (3, 12):
     raise SystemExit(1)
-missing = [
-    name for name in ("terminal_bench", "fastapi", "uvicorn", "camel")
-    if importlib.util.find_spec(name) is None
-]
-raise SystemExit(1 if missing else 0)
+
+# Import the actual worker entrypoint, not only top-level package specs.
+# terminal-bench imports Docker/YAML/harness modules transitively; a partial
+# installation can therefore pass find_spec() and still crash before uvicorn
+# starts (which previously wasted an allocated multi-GPU job in a restart loop).
+import agentic_rl.platform.worker_cli  # noqa: F401
+import camel  # noqa: F401
 PY
 }
 
 SHARED_CONDA_POOL_SERVER_VENV="${SHARED_CONDA_POOL_SERVER_VENV:-$(cd "${REPO_ROOT}/.." && pwd)/conda_envs/openclaw-worker-py312}"
-if [[ -z "${POOL_SERVER_VENV:-}" ]] && pool_server_env_ok "${SHARED_CONDA_POOL_SERVER_VENV}"; then
-    POOL_SERVER_VENV="${SHARED_CONDA_POOL_SERVER_VENV}"
-else
-    if [[ -z "${POOL_SERVER_VENV:-}" && -x "${SHARED_CONDA_POOL_SERVER_VENV}/bin/python" ]]; then
-        log "  shared conda env is present but missing pool_server deps: ${SHARED_CONDA_POOL_SERVER_VENV}"
+POOL_SERVER_PYTHON="${POOL_SERVER_PYTHON:-}"
+if [[ -n "${POOL_SERVER_PYTHON}" ]]; then
+    if ! pool_server_python_ok "${POOL_SERVER_PYTHON}"; then
+        echo "[ERROR] explicit POOL_SERVER_PYTHON lacks required worker dependencies: ${POOL_SERVER_PYTHON}" >&2
+        exit 1
     fi
-    POOL_SERVER_VENV="${POOL_SERVER_VENV:-${REPO_ROOT}/.venv}"
+else
+    python_candidates=(
+        "${POOL_SERVER_VENV:+${POOL_SERVER_VENV}/bin/python}"
+        "${SHARED_CONDA_POOL_SERVER_VENV}/bin/python"
+        "${REPO_ROOT}/.venv/bin/python"
+        "$(command -v python3 || command -v python)"
+    )
+    for candidate in "${python_candidates[@]}"; do
+        [[ -n "${candidate}" ]] || continue
+        if pool_server_python_ok "${candidate}"; then
+            POOL_SERVER_PYTHON="${candidate}"
+            break
+        fi
+        if [[ -x "${candidate}" ]]; then
+            log "  rejecting pool_server Python with missing/incompatible deps: ${candidate}"
+        fi
+    done
 fi
+
+if [[ -z "${POOL_SERVER_PYTHON}" ]]; then
+    echo "[ERROR] no compatible pool_server Python found." >&2
+    echo "        Required: Python >=3.12 with a deep-importable worker_cli and camel." >&2
+    echo "        Set POOL_SERVER_PYTHON or POOL_SERVER_VENV to a prepared environment." >&2
+    exit 1
+fi
+
+POOL_SERVER_VENV="${POOL_SERVER_VENV:-$(cd -- "$(dirname -- "${POOL_SERVER_PYTHON}")/.." &>/dev/null && pwd)}"
 
 if [ -f "${POOL_SERVER_VENV}/bin/activate" ]; then
     # shellcheck disable=SC1090
     source "${POOL_SERVER_VENV}/bin/activate"
 else
     export PATH="${POOL_SERVER_VENV}/bin:${PATH}"
-fi
-
-POOL_SERVER_PYTHON="${POOL_SERVER_PYTHON:-}"
-if [[ -z "${POOL_SERVER_PYTHON}" ]]; then
-    if [[ -x "${POOL_SERVER_VENV}/bin/python" ]]; then
-        POOL_SERVER_PYTHON="${POOL_SERVER_VENV}/bin/python"
-    else
-        POOL_SERVER_PYTHON="$(command -v python3 || command -v python)"
-    fi
 fi
 
 log "  pool_server python: ${POOL_SERVER_PYTHON}"
@@ -818,6 +851,7 @@ start_pool_server_child() {
       --port "${ENV_SERVER_PORT}" \
       --max-tasks "${WORKER_MAX_TASKS}" \
       --max-runs-per-task "${WORKER_MAX_RUNS_PER_TASK}" \
+      --max-total-runs "${WORKER_MAX_TOTAL_RUNS}" \
       --max-concurrent-closes "${WORKER_MAX_CONCURRENT_CLOSES}" \
       --output-root "${TBENCH_OUTPUT_ROOT}" &
   POOL_SERVER_PID=$!

@@ -29,8 +29,12 @@ from agentic_rl.environments.reward_rules import (
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_AGENTHARM_ROOT = (
-    "/mnt/shared-storage-user/puyuan/code/inspect_evals/src/inspect_evals/agentharm"
+_DEFAULT_AGENTHARM_ROOT = str(
+    Path(__file__).resolve().parents[3].parent
+    / "inspect_evals"
+    / "src"
+    / "inspect_evals"
+    / "agentharm"
 )
 
 _AGENTHARM_SYSTEM_PROMPT = (

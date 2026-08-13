@@ -390,3 +390,67 @@ def test_trajectory_store_exports_local_save_decision():
     from agentic_rl.rollout import trajectory_store
 
     assert callable(trajectory_store._trajectory_save_decision)
+
+
+def test_eval_protocol_summary_groups_samples_by_task_for_pass_at_k():
+    samples = [
+        DummySample(group_index=0, index=0, score=0.0, intrinsic=0.0, beta=0.0),
+        DummySample(group_index=0, index=1, score=1.0, intrinsic=0.0, beta=0.0),
+        DummySample(group_index=1, index=2, score=0.0, intrinsic=0.0, beta=0.0),
+        DummySample(group_index=1, index=3, score=0.0, intrinsic=0.0, beta=0.0),
+    ]
+    responses = ["inspect logs", "fix service", "read config", "read config"]
+    for index, (sample, response) in enumerate(zip(samples, responses, strict=True)):
+        sample.metadata.update(
+            {
+                "eval_prompt_index": index // 2,
+                "eval_sample_index": index % 2,
+                "eval_sampling_seed": 100 + index,
+                "task_name": str(700 + index // 2),
+            }
+        )
+        sample.response = response
+
+    summary, tasks = rollout_log._eval_protocol_summary(samples)
+
+    assert summary["eval/task_count"] == 2
+    assert summary["eval/k"] == 2
+    assert summary["pass_at_2"] == 0.5
+    assert summary["eval/reward_best_at_k"] == 0.5
+    assert tasks[0]["rewards"] == [0.0, 1.0]
+    assert tasks[0]["pass_at_k"] == 1.0
+    assert tasks[1]["response_unique_ratio"] == 0.5
+
+
+def test_eval_protocol_summary_deduplicates_turns_and_uses_raw_outcome():
+    samples = []
+    for sample_index in range(8):
+        for turn_idx in range(3):
+            sample = DummySample(
+                group_index=0,
+                index=len(samples),
+                score=1.0,
+                raw_score=0.0,
+                intrinsic=0.0,
+                beta=0.0,
+            )
+            sample.metadata.update(
+                {
+                    "eval_prompt_index": 0,
+                    "eval_sample_index": sample_index,
+                    "eval_sampling_seed": 200 + sample_index,
+                    "task_name": "705",
+                    "turn_idx": turn_idx,
+                    "uid": f"trajectory-{sample_index}",
+                }
+            )
+            sample.response = f"trajectory {sample_index} turn {turn_idx}"
+            samples.append(sample)
+
+    summary, tasks = rollout_log._eval_protocol_summary(samples)
+
+    assert summary["eval/task_count"] == 1
+    assert summary["eval/k"] == 8
+    assert summary["pass_at_8"] == 0.0
+    assert tasks[0]["k"] == 8
+    assert len(tasks[0]["responses"]) == 8

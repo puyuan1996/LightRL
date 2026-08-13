@@ -42,7 +42,7 @@ tools/world_model/run_world_model_seta_latent.sh
 
 ```bash
 WM_ENCODER=hf-policy \
-WM_HF_MODEL=/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B \
+WM_HF_MODEL=/path/to/Qwen3-8B \
 tools/world_model/run_world_model_seta_latent.sh
 ```
 

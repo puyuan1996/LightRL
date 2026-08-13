@@ -30,7 +30,7 @@ RUN mkdir -p /home/user/fonts /home/user/.config/fontconfig /app /usr/local/shar
 
 # Create a CustomFont by modifying the Ubuntu font's name metadata
 # This creates an actual font with the name "CustomFont"
-RUN python3 << 'PYEOF'
+COPY <<'PYEOF' /tmp/436-font-input
 from fontTools.ttLib import TTFont
 import os
 
@@ -54,6 +54,8 @@ for record in name_table.names:
 font.save("/home/user/fonts/CustomFont.ttf")
 font.close()
 PYEOF
+
+RUN python3 /tmp/436-font-input
 
 # Create a sample Python application that generates a PDF requiring specific fonts
 COPY <<'PYEOF' /app/generate_report.py

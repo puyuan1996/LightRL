@@ -69,8 +69,7 @@ RUN mkdir -p /tmp/downloads && \
 
 # Create a simple test program that checks if the accelerated library is installed
 # This test program searches the library paths from /etc/ld.so.conf.d/scicomp.conf
-RUN mkdir -p /usr/local/bin && \
-    cat > /usr/local/bin/scicomp_accel_test << 'TESTEOF'
+COPY <<'TESTEOF' /usr/local/bin/scicomp_accel_test
 #!/bin/bash
 # Test script to verify libscicomp_accel installation
 

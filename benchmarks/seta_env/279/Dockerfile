@@ -28,8 +28,9 @@ RUN apt-get update && apt-get install -y \
 RUN useradd -r -s /bin/false -d /nonexistent dataprocessor
 
 # Create the Python daemon application inline
-RUN mkdir -p /usr/local/bin && \
-    cat > /usr/local/bin/dataprocessor.py << 'EOFPY'
+RUN mkdir -p /usr/local/bin
+
+COPY <<'EOFPY' /usr/local/bin/dataprocessor.py
 #!/usr/bin/env python3
 """
 Simple data processor daemon that simulates processing work.

@@ -583,31 +583,34 @@ class MegatronTrainRayActor(TrainRayActor):
         log_perf_data(rollout_id, self.args)
 
     @timer
-    def save_model(self, rollout_id: int, force_sync: bool = False) -> None:
+    def save_model(self, rollout_id: int, force_sync: bool = False) -> bool:
         if self.args.debug_rollout_only:
-            return
+            return True
 
         # torch dist may trigger nccl communication during saving.
         if self.args.offload_train:
             reload_process_groups()
+        try:
+            if self.args.async_save:
+                from megatron.training.async_utils import maybe_finalize_async_save
 
-        if self.args.async_save:
-            from megatron.training.async_utils import maybe_finalize_async_save
+                maybe_finalize_async_save(blocking=True)
 
-            maybe_finalize_async_save(blocking=True)
+            saved = save(rollout_id, self.model, self.optimizer, self.opt_param_scheduler)
+            if not saved:
+                return False
 
-        save(rollout_id, self.model, self.optimizer, self.opt_param_scheduler)
+            if force_sync and self.args.async_save:
+                maybe_finalize_async_save(blocking=True)
 
-        if force_sync and self.args.async_save:
-            maybe_finalize_async_save(blocking=True)
+            if self.args.save_hf is not None and self.role == "actor":
+                from slime.backends.megatron_utils.model import save_hf_model
 
-        if self.args.save_hf is not None and self.role == "actor":
-            from slime.backends.megatron_utils.model import save_hf_model
-
-            save_hf_model(self.args, rollout_id, self.model)
-
-        if self.args.offload_train:
-            destroy_process_groups()
+                save_hf_model(self.args, rollout_id, self.model)
+            return True
+        finally:
+            if self.args.offload_train:
+                destroy_process_groups()
 
     @timer
     def update_weights(self) -> None:

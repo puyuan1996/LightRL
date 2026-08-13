@@ -1,18 +1,13 @@
 #!/usr/bin/env bash
 # Complete 4-GPU recipe: Qwen3-8B + SETA + Slime DAPO.
-# Run this inside the GPU rjob. The Docker worker stays on pu-dev-2.
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)"
 cd "${REPO_ROOT}"
 
 # Infrastructure and topology. Override any value through the environment.
-DEFAULT_WORKER_URLS="http://100.98.75.44:18081"
-if [[ -n "${WORKER_URLS:-}" && "${WORKER_URLS}" != "${DEFAULT_WORKER_URLS}" ]]; then
-  printf '[seta-dapo] WORKER_URLS overrides the pu-dev-2 default: %s (default: %s)\n' \
-    "${WORKER_URLS}" "${DEFAULT_WORKER_URLS}"
-fi
-export WORKER_URLS="${WORKER_URLS:-${DEFAULT_WORKER_URLS}}"
+: "${WORKER_URLS:?set WORKER_URLS to the comma-separated SETA worker endpoint(s)}"
+export WORKER_URLS
 export NUM_GPUS="${NUM_GPUS:-4}"
 export ACTOR_GPUS="${ACTOR_GPUS:-2}"
 export ROLLOUT_GPUS="${ROLLOUT_GPUS:-2}"
@@ -22,8 +17,8 @@ export ROLLOUT_NUM_GPUS_PER_ENGINE="${ROLLOUT_NUM_GPUS_PER_ENGINE:-2}"
 # Model, environment and algorithm recipe.
 export MODEL_TAG="${MODEL_TAG:-qwen3-8b}"
 export MODEL_ARGS_FILE="${MODEL_ARGS_FILE:-qwen3-8B}"
-export HF_CKPT="${HF_CKPT:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B/}"
-export REF_LOAD="${REF_LOAD:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B_torch_dist/}"
+export HF_CKPT="${HF_CKPT:-${REPO_ROOT}/models/Qwen3-8B}"
+export REF_LOAD="${REF_LOAD:-${REPO_ROOT}/models/Qwen3-8B_torch_dist}"
 export CUSTOM_CONFIG_PATH="${CUSTOM_CONFIG_PATH:-${REPO_ROOT}/configs/rollout/rollout_qwen3_think.yaml}"
 export DATASET="${DATASET:-seta}"
 export ALGO="${ALGO:-dapo}"
@@ -49,10 +44,14 @@ fi
 die() { printf '[seta-dapo] ERROR: %s\n' "$*" >&2; exit 1; }
 
 if [[ "${DRY_RUN}" != "1" ]]; then
-  command -v nvidia-smi >/dev/null || die "nvidia-smi is required inside the rjob"
+  command -v nvidia-smi >/dev/null || die "nvidia-smi is required inside the GPU job"
   gpu_count="$(nvidia-smi -L | sed -n '/^GPU /p' | wc -l)"
-  [[ "${gpu_count}" == "${NUM_GPUS}" || "${ALLOW_GPU_COUNT_MISMATCH:-0}" == "1" ]] \
-    || die "expected ${NUM_GPUS} visible GPUs, found ${gpu_count}"
+  # NUM_GPUS is the Ray resource budget, not a claim that the container must
+  # expose exactly that many physical devices. Dedicated 8-GPU jobs may run
+  # this 4-GPU recipe; reject only true under-allocation.  Ray is started with
+  # --num-gpus=${NUM_GPUS} and therefore cannot schedule onto the extra GPUs.
+  [[ "${gpu_count}" -ge "${NUM_GPUS}" || "${ALLOW_GPU_COUNT_MISMATCH:-0}" == "1" ]] \
+    || die "requires at least ${NUM_GPUS} visible GPUs, found ${gpu_count}"
   command -v curl >/dev/null || die "curl is required for the worker health check"
   curl --noproxy '*' --fail --silent --show-error --max-time 10 \
     "${WORKER_URLS%%,*}/healthz" >/dev/null \

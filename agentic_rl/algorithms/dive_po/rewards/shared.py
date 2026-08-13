@@ -207,6 +207,26 @@ def _sample_traj_key(sample: Any, sample_idx: int) -> tuple[int, int]:
     return _sample_group_key(sample), traj_idx
 
 
+def _sample_is_trainable(sample: Any) -> bool:
+    """Return whether a sample can contribute gradient to the actor update.
+
+    Failed infrastructure samples remain in the rollout batch for observability,
+    but Slime later replaces their loss mask with zeros. They must therefore not
+    affect the mean/std used to normalize rewards for trainable samples.
+    """
+    if bool(getattr(sample, "remove_sample", False)):
+        return False
+    mask = getattr(sample, "loss_mask", None)
+    if mask is None:
+        return True
+    try:
+        return any(float(value) > 0.0 for value in mask)
+    except (TypeError, ValueError):
+        # Preserve historical behavior for exotic/lazy mask containers; the
+        # Slime conversion path performs the definitive validation later.
+        return True
+
+
 def _group_normalize_sample_values(
     args: Any,
     samples: list[Any],
@@ -220,7 +240,7 @@ def _group_normalize_sample_values(
         for i, sample in enumerate(samples):
             key = _sample_traj_key(sample, i)
             key_by_sample.append(key)
-            if key not in value_by_key:
+            if _sample_is_trainable(sample) and key not in value_by_key:
                 value_by_key[key] = float(values[i])
                 group_to_keys.setdefault(key[0], []).append(key)
 
@@ -229,13 +249,14 @@ def _group_normalize_sample_values(
             vals = normalize_values([value_by_key[k] for k in keys], use_std)
             for j, key in enumerate(keys):
                 normalized_by_key[key] = float(vals[j])
-        return [normalized_by_key[key] for key in key_by_sample]
+        return [normalized_by_key.get(key, 0.0) for key in key_by_sample]
 
     group_to_indices: dict[int, list[int]] = {}
     for i, sample in enumerate(samples):
-        group_to_indices.setdefault(_sample_group_key(sample), []).append(i)
+        if _sample_is_trainable(sample):
+            group_to_indices.setdefault(_sample_group_key(sample), []).append(i)
 
-    normalized = list(values)
+    normalized = [0.0 for _ in values]
     for idxs in group_to_indices.values():
         vals = normalize_values([values[i] for i in idxs], use_std)
         for j, sample_idx in enumerate(idxs):

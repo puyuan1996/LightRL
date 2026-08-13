@@ -43,8 +43,9 @@ RUN echo "# /etc/security/limits.conf - BROKEN CONFIGURATION" > /etc/security/li
 # We'll leave this configured correctly to focus the task on limits.conf syntax
 
 # Create a test script that attempts to open many file descriptors
-RUN mkdir -p /home/appuser && \
-    cat > /home/appuser/test_file_limits.sh << 'SCRIPT'
+RUN mkdir -p /home/appuser
+
+COPY <<'SCRIPT' /home/appuser/test_file_limits.sh
 #!/bin/bash
 # Test script to verify file descriptor limits
 # This script verifies that the ulimit settings are correct
