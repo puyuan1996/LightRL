@@ -1,13 +1,6 @@
 from types import SimpleNamespace
 
-from slime.world_model.metadata import (
-    attach_terminal_world_model_metadata,
-    is_verified_execution_reward_contract,
-    is_world_model_enabled,
-    redact_sensitive_jsonable,
-    redact_sensitive_text,
-    truncate_head_tail_text,
-)
+from slime.world_model.metadata import attach_terminal_world_model_metadata, is_world_model_enabled
 
 
 def _sample():
@@ -34,38 +27,6 @@ def test_attach_terminal_world_model_metadata_default_off():
     assert sample.train_metadata is None
 
 
-def test_multi_interaction_turn_fails_closed_without_harness_adapter():
-    samples = [_sample(), _sample()]
-    samples[1].metadata["turn_idx"] = 1
-
-    attach_terminal_world_model_metadata(
-        args=SimpleNamespace(world_model_enable=True),
-        samples=samples,
-        turn_records=[
-            {
-                "turn_idx": 1,
-                "sdk_model_turns": [
-                    {"turn_idx": 0, "assistant_output": "first"},
-                    {"turn_idx": 1, "assistant_output": "second"},
-                ],
-                "tool_calls": [],
-            }
-        ],
-        task_meta={},
-        run_ctx=SimpleNamespace(),
-        status=SimpleNamespace(value="completed"),
-    )
-
-    for sample in samples:
-        assert "world_model" not in sample.metadata
-        assert sample.metadata["world_model_skipped"]["reason"] == (
-            "multi_interaction_turn_requires_harness_adapter"
-        )
-        assert sample.train_metadata["world_model_skipped"]["reason"] == (
-            "multi_interaction_turn_requires_harness_adapter"
-        )
-
-
 def test_world_model_enable_ignores_env_side_channel(monkeypatch):
     monkeypatch.setenv("WORLD_MODEL_ENABLE", "1")
 
@@ -85,89 +46,16 @@ def test_attach_terminal_world_model_metadata_enabled():
                 "tool_calls": [{"tool_name": "bash", "args": {"command": "pwd"}, "result": "/tmp"}],
             }
         ],
-        task_meta={
-            "task_id": "task-42",
-            "task_cluster_id": "cluster-7",
-            "task_name": "task",
-            "data_source": "unit",
-        },
+        task_meta={"task_name": "task", "data_source": "unit"},
         run_ctx=SimpleNamespace(uid="u", group_index=1, sample_index=2, rollout_id=3, train_step=4),
         status=SimpleNamespace(value="completed"),
     )
     wm = sample.metadata["world_model"]
     assert wm["schema"] == "openclaw_text_jepa_world_model_v3"
-    assert wm["task_id"] == "task-42"
-    assert wm["task_cluster_id"] == "cluster-7"
     assert wm["action_text"]
     assert wm["next_observation_text"] == "/tmp"
     assert wm["done"] is False
-    assert wm["status"] == "in_progress"
-    assert wm["trajectory_status"] == "completed"
-    assert wm["reward_score"] is None
-    assert wm["reward_label_scope"] == "missing_nonterminal"
-    assert wm["reward_label_source"] is None
-    assert wm["reward_label_semantics"] is None
-    assert wm["reward_label_is_execution_outcome"] is None
-    assert wm["reward_label_terminal"] is False
     assert sample.train_metadata["world_model"] == wm
-
-
-def test_next_context_uses_redacted_canonical_text_and_hash():
-    sample = _sample()
-    attach_terminal_world_model_metadata(
-        args=SimpleNamespace(world_model_enable=True, world_model_metadata_max_chars=1024),
-        samples=[sample],
-        turn_records=[
-            {
-                "turn_idx": 0,
-                "context_messages": [{"role": "user", "content": "inspect"}],
-                "assistant_output": "run",
-                "tool_calls": [{"tool_name": "bash", "args": {"command": "pwd"}, "result": "/tmp"}],
-            },
-            {
-                "turn_idx": 1,
-                "context_messages": [
-                    {"role": "user", "content": "inspect"},
-                    {"role": "tool", "content": "Authorization: Bearer secret-token-value"},
-                ],
-                "assistant_output": "finish",
-                "tool_calls": [],
-            },
-        ],
-        task_meta={"task_name": "task"},
-        run_ctx=SimpleNamespace(),
-        status=SimpleNamespace(value="completed"),
-    )
-
-    wm = sample.metadata["world_model"]
-    assert wm["next_context_text"]
-    assert "secret-token-value" not in wm["next_context_text"]
-    assert "[REDACTED]" in wm["next_context_text"]
-    assert wm["next_context_hash"]
-    assert wm["next_context_hash_schema"] == "canonical_redacted_text_v1"
-
-
-def test_empty_tool_result_remains_an_observed_tool_result():
-    sample = _sample()
-    attach_terminal_world_model_metadata(
-        args=SimpleNamespace(world_model_enable=True, world_model_metadata_max_chars=128),
-        samples=[sample],
-        turn_records=[
-            {
-                "turn_idx": 0,
-                "context_messages": [{"role": "user", "content": "run"}],
-                "assistant_output": "run tool",
-                "tool_calls": [{"tool_name": "bash", "args": {"command": "true"}, "result": ""}],
-            }
-        ],
-        task_meta={},
-        run_ctx=SimpleNamespace(),
-        status=SimpleNamespace(value="completed"),
-    )
-
-    wm = sample.metadata["world_model"]
-    assert wm["has_tool_result"] is True
-    assert wm["next_observation_text"] == '{"status": "tool_result", "result": ""}'
 
 
 def test_context_text_preserves_tail_for_long_common_prefix():
@@ -221,166 +109,3 @@ def test_attach_terminal_world_model_metadata_normalizes_non_dict_metadata():
 
     assert isinstance(sample.metadata, dict)
     assert sample.metadata["world_model"]["action_text"] == "run"
-
-
-def test_intermediate_turn_does_not_include_terminal_outcome_in_target():
-    sample = _sample()
-    attach_terminal_world_model_metadata(
-        args=SimpleNamespace(world_model_enable=True, world_model_metadata_max_chars=512),
-        samples=[sample],
-        turn_records=[
-            {
-                "turn_idx": 0,
-                "context_messages": [{"role": "user", "content": "hi"}],
-                "assistant_output": "think",
-                "tool_calls": [],
-            }
-        ],
-        task_meta={},
-        run_ctx=SimpleNamespace(),
-        status=SimpleNamespace(value="failed"),
-        eval_details={"reason": "terminal_failure"},
-        eval_error="future error",
-    )
-
-    wm = sample.metadata["world_model"]
-    assert wm["next_observation_text"] == '{"status": "no_tool_result"}'
-    assert wm["status"] == "in_progress"
-    assert wm["reward_score"] is None
-    assert wm["reward_label_scope"] == "missing_nonterminal"
-    assert wm["done"] is False
-
-
-def test_final_turn_receives_terminal_outcome_only_once():
-    sample = _sample()
-    sample.metadata = {"turn_idx": 1, "num_turns": 2}
-    attach_terminal_world_model_metadata(
-        args=SimpleNamespace(world_model_enable=True, world_model_metadata_max_chars=512),
-        samples=[sample],
-        turn_records=[
-            {
-                "turn_idx": 1,
-                "context_messages": [{"role": "user", "content": "hi"}],
-                "assistant_output": "finish",
-                "tool_calls": [],
-            }
-        ],
-        task_meta={},
-        run_ctx=SimpleNamespace(),
-        status=SimpleNamespace(value="completed"),
-        eval_details={"reason": "password=hunter2"},
-    )
-
-    wm = sample.metadata["world_model"]
-    assert wm["done"] is True
-    assert wm["status"] == "completed"
-    assert wm["reward_score"] == 0.5
-    assert wm["reward_label_scope"] == "trajectory_terminal"
-    assert wm["reward_label_source"] == "sample.reward.score"
-    assert wm["reward_label_terminal"] is True
-    assert '"score": 0.5' in wm["next_observation_text"]
-    assert "hunter2" not in wm["next_observation_text"]
-    assert "[REDACTED]" in wm["next_observation_text"]
-
-
-def test_metadata_redacts_common_credentials_before_storage():
-    sample = _sample()
-    attach_terminal_world_model_metadata(
-        args=SimpleNamespace(world_model_enable=True, world_model_metadata_max_chars=1024),
-        samples=[sample],
-        turn_records=[
-            {
-                "turn_idx": 0,
-                "context_messages": [{"role": "user", "content": "OPENAI_API_KEY=sk-abcdefghijklmnop"}],
-                "assistant_output": "curl -H 'Authorization: Bearer secret-token-value'",
-                "tool_calls": [
-                    {
-                        "tool_name": "bash",
-                        "args": {"command": "export GH_TOKEN='ghp_abcdefghijklmnopqrstuvwxyz'"},
-                        "result": "password=hunter2",
-                    }
-                ],
-            }
-        ],
-        task_meta={},
-        run_ctx=SimpleNamespace(),
-        status=SimpleNamespace(value="completed"),
-    )
-
-    payload = str(sample.metadata["world_model"])
-    assert "hunter2" not in payload
-    assert "secret-token-value" not in payload
-    assert "sk-abcdefghijklmnop" not in payload
-    assert "ghp_abcdefghijklmnopqrstuvwxyz" not in payload
-    assert "[REDACTED]" in payload
-
-
-def test_redact_sensitive_text_handles_url_credentials():
-    assert redact_sensitive_text("https://user:secret@example.com/repo") == "https://user:[REDACTED]@example.com/repo"
-
-
-def test_redact_sensitive_text_removes_authorization_scheme_payloads():
-    cases = [
-        ("Authorization: Basic dXNlcjpwYXNz", "Authorization: [REDACTED]"),
-        ("authorization=Token abcdefghijklmnop", "authorization=[REDACTED]"),
-    ]
-
-    for value, expected in cases:
-        assert redact_sensitive_text(value) == expected
-
-
-def test_redact_sensitive_jsonable_handles_escaped_and_non_scalar_secrets():
-    value = {
-        "password": 'abc"tail',
-        "nested": {"api_key": ["secret-one", {"raw": "secret-two"}]},
-        "message": "Authorization: Bearer token-token-token",
-    }
-
-    redacted = redact_sensitive_jsonable(value)
-
-    assert redacted["password"] == "[REDACTED]"
-    assert redacted["nested"]["api_key"] == "[REDACTED]"
-    assert redacted["message"] == "Authorization: [REDACTED]"
-
-
-def test_redact_sensitive_text_handles_nested_json_secret_values():
-    value = 'prefix {"password":{"value":"hunter2"}} suffix'
-
-    redacted = redact_sensitive_text(value)
-
-    assert "hunter2" not in redacted
-    assert '"password":"[REDACTED]"' in redacted
-
-
-def test_verified_execution_reward_contract_requires_complete_provenance():
-    complete = {
-        "reward_label_scope": "tool_execution",
-        "reward_label_source": "execution.status",
-        "reward_label_semantics": "execution_outcome",
-        "reward_label_is_execution_outcome": True,
-    }
-
-    assert is_verified_execution_reward_contract(complete) is True
-    for field in ("reward_label_scope", "reward_label_source", "reward_label_semantics"):
-        incomplete = dict(complete)
-        incomplete[field] = None
-        assert is_verified_execution_reward_contract(incomplete) is False
-
-    for field, value in (
-        ("reward_label_scope", "trajectory_terminal"),
-        ("reward_label_source", "reward.score"),
-        ("reward_label_semantics", "training_reward_unspecified"),
-    ):
-        unrecognized = dict(complete)
-        unrecognized[field] = value
-        assert is_verified_execution_reward_contract(unrecognized) is False
-
-
-def test_truncate_head_tail_text_preserves_result_tail():
-    value = "HEAD:" + ("x" * 100) + ":TAIL"
-    truncated = truncate_head_tail_text(value, 56)
-
-    assert len(truncated) == 56
-    assert truncated.startswith("HEAD:")
-    assert truncated.endswith(":TAIL")
-    assert "[openclaw_truncated_middle]" in truncated

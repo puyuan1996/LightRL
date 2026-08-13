@@ -152,13 +152,13 @@ PR #19 与 PR #21 的历史开发线不完全一致。本地集成分支以 `d54
 LightRL `main` 已包含早期 `slime.world_model` 和 `tools/world_model` 目录。本次适配
 补齐以下内容：
 
-- 最新 `world_model` 数据、模型、训练、评测与 audit 模块；
+- `world_model` 数据、模型、训练、严格评测与 Direct 对照模块；
 - `agentic_rl/algorithms/lwm` 的 rollout collection 与 replay 公共接口；
 - AgenticRL rollout 的 default-off metadata 接口；
 - Slime `RolloutDataSourceWithBuffer` 的独立 world-model replay；
 - `tools/world_model/run_world_model_seta_latent.sh` 通用入口与
   `examples/training/world_model` 示例脚本；
-- 与上述模块对应的 CPU 单元测试；
+- 一组覆盖 default-off、redaction、replay provenance 与 JEPA forward 的公共合同测试；
 - LightRL 路径、文档导航和历史 artifact compatibility。
 
 历史 schema 继续使用 `openclaw_*` 名称，以便直接读取已有 trajectory、cache、replay
@@ -175,9 +175,9 @@ LightRL `main` 已包含早期 `slime.world_model` 和 `tools/world_model` 目�
 
 | 检查 | 结果 |
 | --- | --- |
-| `slime/tests/world_model` | `240 passed` |
-| `tests/agentic_rl/test_lwm_public_api.py` | `2 passed` |
-| 通用训练脚本 | 8 条 transition 的 hash smoke 完成 |
+| LightRL 原有兼容测试 + LWM 公共合同测试 | `33 passed` |
+| `test_loss_hook.py` | 开发机缺少 `ray`，未收集；文件与实现均保持 LightRL 基线 |
+| 通用训练脚本 | 32 条 transition 的 hash smoke 完成 |
 | 产物 | records、hidden cache、checkpoint、predictions、summary 均生成 |
 | 静态检查 | `py_compile`、`bash -n`、`git diff --check` 通过 |
 | rollout replay runtime | 开发机环境缺少 `ray`，待完整 LightRL 训练镜像验证 |
@@ -215,14 +215,49 @@ flowchart TD
 
 | 缺失项 | 影响 |
 | --- | --- |
-| verified atomic `status/error_type/exit_code` | strict T2 accuracy 无法计算 |
-| `task_cluster_id` 与独立 test | external generalization 无法确认 |
-| same-snapshot alternative actions | counterfactual T3 无法确认 |
+| verified atomic `status/error_type/exit_code` | 完整 T2 rows 实测为 `0`，strict T2 accuracy 无法计算 |
+| `task_cluster_id` 与独立 test | task-cluster labels 实测为 `0`，external generalization 无法确认 |
+| same-snapshot alternative actions | branched T3 rows 与 candidate sets 实测均为 `0`，counterfactual T3 无法确认 |
+| verified execution reward | verified execution rewards 实测为 `0`，value head 只能作为诊断 |
 | frozen environment snapshot / restorable worker | online reranking 的执行公平性不足 |
 
 ## 6. 实验结果
 
-### 6.1 Replay 与 offline loss
+### 6.1 实验时间线
+
+下表覆盖 OpenClaw-RL 历史 PR、offline replay 重建以及后续 next-belief、result-transfer
+和 anti-collapse 实验。单次开发结果与 confirmatory 结果分开记录。
+
+| 阶段 | 数据与设置 | 结果 | 结论 |
+| --- | --- | --- | --- |
+| 早期 Stage-A / P2 | full `2,878`、clean `472`、tool-only `2,591`；observational candidate set | WM-random 差值 `+0.3058`；heldout mean/min `0.2908/0.2826` | 验证评测管线可运行；candidate 来自观测数据且缺少 same-snapshot，未作为 confirmatory 证据 |
+| Replay 重建 | `892` trajectories，`4,682` transitions，task-disjoint `3,736/946` | replay 与 no-replay loss 完全一致；三 seed final val loss `0.45085 ± 0.00863` | replay persistence 和 offline trainer 闭环通过 |
+| Feedback 2×2 factorial | MLP/AdaLN × contrast on/off | 最佳 feedback retrieval MRR `0.1265`；shuffled top-1 `0.00106`；tool accuracy `0.7472`，majority `0.7442`；macro-F1 `0.5420`，raw Qwen `0.6277` | feedback retrieval 有训练信号；tool 增益很小，MLP 高于 AdaLN |
+| Full-context next-state | `4,682` records，完整 next context | predicted MRR 约 `0.00786`，state identity `0.102`，raw Qwen `0.212`；alignment 接近正交基线 `0.015625` | feedback-to-next-context bridge objective 未形成有效 next-state geometry |
+| `belief_view_v1` L0 | 四 seed，受控 state view | mean loss `1.1622→0.4348`；predicted `0.1371`，identity `0.1506`，shuffle `0.1126`；gate `0/4` | 存在 action signal，状态连续性仍是主要 shortcut |
+| N1b input ablation | observed/state-only/action-only | MRR `0.1350/0.1378/0.0420`，identity `0.1518` | state-only 略高于 observed；seed 11 失败后未扩展 seed |
+| Strongest baseline / residual | raw Direct 与 JEPA residual | Direct observed/state-only/zero `0.0493/0.0492/0.0495`；residual `0.1530`，identity `0.1615`；相对 learned state-only `+0.0152` | residual 保留 action signal，预注册 `0.02` margin 未通过 |
+| Full result-only falsification | 全量 observational result target | JEPA observed/action-only/MLP/Direct `0.1324/0.1597/0.1609/0.0755`；rank retention `0.349/0.426` | action prior、multi-call 对齐和 prediction rank contraction 同时存在 |
+| Fixed-target hierarchical | `result_only_v1`，grouped heldout | JEPA observed MRR `0.03084`；Direct `0.08272`；action-only `0.04522` | fixed target 缓解 target 漂移；observed JEPA 未超过 Direct 或 action prior |
+| Pred-SIGReg | 对 predicted latent 增加 SIGReg | observed `0.05542`，shuffle `0.04349`，action-only/MLP/Direct `0.06389/0.08209/0.08272`；effective-rank/variance retention `1.116/5.318` | collapse 修复；预注册 shuffle margin `0.02` 未通过 |
+| Action fusion | direct/residual × contrast；winner `direct,c=0.2` | observed `0.09196`，shuffle `0.04823`，action-only/MLP/Direct/Direct-action `0.10168/0.11033/0.09654/0.11883` | action sensitivity 提高；contrast 相对 no-contrast 仅 `+0.00078`，完整 gate 未通过 |
+| Full-step / complete-goal | 四 arm 与 anti-collapse screen | full-step 各 arm effective-rank 均退化；complete-goal 修复 collapse，仍未达到 shuffle `+0.02` | geometry 修复未转化为稳定 retrieval 或 tool gain |
+| Single-call feedback | `678` single-call records | observed MRR `0.24563`，shuffle `0.21158`，action-only `0.32628`，Direct `0.18726` | 降低 action/result 对齐歧义后检索改善；action prior 仍占主导 |
+| Single-call next-belief | `639` has-next records，seed 11 | JEPA `0.26031`，Direct `0.16009`，state-only `0.26216`，shuffle `0.24534` | JEPA 相对 Direct 有增益；action-conditioned 证据不足 |
+| Grouped 8-fold | 锁定配置，互斥 task folds | JEPA `0.31502`，Direct `0.20508`，`8/8` 为正，CI95 `[0.07907,0.14411]` | 当前最强 confirmatory 结果：JEPA next-belief representation gain 成立 |
+| Result transfer | 每 fold 只用 train indices 拟合低容量 head | JEPA `0.12464`，Direct `0.26516`，差值 `-0.14052` | next-belief latent 未带来 observed result prediction 增益 |
+| Dual-target LoRA | next-state + `0.3 × feedback`，两 seed | result MRR 相对 next-only `+0.06791`；next-state MRR `-0.07200`；仍低于 Direct | auxiliary feedback 提供局部增益，同时存在目标权衡和 collapse |
+| Queue / best checkpoint | cross-microbatch queue，paired configured/unconfigured | seed 11 result MRR `0.09105/0.07116`；next-state `-0.04457`；seed 13 提前停止 | 单 seed configured gain 为正；完整 paired gate 未形成 |
+| Recovery anti-collapse | seed 11/13，configured/unconfigured | 尚无 `aggregate_summary.json` 或 `done.txt` | 当前无可报告研究结论 |
+
+工程运行记录与模型结果分开统计。L0 首次启动因 Bash 变量展开终止；result-only
+provenance gate 曾发现 compact JSON 二次 redaction；hierarchical 首次启动时 regex
+redaction 破坏转义 JSON，随后改为结构化解析。两轮 GPU utilization 失败分别来自错峰
+启动窗口和 CPU cache serialization 被计入 critical phase。8 月 7 日 full pipeline 在训练前
+因 CPU checkpoint tensor 与 CUDA state 比较触发 device mismatch。Python 路径、缓存前置
+条件和子进程 barrier 导致的 launcher 失败均不计入模型结果。
+
+### 6.2 Replay 与 offline loss
 
 4,682 条 transition 按 `task_id` 拆分为 `3,736/946` train/validation。三 seed 的
 replay AdaLN 结果如下：
@@ -237,7 +272,7 @@ replay AdaLN 结果如下：
 顺序下，replay 与 no-replay 的 best/final loss 差值均为 `0.0`，并且无 eviction。
 该结果确认 replay persistence 未改变训练数据。
 
-### 6.2 Full-data next-state 诊断
+### 6.3 Full-data next-state 诊断
 
 早期 4,682-record next-state 评测中，AdaLN predicted MRR 约 `0.00786`，raw-state
 MRR 约 `0.21200`。loss 收敛没有转化为可用 retrieval。该结果推动了三项修改：
@@ -246,7 +281,7 @@ MRR 约 `0.21200`。loss 收敛没有转化为可用 retrieval。该结果推动
 2. 筛选 action/result 对齐清楚的 single-call transition；
 3. 将 Direct、state-only、action-only 和 shuffled action 设为固定对照。
 
-### 6.3 Single-call next-belief screen
+### 6.4 Single-call next-belief screen
 
 639 条 `has_next=true` transition 的 seed-11 screen：
 
@@ -262,7 +297,7 @@ MRR 约 `0.21200`。loss 收敛没有转化为可用 retrieval。该结果推动
 JEPA 相对 Direct 增益为 `+0.10021`。observed 与 state-only 接近，shuffled-action
 增益为 `+0.01497`，因此单 seed 结果还不能确认稳定的 action-conditioned dynamics。
 
-### 6.4 Grouped 8-fold JEPA representation gain
+### 6.5 Grouped 8-fold JEPA representation gain
 
 锁定 `belief_view_v1 + AdaLN direct + frozen_random_orthogonal_v1 + SIGReg=0.03`，
 在 8 个互斥 `task_id` folds 上评测：
@@ -287,7 +322,7 @@ JEPA 相对 Direct 增益为 `+0.10021`。observed 与 state-only 接近，shuff
 该实验完成当前最重要的阶段目标：JEPA latent 对 next-belief retrieval 具有稳定增益。
 AdaLN 相对 MLP 的差值较小，tool macro-F1 的 CI95 跨 0，这两项仍为诊断结果。
 
-### 6.5 Observational result transfer
+### 6.6 Observational result transfer
 
 每 fold 只使用 source checkpoint 的 train indices 拟合低容量 result head，并在对应
 heldout fold 评测：
@@ -304,7 +339,7 @@ JEPA 相对 Direct 为 `-0.14052`，`0/8` folds 为正，CI95
 `[-0.17340, -0.10510]`。result head validation loss 在 `8/8` folds 下降，训练链路
 有效；当前 next-belief geometry 对 observed result 的区分信息不足。
 
-### 6.6 Dual-target LoRA
+### 6.7 Dual-target LoRA
 
 在 next-state objective 上增加 `0.3 * feedback_aux_loss`，Qwen3-8B student 使用
 LoRA，target backbone 冻结。两个 seed 的 6 小时训练均完成：
@@ -320,7 +355,7 @@ feedback auxiliary objective 改善当前 split 上的 observational result retr
 该配置仍低于 Direct，同时出现 next-state regression、低 predicted-latent variance
 retention 和早期最佳 validation epoch。latent 的 result 表征机制与跨数据稳定性仍需验证。
 
-### 6.7 Queue 与 best-checkpoint 修订
+### 6.8 Queue 与 best-checkpoint 修订
 
 6 小时实验使用 `batch_size=1`，SIGReg 和 batch 内 action shuffle 缺少有效样本。
 后续实现加入 detached cross-microbatch queue 和 `best_validation` checkpoint。
@@ -331,17 +366,17 @@ configured arm 在约 `5.45` 小时停止，原因未查明，完整 paired gate
 三个已完成 arm 的 predicted-latent variance retention 为约 `0.09-0.10`，collapse
 诊断未通过。
 
-### 6.8 Recovery anti-collapse 实验（运行中）
+### 6.9 Recovery anti-collapse 实验（无聚合结果）
 
-2026-08-13 启动了新一轮 4-GPU paired recovery 实验。截止本文更新时，preflight
-和第一阶段 barrier 已通过，以下四个 arm 仍在运行：
+2026-08-13 启动了新一轮 4-GPU paired recovery 实验。文档复核时仍未发现
+`aggregate_summary.json` 或 `done.txt`，以下四个 arm 没有可用聚合结果：
 
 | seed | configured | unconfigured |
 | --- | --- | --- |
-| 11 | `sigreg300`，运行中 | 对照，运行中 |
-| 13 | `exact`，运行中 | 对照，运行中 |
+| 11 | `sigreg300`，状态记录未完成 | 对照，状态记录未完成 |
+| 13 | `exact`，状态记录未完成 | 对照，状态记录未完成 |
 
-当前尚未生成 `aggregate_summary.json` 或 `done.txt`，因此本轮实验不计入阶段结论。
+本轮实验不计入阶段结论。停止原因未查明。
 
 ## 7. 证据状态
 

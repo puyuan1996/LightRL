@@ -6,7 +6,7 @@
 - 假设：在 LightRL 当前 package 边界内，world model 可以保持 default-off，通过 `agentic_rl.rollout` 生成 metadata，通过 Slime data source 保存独立 replay，并复用原 offline trainer。
 - 修改内容：迁入 latest world-model modules/tests；增加 LightRL rollout metadata 接口、独立 replay adapter 和通用训练脚本；历史 `openclaw_*` schema 保留用于 artifact compatibility。
 - 成功现象：240 项 world-model CPU tests 通过；8 条 transition 的 script-level hash smoke 完成，输出 `records.jsonl`、cache、checkpoint、predictions 与 `run_summary.json`；迁移文件通过 `py_compile`、`bash -n` 和 `git diff --check`。
-- 失败现象：开发机系统 Python 存在 NumPy/Torch ABI 不兼容且缺少 `transformers`；测试改用 `/root/miniconda3/bin/python`。该环境缺少 `ray`，因此未运行 Slime data-source runtime test。
+- 失败现象：开发机系统 Python 存在 NumPy/Torch ABI 不兼容且缺少 `transformers`；测试改用可导入完整依赖的解释器。该环境缺少 `ray`，因此未运行 Slime data-source runtime test。
 - 结论：offline JEPA 路径与通用脚本在 LightRL 中可运行。rollout replay 接入已完成静态检查，仍需在完整 LightRL 训练镜像执行一轮 default-off/default-on smoke。
 
 ## 2026-08-13：阶段结果复核
@@ -27,3 +27,12 @@
 - 成功现象：world-model 与 public API 共 `242 passed`；四个示例脚本通过 `bash -n`；metadata smoke dry-run 未出现旧参数；replay dry-run 的最终 `train_async.py` 命令包含四个 collection 参数并启用 checkpoint 保存。offline trainer 的 hash smoke 已在上一轮迁移验证完成。
 - 失败现象：暂无。
 - 结论：LightRL 已具备稳定的 LWM 算法入口、offline 示例和 rollout replay collection 示例。online auxiliary policy loss 仍未接入训练主路径。
+
+## 2026-08-13：PR 范围精简与结果复核
+
+- Motivation：迁移 PR 需要保留可复现的 offline JEPA、Direct 对照和 default-off replay collection，减少历史单次实验工具与大规模内部测试带来的审查成本。
+- 实验假设：通用训练主链只依赖 metadata/replay、数据 view、hidden encoder、模型、trainer、严格 eval 与 offline diagnostics；数据重建、分片 cache、audit 和 result-transfer 单次入口可以从迁移 PR 移除。
+- 修改内容：移除历史 audit、dataset rebuild、cache shard/subset 和 result-transfer 工具；恢复未接入 LightRL 主路径的旧 probe/loss 辅助文件；测试收敛为 default-off、redaction、replay digest 和 JEPA forward 公共合同；阶段文档补充从早期 Stage-A 到 anti-collapse recovery 的完整实验时间线。
+- 成功现象：LightRL 原有兼容测试与新增 LWM 公共合同测试共 `33 passed`；32 条真实 SETA transition 的 hash smoke 完成并生成 records、cache、checkpoint、predictions 和 summary；`py_compile`、`bash -n` 与 `git diff --check` 通过。
+- 失败现象：recovery anti-collapse 实验没有聚合产物，停止原因未查明。
+- 结论：PR 只提交通用运行路径和复现实验所需代码；历史负结果保留在阶段文档中，避免只报告最终 8-fold 正结果。

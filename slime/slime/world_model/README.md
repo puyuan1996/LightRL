@@ -36,7 +36,6 @@ SETA traj.json / records.jsonl / verified replay.pt
 | `modules.py` | shared projector、AdaLN/MLP predictor、SIGReg、value head |
 | `train_latent.py` | split、cache、训练、checkpoint、prediction |
 | `train_direct_latent.py` | parameter-matched raw-hidden Direct baseline |
-| `train_result_transfer.py` | frozen JEPA latent 的 result-transfer probe |
 | `offline_diagnostics.py` | retrieval、action controls、collapse diagnostics |
 | `candidate_set_eval.py` | guarded observational candidate evaluation |
 

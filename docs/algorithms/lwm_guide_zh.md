@@ -64,7 +64,7 @@ prompt tokens | action tokens
 - `hidden_layer` 可配置，默认 `-1`；离线 HF 可安全选中间层。
 
 raw hidden 不直接做 MSE。state 和 feedback 先经过源特定 adapter，再通过共享 projector `C`；action 经独立 projector 得到条件向量。
-target forward 与 current branch 使用同一 policy checkpoint，但计算图始终 detached；它不是另行加载的独立文本 encoder。开启 backbone 更新时，target geometry 会随 policy 参数更新，因此不应称为固定 EMA teacher。
+target forward 与 current branch 使用同一 policy checkpoint，计算图始终 detached，且不加载独立文本 encoder。开启 backbone 更新时，target geometry 会随 policy 参数更新，因此不应称为固定 EMA teacher。
 
 ## 4. action 如何与 observation latent 融合
 
