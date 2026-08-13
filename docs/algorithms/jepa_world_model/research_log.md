@@ -18,3 +18,12 @@
 - 修改内容：阶段文档将 dual-target 结论限定为当前 task-heldout split 上的 observational result retrieval；新增 recovery anti-collapse 实验状态。
 - 当前状态：recovery 实验的 preflight 与第一阶段 barrier 已通过，seed 11/13 的 configured 和 unconfigured 四个 arm 均在运行，尚无 aggregate 结果。
 - 结论：保留“当前 SETA 数据内 JEPA 提高 next-belief retrieval”的阶段结论。result prediction、tool choice 与 online Terminal-RL 增益继续列为待验证目标。
+
+## 2026-08-13：LightRL 算法入口与示例
+
+- Motivation：LightRL 需要明确的 AgenticRL 算法归属和可直接使用的示例入口，旧 metadata smoke 仍包含当前 parser 未注册的参数。
+- 实验假设：使用轻量 facade 复用 `slime.world_model`，可以在不复制训练实现的情况下形成稳定公共 API；示例脚本统一调用通用 trainer，可以减少参数漂移。
+- 修改内容：新增 `agentic_rl/algorithms/lwm` 的 collection/replay 接口；rollout 改用该接口；新增 offline、next-belief 和 replay collection 示例；删除 metadata smoke 的失效参数。
+- 成功现象：world-model 与 public API 共 `242 passed`；四个示例脚本通过 `bash -n`；metadata smoke dry-run 未出现旧参数；replay dry-run 的最终 `train_async.py` 命令包含四个 collection 参数并启用 checkpoint 保存。offline trainer 的 hash smoke 已在上一轮迁移验证完成。
+- 失败现象：暂无。
+- 结论：LightRL 已具备稳定的 LWM 算法入口、offline 示例和 rollout replay collection 示例。online auxiliary policy loss 仍未接入训练主路径。

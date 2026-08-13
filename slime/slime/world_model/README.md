@@ -7,6 +7,8 @@ AgenticRL rollout 收集经过 redaction 的 turn transition，并在独立 offl
 阶段结果、结论边界和后续计划见
 [`docs/algorithms/jepa_world_model_progress_zh.md`](../../../docs/algorithms/jepa_world_model_progress_zh.md)。
 方法说明见 [`docs/algorithms/lwm_guide_zh.md`](../../../docs/algorithms/lwm_guide_zh.md)。
+AgenticRL 公共接口和示例分别位于 `agentic_rl/algorithms/lwm/` 与
+`examples/training/world_model/`。
 
 ## 数据流
 

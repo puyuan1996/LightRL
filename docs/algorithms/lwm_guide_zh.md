@@ -1,6 +1,7 @@
 # Terminal-RL Latent World Model 实现与使用
 
 > 状态：LightRL 迁移版（2026-08-13）
+> 算法入口：`agentic_rl/algorithms/lwm/`
 > 权威实现：`slime/slime/world_model/`
 > 阶段结果：[`jepa_world_model_progress_zh.md`](jepa_world_model_progress_zh.md)
 
@@ -142,18 +143,20 @@ CLI：`--backprop-to-llm`，在 slime 总参数中对应 `--world-model-backprop
 3. checkpoint 保存到 `${SAVE}/rollout/world_model_replay_<rollout_id>.pt`；
 4. `train_latent.py --input <replay.pt>` 可直接训练。
 
-接口沿用本地 PR #16 的 `push(entries, current_step)`、`sample(n, current_step, baseline_reward)` 形状，但不复用其 SIL 成功阈值：world model 需要完整 outcome 分布。参考来源为本地提交 `cffc63c6`，无需网络访问。
+接口使用 `push(entries, current_step)`、`sample(n, current_step, baseline_reward)` 形状。
+world model replay 默认保留成功与失败 outcome。
 
 ## 7. 使用
 
 ### 7.1 用指定 SETA 轨迹跑一次 smoke
 
 ```bash
+WM_TRAJECTORIES=/path/to/trajectories \
 WM_USE_DAPO_REPLAY_BUFFER=1 \
 WM_MAX_TRAJECTORIES=2 \
 WM_MAX_TRANSITIONS=8 \
 WM_EPOCHS=1 \
-bash tools/world_model/run_world_model_seta_latent.sh
+bash examples/training/world_model/train_seta_latent.sh
 ```
 
 默认 `hash` hidden 仅验证数据/replay/AdaLN/loss/prediction 闭环。输出包含 `hidden_cache.pt`、可选 `dapo_replay.pt`、`latent_world_model.pt`、`predictions.jsonl` 和 `run_summary.json`。
@@ -161,24 +164,25 @@ bash tools/world_model/run_world_model_seta_latent.sh
 ### 7.2 冻结 Qwen3-8B hidden（推荐正式起点）
 
 ```bash
-WM_ENCODER=hf-policy \
+WM_TRAJECTORIES=/path/to/trajectories \
 WM_HF_MODEL=/path/to/Qwen3-8B \
 WM_MAX_TRAJECTORIES=100 \
 WM_MAX_TRANSITIONS=1000 \
 WM_OUTPUT_DIR=runs/world_model_seta_latent/qwen_frozen \
-bash tools/world_model/run_world_model_seta_latent.sh
+bash examples/training/world_model/train_seta_next_belief.sh
 ```
 
 ### 7.3 开启 LLM 梯度
 
 ```bash
+WM_TRAJECTORIES=/path/to/trajectories \
 WM_ENCODER=hf-policy \
 WM_BACKPROP_TO_LLM=1 \
 WM_SAVE_UPDATED_LLM=1 \
 WM_LLM_LR=1e-6 \
 WM_HF_MODEL=/path/to/Qwen3-8B \
 WM_OUTPUT_DIR=runs/world_model_seta_latent/qwen_e2e \
-bash tools/world_model/run_world_model_seta_latent.sh
+bash examples/training/world_model/train_seta_latent.sh
 ```
 
 建议先减小 batch/context，并使用 `--llm-lr 1e-6` 或更低。8B 全参数端到端训练需要明显多于冻结模式的显存。
@@ -186,13 +190,13 @@ bash tools/world_model/run_world_model_seta_latent.sh
 ### 7.4 DAPO 采集 replay
 
 ```bash
-EXTRA_ALGO_ARGS="--world-model-enable \
-  --world-model-use-dapo-replay-buffer \
-  --world-model-replay-buffer-size 4096" \
-bash examples/training/train_qwen3_8b_seta_dive_po.sh
+WORKER_URLS=http://worker:18081 \
+WM_REPLAY_BUFFER_SIZE=4096 \
+bash examples/training/world_model/collect_seta_replay.sh
 ```
 
-这只收集/保存 world-model replay，不开启辅助 policy loss。现有在线 default loss hook 仍只消费显式提供的 `wm_pred_latents/wm_target_latents`。
+该配置只收集和保存 world-model replay，不开启辅助 policy loss。当前 `loss_hook`
+仍为独立 utility，LightRL 训练主路径未调用。
 
 ## 8. ECHO、Qwen-AgentWorld 与 LeWM 的借鉴边界
 

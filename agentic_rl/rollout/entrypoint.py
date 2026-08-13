@@ -7,8 +7,7 @@ from typing import Any, Dict, List
 from slime.rollout.sglang_rollout import GenerateState
 from slime.utils.types import Sample
 from slime.utils.trace_utils import bind_trace, trace_span
-from slime.world_model.metadata import attach_terminal_world_model_metadata
-
+from agentic_rl.algorithms.lwm.collection import attach_terminal_world_model_metadata
 from agentic_rl.environments.registry import (
     direct_score_source,
     uses_remote_terminal_env as _uses_remote_terminal_env,

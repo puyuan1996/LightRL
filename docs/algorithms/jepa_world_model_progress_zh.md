@@ -153,9 +153,11 @@ LightRL `main` 已包含早期 `slime.world_model` 和 `tools/world_model` 目�
 补齐以下内容：
 
 - 最新 `world_model` 数据、模型、训练、评测与 audit 模块；
+- `agentic_rl/algorithms/lwm` 的 rollout collection 与 replay 公共接口；
 - AgenticRL rollout 的 default-off metadata 接口；
 - Slime `RolloutDataSourceWithBuffer` 的独立 world-model replay；
-- `tools/world_model/run_world_model_seta_latent.sh` 通用入口；
+- `tools/world_model/run_world_model_seta_latent.sh` 通用入口与
+  `examples/training/world_model` 示例脚本；
 - 与上述模块对应的 CPU 单元测试；
 - LightRL 路径、文档导航和历史 artifact compatibility。
 
@@ -174,6 +176,7 @@ LightRL `main` 已包含早期 `slime.world_model` 和 `tools/world_model` 目�
 | 检查 | 结果 |
 | --- | --- |
 | `slime/tests/world_model` | `240 passed` |
+| `tests/agentic_rl/test_lwm_public_api.py` | `2 passed` |
 | 通用训练脚本 | 8 条 transition 的 hash smoke 完成 |
 | 产物 | records、hidden cache、checkpoint、predictions、summary 均生成 |
 | 静态检查 | `py_compile`、`bash -n`、`git diff --check` 通过 |
@@ -425,16 +428,15 @@ WM_HF_MODEL=/path/to/Qwen3-8B \
 WM_STATE_VIEW=belief_view_v1 \
 WM_PREDICTION_TARGET=next_state \
 WM_SPLIT_GROUP_KEY=task_id \
-bash tools/world_model/run_world_model_seta_latent.sh
+bash examples/training/world_model/train_seta_next_belief.sh
 ```
 
 rollout replay 收集：
 
 ```bash
-EXTRA_ALGO_ARGS="--world-model-enable \
-  --world-model-use-dapo-replay-buffer \
-  --world-model-replay-buffer-size 4096" \
-bash examples/training/train_qwen3_8b_seta_dive_po.sh
+WORKER_URLS=http://worker:18081 \
+WM_REPLAY_BUFFER_SIZE=4096 \
+bash examples/training/world_model/collect_seta_replay.sh
 ```
 
 关键输出：
