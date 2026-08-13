@@ -344,6 +344,18 @@ class RolloutManager:
             data = call_rollout_fn(self.generate_rollout, self.args, rollout_id, self.data_source, evaluation=False)
             metrics = data.metrics
             data = data.samples
+            if getattr(self.args, "world_model_use_dapo_replay_buffer", False):
+                adapter = getattr(self.data_source, "add_world_model_samples", None)
+                if not callable(adapter):
+                    raise RuntimeError(
+                        "world-model replay is enabled, but the configured data source has no collection adapter"
+                    )
+                record_count = adapter(data, current_step=rollout_id)
+                logger.info(
+                    "Collected %d world-model transitions at rollout_id=%s",
+                    record_count,
+                    rollout_id,
+                )
             # flatten the data if it is a list of lists
             while isinstance(data[0], list):
                 data = list(itertools.chain.from_iterable(data))

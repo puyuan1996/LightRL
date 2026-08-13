@@ -591,6 +591,30 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 nargs="+",
                 help="Address and ports of the external engines.",
             )
+            parser.add_argument(
+                "--world-model-enable",
+                action="store_true",
+                default=False,
+                help="Attach redacted world-model transition metadata to AgenticRL rollout samples.",
+            )
+            parser.add_argument(
+                "--world-model-use-dapo-replay-buffer",
+                action="store_true",
+                default=False,
+                help="Collect world-model metadata in an isolated replay snapshot.",
+            )
+            parser.add_argument(
+                "--world-model-replay-buffer-size",
+                type=int,
+                default=2048,
+                help="Maximum number of transitions retained by world-model replay.",
+            )
+            parser.add_argument(
+                "--world-model-metadata-max-chars",
+                type=int,
+                default=4096,
+                help="Maximum characters retained in each world-model text field.",
+            )
             return parser
 
         def add_fault_tolerance_arguments(parser):

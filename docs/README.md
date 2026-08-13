@@ -18,6 +18,8 @@
   DIVE-PO 论文草稿。
 - [algorithms/lwm_guide_zh.md](algorithms/lwm_guide_zh.md)——LWM(WIP，
   实现位于 Slime 侧)。
+- [algorithms/jepa_world_model_progress_zh.md](algorithms/jepa_world_model_progress_zh.md)——
+  JEPA latent world model 的 PR 历史、数据审计、实验结果、结论边界与后续计划。
 
 ## 使用
 
