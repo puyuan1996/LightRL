@@ -20,6 +20,8 @@
   实现位于 Slime 侧)。
 - [algorithms/jepa_world_model_progress_zh.md](algorithms/jepa_world_model_progress_zh.md)——
   JEPA latent world model 的 PR 历史、数据审计、实验结果、结论边界与后续计划。
+- [algorithms/jepa_world_model_project_status_zh.md](algorithms/jepa_world_model_project_status_zh.md)——
+  JEPA latent world model 的导师问答、项目结构、Goal 进度与迁移验收建议。
 
 ## 使用
 

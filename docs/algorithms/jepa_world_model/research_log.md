@@ -36,3 +36,12 @@
 - 成功现象：LightRL 原有兼容测试与新增 LWM 公共合同测试共 `33 passed`；32 条真实 SETA transition 的 hash smoke 完成并生成 records、cache、checkpoint、predictions 和 summary；`py_compile`、`bash -n` 与 `git diff --check` 通过。
 - 失败现象：recovery anti-collapse 实验没有聚合产物，停止原因未查明。
 - 结论：PR 只提交通用运行路径和复现实验所需代码；历史负结果保留在阶段文档中，避免只报告最终 8-fold 正结果。
+
+## 2026-08-14：导师问题复核
+
+- Motivation：明确 LightRL 适配是否影响原训练流程，并用统一结构说明从立项到当前 PR 的研究状态。
+- 实验假设：default-off 路径不会构造模型、replay 或 auxiliary loss；完整训练镜像中的短程 paired run 可以完成最后的运行时兼容验收。
+- 成功现象：代码审查确认关闭开关后 metadata 接口立即返回，replay 保持 `None`，reward、advantage、policy loss 和 optimizer 路径没有接入 LWM；offline trainer 已有真实 SETA 数据和 grouped 8-fold 结果。
+- 失败现象：开发机缺少 `ray`，因此尚未在当前 LightRL 迁移分支完成 2-3 step 的 default-off/default-on paired run。
+- 修改内容：新增导师版项目状态文档，整理 motivation、method、PR 历史、实验、结果、Goal 进度和后续规划。
+- 结论：offline LWM 主目标已获得数据内 representation gain；LightRL 迁移还需短程运行时验收；tool/result/online 目标继续保留为后续工作。
