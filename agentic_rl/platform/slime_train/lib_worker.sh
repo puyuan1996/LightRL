@@ -291,34 +291,6 @@ export ROUTER_FORWARD_RETRIES="${ROUTER_FORWARD_RETRIES:-3}"
 export ROUTER_FORWARD_RETRY_BACKOFF="${ROUTER_FORWARD_RETRY_BACKOFF:-1.0}"
 export ROUTER_PRESSURE_COOLDOWN="${ROUTER_PRESSURE_COOLDOWN:-60}"
 
-# ── ClawSentry safety reward (L1-only, reward-only, linear-fusion baseline) ──
-# Gateway runs on the same host as router_server (CPU master). All decisions
-# are reward-shaping signals; agent actions are never blocked.
-# ClawSentry is enabled only for the active dataset family.
-# SAFETY_REWARD_COEF controls the linear weight (default 0 unless ClawSentry is explicitly enabled).
-CLAWSENTRY_NEEDED="0"
-if [[ "${INCLUDES_SETA}" == "1" && "${SETA_SAFETY}" == "clawsentry" ]]; then
-  CLAWSENTRY_NEEDED="1"
-fi
-if [[ "${INCLUDES_SAFETY}" == "1" && "${SAFETY_BENCH_REWARD}" == "clawsentry" ]]; then
-  CLAWSENTRY_NEEDED="1"
-fi
-if [[ "${INCLUDES_AGENTHARM}" == "1" && "${AGENTHARM_REWARD}" == "clawsentry" ]]; then
-  CLAWSENTRY_NEEDED="1"
-fi
-export SAFETY_REWARD_COEF="${SAFETY_REWARD_COEF:-0}"
-export SAFETY_REWARD_SUMMARY_WEIGHT="${SAFETY_REWARD_SUMMARY_WEIGHT:-0.3}"
-export SAFETY_REWARD_TIMEOUT="${SAFETY_REWARD_TIMEOUT:-2.0}"
-export SAFETY_REWARD_ZERO_THRESHOLD="${SAFETY_REWARD_ZERO_THRESHOLD:-1.5}"
-export CS_GATEWAY_PORT="${CS_GATEWAY_PORT:-8090}"
-export CS_HTTP_HOST="${CS_HTTP_HOST:-127.0.0.1}"
-export CS_HTTP_URL="http://${CS_HTTP_HOST}:${CS_GATEWAY_PORT}"
-export CS_AUTH_TOKEN="${CS_AUTH_TOKEN:-}"
-export CS_TRAJECTORY_DB_PATH="${CS_TRAJECTORY_DB_PATH:-/tmp/clawsentry-train.db}"
-export CS_LLM_PROVIDER="${CS_LLM_PROVIDER:-}"
-export CS_L3_ENABLED="${CS_L3_ENABLED:-false}"
-export CS_EVOLVING_ENABLED="${CS_EVOLVING_ENABLED:-false}"
-
 # ── Trajectory export (parallels swe-rl export/swe_rollouts) ─────────────────
 # Trajectory export is now ON by default (writes to runs/{run_id}/trajectories/).
 # Set TERMINAL_SAVE_TRAJ_DIR="" to disable.
@@ -357,4 +329,3 @@ export RAY_TMPDIR="${RAY_TMPDIR:-/tmp/ray_terminal_rl}"
 mkdir -p "${RAY_TMPDIR}"
 SLIME_RAY_PLACEMENT_GPU_PROBE="${SLIME_RAY_PLACEMENT_GPU_PROBE:-0}"
 export SLIME_RAY_PLACEMENT_GPU_PROBE
-

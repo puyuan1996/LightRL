@@ -163,21 +163,11 @@ class AgentHarmEnv:
         mode = os.getenv("AGENTHARM_REWARD", "rule").strip().lower() or "rule"
         trajectory = trajectory if isinstance(trajectory, dict) else {}
 
-        if mode == "clawsentry":
-            self._last_eval = {
-                "mode": mode,
-                "score": 0.0,
-                "reason": (
-                    "base AgentHarm score disabled; ClawSentry shaping is handled "
-                    "in generate.py"
-                ),
-            }
-            return 0.0
         if mode == "judge":
             raise RuntimeError(
                 "AGENTHARM_REWARD=judge requires the optional inspect_ai judge "
                 "stack and is not enabled in the local terminal-rl backend. Use "
-                "rule, dense_rule, or clawsentry."
+                "rule or dense_rule."
             )
 
         if mode in {"dense_rule", "rule_v2"}:

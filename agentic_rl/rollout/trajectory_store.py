@@ -34,7 +34,7 @@ from agentic_rl.environments.registry import slug_for as _slug_for
 # Output layout (one dir per rollout sample):
 #   {save_dir}/t{task}_r{rollout_id}_st{train_step}_g{group}_s{sample}_{uid}_{ts}/
 #       meta.json       # task spec + sampling params + reward breakdown
-#       traj.json       # per-turn dialogue + tool calls + ClawSentry decisions
+#       traj.json       # per-turn dialogue + tool calls + reward metadata
 
 
 def _sanitize_filename(value: str) -> str:
@@ -693,13 +693,11 @@ def _save_rollout_artifacts(
     raw_score: float,
     eval_error: str | None,
     turn_records: List[Dict[str, Any]],
-    safety_meta: Dict[str, Any] | None,
     prm_meta: Dict[str, Any] | None,
-    safety_coef: float,
     prm_coef: float,
     trajectory_save_interval: int = 1,
 ) -> None:
-    """Persist a full rollout (dialogue + tool calls + ClawSentry + reward) to disk.
+    """Persist a full rollout (dialogue + tool calls + reward) to disk.
 
     Side-channel observability export (training consumes the in-memory samples,
     not these files).  Failures are logged & swallowed so training is never
@@ -761,7 +759,7 @@ def _save_rollout_artifacts(
             for k in (
                 "accuracy", "raw_score", "base_score", "score",
                 "raw_reward", "task_reward", "exploration_reward", "total_reward",
-                "prm_turn_score", "safety_score", "safety_coef",
+                "prm_turn_score",
                 "explore_intrinsic", "explore_intrinsic_scaled",
                 "explore_intrinsic_in_total",
                 "explore_intrinsic_coef", "explore_intrinsic_effective_coef",
@@ -880,7 +878,6 @@ def _save_rollout_artifacts(
                     "turn_idx": s.metadata.get("turn_idx"),
                     "score": (s.reward or {}).get("score"),
                     "prm_turn_score": (s.reward or {}).get("prm_turn_score"),
-                    "safety_score": (s.reward or {}).get("safety_score"),
                 }
                 for s in samples
             ]
@@ -976,7 +973,6 @@ def _save_rollout_artifacts(
                 "status": str(status),
                 "num_turns": len(turn_records),
                 "eval_error": eval_error,
-                "safety_coef": safety_coef,
                 "prm_coef": prm_coef,
                 "trajectory_save_interval": trajectory_save_interval,
                 "trajectory_save_policy": policy,
@@ -989,7 +985,6 @@ def _save_rollout_artifacts(
             "turns": _jsonable(turn_records),
             "reward": _jsonable(reward_breakdown),
             "exploration": _jsonable(_exploration_audit_from_reward(reward_breakdown)),
-            "safety": _jsonable(safety_meta) if safety_meta else None,
             "prm": _jsonable(prm_meta) if prm_meta else None,
         }
         (run_dir / "traj.json").write_text(

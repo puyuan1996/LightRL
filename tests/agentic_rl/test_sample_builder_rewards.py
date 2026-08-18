@@ -253,20 +253,6 @@ def test_prm_fusion_and_stepwise_metadata():
     }
 
 
-def test_safety_coef_fusion():
-    samples = _build_samples(
-        [make_interaction(0), make_interaction(1)],
-        make_base_sample(),
-        1.0,
-        Sample.Status.COMPLETED,
-        safety_turn_scores={1: -1.0},
-        safety_coef=0.5,
-    )
-    assert scores(samples) == [1.0, 0.5]
-    assert samples[1].reward["safety_score"] == -1.0
-    assert samples[1].reward["safety_coef"] == 0.5
-
-
 def test_tokens_logprobs_loss_mask_and_metadata_populated():
     samples = _build_samples([make_interaction(0, n_out=7)], make_base_sample(), 1.0, Sample.Status.COMPLETED)
     s = samples[0]

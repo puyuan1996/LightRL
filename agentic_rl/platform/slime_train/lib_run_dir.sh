@@ -1,6 +1,5 @@
 short_mode() {
   case "$1" in
-    clawsentry) echo "cs" ;;
     dense_rule) echo "dense" ;;
     *) echo "$1" ;;
   esac
@@ -13,7 +12,7 @@ sanitize_run_part() {
 build_dataset_tag() {
   case "${DATASET}" in
     seta)
-      echo "seta-$(short_mode "${SETA_SAFETY}")-c${SAFETY_REWARD_COEF}"
+      echo "seta-$(short_mode "${SETA_SAFETY}")"
       ;;
     safety)
       echo "asb-$(short_mode "${SAFETY_BENCH_REWARD}")"
@@ -35,7 +34,7 @@ build_dataset_tag() {
         safety_ratio="${MIX_SAFETY_RATIO:-1}"
         agentharm_ratio="0"
       fi
-      echo "mixed-s${seta_ratio}_asb${safety_ratio}_ah${agentharm_ratio}-rw$(short_mode "${SETA_SAFETY}")_$(short_mode "${SAFETY_BENCH_REWARD}")_$(short_mode "${AGENTHARM_REWARD}")-c${SAFETY_REWARD_COEF}"
+      echo "mixed-s${seta_ratio}_asb${safety_ratio}_ah${agentharm_ratio}-rw$(short_mode "${SETA_SAFETY}")_$(short_mode "${SAFETY_BENCH_REWARD}")_$(short_mode "${AGENTHARM_REWARD}")"
       ;;
     *)
       echo "${DATASET}"

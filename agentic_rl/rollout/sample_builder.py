@@ -107,8 +107,6 @@ def _build_samples(
     status: Sample.Status,
     prm_turn_scores: dict[int, float] | None = None,
     prm_coef: float = 1.0,
-    safety_turn_scores: dict[int, float] | None = None,
-    safety_coef: float = 0.0,
     discount: float = 1.0,
     encourage: bool = False,
     outcome_is_score: bool = False,
@@ -156,11 +154,6 @@ def _build_samples(
         else:
             final = discounted_base
 
-        safety_val = 0.0
-        if safety_turn_scores is not None:
-            safety_val = float(safety_turn_scores.get(turn_idx, 0.0))
-            final = final + safety_coef * safety_val
-
         # Penalize empty/trivial outputs to prevent mode collapse.
         # If total response is too short, override score to -1.0.
         min_response_tokens = 10
@@ -198,9 +191,6 @@ def _build_samples(
 
         if prm_turn_scores is not None:
             s.reward["prm_turn_score"] = prm
-        if safety_turn_scores is not None:
-            s.reward["safety_score"] = safety_val
-            s.reward["safety_coef"] = safety_coef
         _sync_reward_aliases(s.reward)
         samples.append(s)
 

@@ -423,7 +423,6 @@ def tool_call_summary(tool_call: dict[str, Any], max_result_chars: int) -> dict[
         "args": compact(args_text, max_result_chars),
         "result": compact(result_text, max_result_chars),
         "is_error": any(hint in lower for hint in NEGATIVE_HINTS),
-        "clawsentry": tool_call.get("clawsentry"),
     }
 
 

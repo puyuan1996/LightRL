@@ -554,7 +554,11 @@ def write_outputs(
         f"| {name} | {fmt(value, 3)} |" for name, value in sorted(correlations.items(), key=lambda item: item[1], reverse=True)
     )
 
-    report = f"""# DiVE-PO v0716 centered-gate 最新训练分析
+    performance_direction = "高于" if raw_delta > 0 else "低于" if raw_delta < 0 else "等于"
+    tail_delta = mean(values(exp[-50:], "raw_reward")) - mean(values(base[-50:], "raw_reward"))
+    tail_direction = "高于" if tail_delta > 0 else "低于" if tail_delta < 0 else "等于"
+
+    report = f"""# DiVE-PO 最新训练分析
 
 生成时间：`{generated}`。
 
@@ -565,7 +569,7 @@ def write_outputs(
 
 ## 最新结论
 
-共同前 `{common}` 个有效 rollout-step 上，DiVE-PO `raw_reward={exp_raw:.4f}`，baseline `raw_reward={base_raw:.4f}`，提升 `{raw_delta:+.4f}`（`{raw_relative:+.1%}`）。但共同窗口后 50 点为 `{mean(values(exp[-50:], 'raw_reward')):.4f} vs {mean(values(base[-50:], 'raw_reward')):.4f}`，尾部已经基本持平，因此更准确的判断是：**累计均值仍领先，最新局部性能未继续扩大优势**。
+共同前 `{common}` 个有效 rollout-step 上，DiVE-PO `raw_reward={exp_raw:.4f}`，baseline `raw_reward={base_raw:.4f}`，差值 `{raw_delta:+.4f}`（`{raw_relative:+.1%}`），即 DiVE-PO **{performance_direction} baseline**。共同窗口后 50 点为 `{mean(values(exp[-50:], 'raw_reward')):.4f} vs {mean(values(base[-50:], 'raw_reward')):.4f}`，差值 `{tail_delta:+.4f}`，即尾部 DiVE-PO **{tail_direction} baseline**。该比较按有效 rollout-step 对齐；两条 run 的 GPU 数不同，不用于判断 wall-clock 吞吐。
 
 | 公平比较指标（前 {common} 个有效点） | DiVE-PO | baseline | 差值 |
 |---|---:|---:|---:|
@@ -576,7 +580,7 @@ def write_outputs(
 | operational pass | {operational_pass(exp):.4f} | {operational_pass(base):.4f} | {operational_pass(exp)-operational_pass(base):+.4f} |
 | common-window 后50 raw_reward | {mean(values(exp[-50:], 'raw_reward')):.4f} | {mean(values(base[-50:], 'raw_reward')):.4f} | {mean(values(exp[-50:], 'raw_reward'))-mean(values(base[-50:], 'raw_reward')):+.4f} |
 
-解释：累计 raw/pass 与 operational pass 的优势仍然明确；同时 truncation 比 baseline 高 `{exp_trunc-base_trunc:+.4f}`、response length 高 `{mean(values(exp, 'response_length'))-mean(values(base, 'response_length')):+.1f}`，且后 50 点持平，说明后续优化应优先关注尾部探索转化率和截断控制，而不是继续放大 intrinsic 权重。
+解释：当前共同预算内，raw_reward、operational pass、truncation 和 response length 的差异如上表所示。它们是阶段性观测，不单独构成因果证据；探索信号的相关性也仅用于定位关联，不能据此直接决定 intrinsic 权重调整。
 
 ## DiVE-PO 探索链路
 

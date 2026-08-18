@@ -8,7 +8,7 @@ branches in ``entrypoint.py``, ``sample_builder.py`` and
 
 * admission / environment_factory ask :func:`local_env_spec` whether a task
   uses an in-process runtime (and which one);
-* entrypoint asks :func:`direct_score_source` / :func:`safety_reward_mode`;
+* entrypoint asks :func:`direct_score_source`;
 * trajectory_store asks :func:`slug_for` / :func:`interval_candidates_for_slug`.
 
 Adding a new local environment = append one ``EnvSpec`` here and point
@@ -34,9 +34,6 @@ class EnvSpec:
     remote_env_flag: str | None
     # Dummy lease id returned by the local client (kept for log compatibility).
     local_lease_id: str | None
-    # Env var selecting the safety reward mode for this source, and its default.
-    safety_reward_env: str | None
-    safety_reward_default: str
     # Whether _safety_split_from_meta distinguishes benign/harmful tasks.
     safety_split: bool
     # True when env.evaluate() already returns a score (skip 2x-1 mapping).
@@ -53,8 +50,6 @@ SETA_SPEC = EnvSpec(
     local_runtime=None,
     remote_env_flag=None,
     local_lease_id=None,
-    safety_reward_env="SETA_SAFETY",
-    safety_reward_default="none",
     safety_split=False,
     direct_score=False,
     slug="seta",
@@ -74,8 +69,6 @@ AGENT_SAFETYBENCH_SPEC = EnvSpec(
     ),
     remote_env_flag="AGENT_SAFETYBENCH_REMOTE_ENV",
     local_lease_id="local-agent-safetybench",
-    safety_reward_env="SAFETY_BENCH_REWARD",
-    safety_reward_default="rule",
     safety_split=True,
     direct_score=True,
     slug="agent_safetybench",
@@ -100,8 +93,6 @@ AGENTHARM_SPEC = EnvSpec(
     local_runtime=("agentic_rl.environments.agentharm.runtime", "AgentHarmEnv"),
     remote_env_flag="AGENTHARM_REMOTE_ENV",
     local_lease_id="local-agentharm",
-    safety_reward_env="AGENTHARM_REWARD",
-    safety_reward_default="rule",
     safety_split=True,
     direct_score=True,
     slug="agentharm",
@@ -123,8 +114,6 @@ TAU2_SPEC = EnvSpec(
     local_runtime=("agentic_rl.environments.tau2.runtime", "Tau2Env"),
     remote_env_flag="TAU2_REMOTE_ENV",
     local_lease_id="local-tau2",
-    safety_reward_env=None,
-    safety_reward_default="none",
     safety_split=False,
     direct_score=True,
     slug="tau2",
@@ -196,14 +185,6 @@ def uses_remote_terminal_env(task_meta: dict[str, Any] | None) -> bool:
 def direct_score_source(data_source: Any) -> bool:
     spec = canonical_spec(data_source)
     return bool(spec and spec.direct_score)
-
-
-def safety_reward_mode(data_source: Any) -> str:
-    """Safety reward mode for a data source (unknown sources follow SETA)."""
-    spec = canonical_spec(data_source)
-    if spec is None or spec.safety_reward_env is None:
-        spec = SETA_SPEC
-    return os.getenv(spec.safety_reward_env, spec.safety_reward_default)
 
 
 def safety_split_applies(data_source: Any) -> bool:

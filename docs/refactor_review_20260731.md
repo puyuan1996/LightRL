@@ -14,7 +14,7 @@ the earlier one-file package chains under `cli`, `config`, `core`, `runtime`,
 | `agentic_rl/algorithms/prm` | Process reward model bonus agent | `agent.py` |
 | `agentic_rl/rollout` | rollout orchestration and trajectory persistence | `entrypoint.py` |
 | `agentic_rl/platform` | Slime runtime, router, and worker infrastructure | `slime_train.sh`, `worker_cli.py`, `router_cli.py` |
-| `agentic_rl/misc` | flat logging, sink, and third-party integration helpers | `rollout_log.py`, `jsonl_sink.py`, `clawsentry.py` |
+| `agentic_rl/misc` | flat logging and sink helpers | `rollout_log.py`, `jsonl_sink.py` |
 
 The public training entrypoint is:
 

@@ -1,13 +1,9 @@
 # ── Start router ─────────────────────────────────────────────────────
 ROUTER_PID=""
-CS_GATEWAY_PID=""
 cleanup() {
   set +e
   if [[ -n "${ROUTER_PID}" ]] && kill -0 "${ROUTER_PID}" 2>/dev/null; then
     kill "${ROUTER_PID}" || true
-  fi
-  if [[ -n "${CS_GATEWAY_PID}" ]] && kill -0 "${CS_GATEWAY_PID}" 2>/dev/null; then
-    kill "${CS_GATEWAY_PID}" || true
   fi
 }
 trap cleanup EXIT INT TERM
@@ -70,45 +66,6 @@ else
     log "Skipping local terminal env router; using ENV_SERVER_URL=${ENV_SERVER_URL} WORKER_URLS=${WORKER_URLS}"
   else
     log "Skipping terminal env router; Agent-SafetyBench uses local env backend"
-  fi
-fi
-
-# ── Start ClawSentry gateway (L1-only, reward-only) ──────────────────
-if [[ "${CLAWSENTRY_NEEDED}" == "1" ]]; then
-  CS_GATEWAY_LOG="${RUN_LOG_DIR}/clawsentry_gateway.log"
-  log "Starting clawsentry-gateway on ${CS_HTTP_HOST}:${CS_GATEWAY_PORT} (L1-only, reward-only)"
-  if ! command -v clawsentry >/dev/null 2>&1; then
-    log "WARN: 'clawsentry' CLI not found in PATH; safety reward will fail-open to 0"
-  else
-    (
-      CS_HTTP_HOST="${CS_HTTP_HOST}" \
-      CS_HTTP_PORT="${CS_GATEWAY_PORT}" \
-      CS_AUTH_TOKEN="${CS_AUTH_TOKEN}" \
-      CS_TRAJECTORY_DB_PATH="${CS_TRAJECTORY_DB_PATH}" \
-      CS_LLM_PROVIDER="${CS_LLM_PROVIDER}" \
-      CS_L3_ENABLED="${CS_L3_ENABLED}" \
-      CS_EVOLVING_ENABLED="${CS_EVOLVING_ENABLED}" \
-      clawsentry gateway \
-        --gateway-host "${CS_HTTP_HOST}" \
-        --gateway-port "${CS_GATEWAY_PORT}" \
-        > "${CS_GATEWAY_LOG}" 2>&1 &
-      echo $! > "${RUN_LOG_DIR}/clawsentry_gateway.pid"
-    )
-    CS_GATEWAY_PID="$(cat "${RUN_LOG_DIR}/clawsentry_gateway.pid" 2>/dev/null || echo '')"
-    log "ClawSentry gateway PID=${CS_GATEWAY_PID}, log=${CS_GATEWAY_LOG}"
-
-    CS_OK=0
-    for ((i=1; i<=20; i++)); do
-      if curl -fsS --max-time 2 --noproxy '*' "${CS_HTTP_URL}/health" >/dev/null 2>&1; then
-        log "clawsentry-gateway ready (attempt ${i})"
-        CS_OK=1
-        break
-      fi
-      sleep 1
-    done
-    if [[ "${CS_OK}" != "1" ]]; then
-      log "WARN: clawsentry-gateway not healthy at ${CS_HTTP_URL}/health; safety reward will fail-open to 0"
-    fi
   fi
 fi
 
@@ -264,7 +221,6 @@ cat > "${RUN_CONFIG_OUTPUT}" <<CFGEOF
   "eval_rollout_max_concurrency": "${EVAL_ROLLOUT_MAX_CONCURRENCY}",
   "agent_safetybench_remote_env": "${AGENT_SAFETYBENCH_REMOTE_ENV}",
   "agentharm_remote_env": "${AGENTHARM_REMOTE_ENV}",
-  "safety_reward_enable": "${CLAWSENTRY_NEEDED}",
   "seta_safety": "${SETA_SAFETY}",
   "safety_bench_reward": "${SAFETY_BENCH_REWARD}",
   "agentharm_reward": "${AGENTHARM_REWARD}",
@@ -283,9 +239,6 @@ cat > "${RUN_CONFIG_OUTPUT}" <<CFGEOF
   "dapo_overlong_buffer_enable": "${DAPO_OVERLONG_BUFFER_ENABLE}",
   "dapo_overlong_buffer_len": "${DAPO_OVERLONG_BUFFER_LEN}",
   "dapo_overlong_penalty_factor": "${DAPO_OVERLONG_PENALTY_FACTOR}",
-  "safety_reward_coef": "${SAFETY_REWARD_COEF}",
-  "safety_reward_summary_weight": "${SAFETY_REWARD_SUMMARY_WEIGHT}",
-  "safety_reward_zero_threshold": "${SAFETY_REWARD_ZERO_THRESHOLD}",
   "trajectory_save_interval_env": "${TRAJECTORY_SAVE_INTERVAL}",
   "trajectory_save_interval_seta": "${TRAJECTORY_SAVE_INTERVAL_SETA}",
   "trajectory_save_interval_agent_safetybench": "${TRAJECTORY_SAVE_INTERVAL_AGENT_SAFETYBENCH}",
@@ -423,10 +376,6 @@ cat > "${RUN_CONFIG_OUTPUT}" <<CFGEOF
   "explore_cde_actor_decay_steps": "${EXPLORE_CDE_ACTOR_DECAY_STEPS}",
   "explore_retry_attempts": "${EXPLORE_RETRY_ATTEMPTS}",
   "explore_retry_traj_gamma": "${EXPLORE_RETRY_TRAJ_GAMMA}",
-  "clawsentry_url": "${CS_HTTP_URL}",
-  "clawsentry_llm_provider": "${CS_LLM_PROVIDER}",
-  "clawsentry_l3_enabled": "${CS_L3_ENABLED}",
-  "clawsentry_evolving_enabled": "${CS_EVOLVING_ENABLED}",
   "terminal_structured_metrics": "${TERMINAL_STRUCTURED_METRICS}",
   "terminal_metrics_jsonl": "${TERMINAL_METRICS_JSONL}",
   "terminal_wandb_metric_profile": "${TERMINAL_WANDB_METRIC_PROFILE}",
@@ -478,8 +427,17 @@ done
 # Only add import roots. Adding ${SCRIPT_DIR} (the agentic_rl package directory)
 # makes agentic_rl/platform shadow Python's stdlib `platform` module and causes
 # every runtime-env Ray worker to crash before registration.
-# Do NOT inject conda site-packages — Ray workers already use the prepared Python.
 RUNTIME_PYTHONPATH="${MEGATRON_DIR}:${REPO_ROOT}:${SLIME_DIR}"
+# A harness overlay may expose selected pure-Python packages that the prepared
+# RJob image lacks.  It must never expose a whole conda site-packages tree,
+# which could replace the image's binary torch/vLLM stack.
+if [[ -n "${LIGHTRL_RUNTIME_HARNESS_OVERLAY:-}" ]]; then
+  [[ -d "${LIGHTRL_RUNTIME_HARNESS_OVERLAY}" ]] || {
+    log "ERROR: missing runtime harness overlay: ${LIGHTRL_RUNTIME_HARNESS_OVERLAY}"
+    exit 1
+  }
+  RUNTIME_PYTHONPATH="${RUNTIME_PYTHONPATH}:${LIGHTRL_RUNTIME_HARNESS_OVERLAY}"
+fi
 if ! PYTHONPATH="${RUNTIME_PYTHONPATH}" "${TRAIN_PYTHON}" - <<'PY'
 import platform
 
@@ -585,17 +543,11 @@ RUNTIME_ENV_JSON="{
     \"AGENTHARM_REMOTE_ENV\": \"${AGENTHARM_REMOTE_ENV}\",
     \"NO_PROXY\": \"${NO_PROXY}\",
     \"no_proxy\": \"${NO_PROXY}\",
-    \"CS_HTTP_URL\": \"${CS_HTTP_URL}\",
-    \"CS_AUTH_TOKEN\": \"${CS_AUTH_TOKEN}\",
     \"SETA_SAFETY\": \"${SETA_SAFETY}\",
     \"SAFETY_BENCH_REWARD\": \"${SAFETY_BENCH_REWARD}\",
     \"AGENT_SAFETYBENCH_ROOT\": \"${AGENT_SAFETYBENCH_ROOT}\",
     \"AGENTHARM_REWARD\": \"${AGENTHARM_REWARD}\",
     \"AGENTHARM_ROOT\": \"${AGENTHARM_ROOT}\",
-    \"SAFETY_REWARD_COEF\": \"${SAFETY_REWARD_COEF}\",
-    \"SAFETY_REWARD_SUMMARY_WEIGHT\": \"${SAFETY_REWARD_SUMMARY_WEIGHT}\",
-    \"SAFETY_REWARD_TIMEOUT\": \"${SAFETY_REWARD_TIMEOUT}\",
-    \"SAFETY_REWARD_ZERO_THRESHOLD\": \"${SAFETY_REWARD_ZERO_THRESHOLD}\",
     \"TERMINAL_SAVE_TRAJ_DIR\": \"${TERMINAL_SAVE_TRAJ_DIR}\",
     \"TRAJECTORY_SAVE_INTERVAL\": \"${TRAJECTORY_SAVE_INTERVAL}\",
     \"TRAJECTORY_SAVE_INTERVAL_SETA\": \"${TRAJECTORY_SAVE_INTERVAL_SETA}\",

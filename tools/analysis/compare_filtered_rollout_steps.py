@@ -489,7 +489,7 @@ def write_outputs(
 | common-window 后50点 raw_reward | {baseline_summary['first_common_last50_raw_reward_mean']:.4f} | {experiment_summary['first_common_last50_raw_reward_mean']:.4f} | {experiment_summary['first_common_last50_raw_reward_mean']-baseline_summary['first_common_last50_raw_reward_mean']:+.4f} |
 | operational pass | {baseline_summary['first_common_operational_pass_rate']:.4f} | {experiment_summary['first_common_operational_pass_rate']:.4f} | {experiment_summary['first_common_operational_pass_rate']-baseline_summary['first_common_operational_pass_rate']:+.4f} |
 
-结论：共同前 {common} 个过滤后有效步上，DiVE-PO raw_reward 提升 `{raw_delta:.4f}`（`{raw_relative:+.1%}`）；截断率变化 `{trunc_delta:+.4f}`。本次 v0716 快照仅有 {len(experiment.valid)} 个有效点，说明当前结论是同预算早中期比较，不应据此声称已经达到长期收敛。
+结论：共同前 {common} 个过滤后有效步上，DiVE-PO 相对 baseline 的 raw_reward 变化为 `{raw_delta:+.4f}`（`{raw_relative:+.1%}`），截断率变化为 `{trunc_delta:+.4f}`。当前快照仅有 {len(experiment.valid)} 个有效点，且两条 run 的 GPU 数不同；这里仅作同有效 rollout-step 预算下的阶段性比较，不代表吞吐对比或长期收敛结论。
 
 ## 图表
 
@@ -515,7 +515,7 @@ def write_outputs(
 | {baseline.label} | {len(baseline.records)} | {len(baseline.records)-len(baseline.valid)} | {len(baseline.valid)} | {baseline.ids()[-1]} | {baseline_raw:.4f} | {baseline_summary['first_common_last50_raw_reward_mean']:.4f} |
 | {experiment.label} | {len(experiment.records)} | {len(experiment.records)-len(experiment.valid)} | {len(experiment.valid)} | {experiment.ids()[-1]} | {experiment_raw:.4f} | {experiment_summary['first_common_last50_raw_reward_mean']:.4f} |
 
-共同前 {common} 个过滤后 rollout-step 上，DiVE-PO raw_reward 相比 baseline 提升 `{raw_delta:.4f}`（`{raw_relative:+.1%}`）。
+共同前 {common} 个过滤后 rollout-step 上，DiVE-PO raw_reward 相对 baseline 的变化为 `{raw_delta:+.4f}`（`{raw_relative:+.1%}`）。
 
 图：`figs/{figures['filtered'].name}`。
 """

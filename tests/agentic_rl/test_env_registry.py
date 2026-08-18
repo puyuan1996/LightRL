@@ -17,7 +17,6 @@ from agentic_rl.environments.registry import (
     direct_score_source,
     interval_candidates_for_slug,
     local_env_spec,
-    safety_reward_mode,
     safety_split_applies,
     slug_for,
     spec_for_source,
@@ -56,19 +55,6 @@ def test_direct_score_source_is_canonical_exact_match():
     assert direct_score_source("seta") is False
     assert direct_score_source("swe_verified") is False
     assert direct_score_source("") is False
-
-
-def test_safety_reward_mode_defaults_and_overrides(monkeypatch):
-    monkeypatch.delenv("SETA_SAFETY", raising=False)
-    monkeypatch.delenv("SAFETY_BENCH_REWARD", raising=False)
-    monkeypatch.delenv("AGENTHARM_REWARD", raising=False)
-    assert safety_reward_mode("agent_safetybench") == "rule"
-    assert safety_reward_mode("agentharm") == "rule"
-    # Unknown and tau2 sources follow the SETA mode, as before.
-    assert safety_reward_mode("tau2") == "none"
-    assert safety_reward_mode("swe_verified") == "none"
-    monkeypatch.setenv("AGENTHARM_REWARD", "clawsentry")
-    assert safety_reward_mode("agentharm") == "clawsentry"
 
 
 def test_safety_split_applies_only_to_safety_benchmarks():

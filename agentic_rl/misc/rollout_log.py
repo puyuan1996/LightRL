@@ -36,7 +36,6 @@ _METRIC_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 _REWARD_COMPONENT_KEYS = (
     "raw_score",
     "base_score",
-    "safety_score",
     "explore_intrinsic_scaled",
     "explore_intrinsic_in_total",
     "explore_agent57_arm_id",
@@ -122,9 +121,6 @@ _COMPACT_EXACT_KEYS = {
     "terminal/accuracy",
     "terminal/pass_rate",
     "terminal/train_batch_pass_rate",
-    "terminal/safety_score_mean",
-    "terminal/safety_negative_ratio",
-    "terminal/clawsentry_error_rate",
     "terminal/rollout_time",
     "terminal/task/unique_count",
     "terminal/task/top_ratio",
@@ -2540,33 +2536,10 @@ def _dataset_metrics(
         explore_summary = _add_exploration_debug_metrics(log_dict, prefix, dataset_samples)
         _add_turn_uncertainty_metrics(log_dict, prefix, dataset_samples)
 
-        safety_values = [v for v in (_reward_value(s, "safety_score") for s in trainable) if v is not None]
-        if safety_values:
-            log_dict[f"{prefix}/safety_negative_ratio"] = sum(1 for x in safety_values if x < 0) / len(
-                safety_values
-            )
-            safety_coef = next(
-                (coef for coef in (_reward_value(s, "safety_coef") for s in trainable) if coef is not None),
-                None,
-            )
-            if safety_coef is not None:
-                log_dict[f"{prefix}/safety_coef"] = safety_coef
-
         mean_logprobs = [v for v in (_mean_token_logprob(s) for s in dataset_samples) if v is not None]
         if mean_logprobs:
             _add_stats(log_dict, f"{prefix}/rollout_logprob", mean_logprobs)
             _add_stats(log_dict, f"{prefix}/rollout_neg_logprob", [-x for x in mean_logprobs])
-
-        n_cs_calls = 0
-        n_cs_errors = 0
-        for sample in dataset_samples:
-            safety_meta = _as_dict(_as_dict(getattr(sample, "metadata", None)).get("safety"))
-            n_cs_calls += int(safety_meta.get("n_calls", 0) or 0)
-            n_cs_errors += int(safety_meta.get("n_errors", 0) or 0)
-        if n_cs_calls > 0:
-            log_dict[f"{prefix}/clawsentry_calls_total"] = n_cs_calls
-            log_dict[f"{prefix}/clawsentry_errors_total"] = n_cs_errors
-            log_dict[f"{prefix}/clawsentry_error_rate"] = n_cs_errors / n_cs_calls
 
         reason_counts: dict[str, int] = defaultdict(int)
         for sample in trainable:
@@ -2890,41 +2863,11 @@ def rollout_log(rollout_id, args, samples, rollout_extra_metrics, rollout_time):
                 trainable_prm
             )
 
-        trainable_safety = []
-        trainable_safety_coef = None
-        for s in trainable:
-            if isinstance(s.reward, dict) and "safety_score" in s.reward:
-                trainable_safety.append(float(s.reward["safety_score"]))
-                if trainable_safety_coef is None:
-                    trainable_safety_coef = float(s.reward.get("safety_coef", 0.0))
-        if trainable_safety:
-            n = len(trainable_safety)
-            log_dict["terminal/safety_score_mean"] = sum(trainable_safety) / n
-            log_dict["terminal/safety_score_min"] = min(trainable_safety)
-            log_dict["terminal/safety_score_max"] = max(trainable_safety)
-            log_dict["terminal/safety_negative_ratio"] = (
-                sum(1 for x in trainable_safety if x < 0) / n
-            )
-            if trainable_safety_coef is not None:
-                log_dict["terminal/safety_coef"] = trainable_safety_coef
-
     dataset_log_dict, dataset_rows, split_rows = _dataset_metrics(args, samples)
     log_dict.update(dataset_log_dict)
     _add_task_and_trajectory_metrics(log_dict, "terminal", samples)
     _add_exploration_debug_metrics(log_dict, "terminal", samples)
     _add_turn_uncertainty_metrics(log_dict, "terminal", samples)
-
-    n_cs_calls = 0
-    n_cs_errors = 0
-    for s in samples:
-        safety_meta = (s.metadata or {}).get("safety") if s.metadata else None
-        if isinstance(safety_meta, dict):
-            n_cs_calls += int(safety_meta.get("n_calls", 0) or 0)
-            n_cs_errors += int(safety_meta.get("n_errors", 0) or 0)
-    if n_cs_calls > 0:
-        log_dict["terminal/clawsentry_calls_total"] = n_cs_calls
-        log_dict["terminal/clawsentry_errors_total"] = n_cs_errors
-        log_dict["terminal/clawsentry_error_rate"] = n_cs_errors / n_cs_calls
 
     log_dict["terminal/rollout_time"] = rollout_time
 

@@ -7,17 +7,14 @@
 #
 # SETA_SAFETY: safety reward mode for seta_env data
 #   none       = pure outcome reward (2*accuracy - 1), no safety signal
-#   clawsentry = outcome + ClawSentry L1 safety score (weighted by SAFETY_REWARD_COEF)
 #
 # SAFETY_BENCH_REWARD: reward mode for Agent-SafetyBench data
 #   rule       = fulfillable-based: refuse harmful=+1, comply harmful=-1
 #   dense_rule = rule-compatible dense shaping for GRPO
-#   clawsentry = use ClawSentry safety score (same mechanism as seta)
 #
 # AGENTHARM_REWARD: reward mode for AgentHarm data
 #   rule       = target-tool/refusal based safety reward
 #   dense_rule = rule-compatible dense shaping for GRPO
-#   clawsentry = use ClawSentry safety score (same mechanism as seta)
 #
 # ALGO:
 #   grpo = existing baseline path

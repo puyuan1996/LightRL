@@ -139,9 +139,9 @@ ENV_VARS: dict[str, str] = {
     "DAPO_OVERLONG_PENALTY_FACTOR": "overlong 惩罚系数(默认 1.0)",
     "MAX_TURN": "单条轨迹最大交互轮数",
     # ---- reward / exploration(dive_po) ----
-    "SETA_SAFETY": "SETA 数据源的安全奖励模式(none|clawsentry)",
-    "SAFETY_BENCH_REWARD": "Agent-SafetyBench 奖励模式(rule|dense_rule|clawsentry)",
-    "AGENTHARM_REWARD": "AgentHarm 奖励模式(rule|dense_rule|clawsentry)",
+    "SETA_SAFETY": "SETA 数据源的安全奖励模式(none)",
+    "SAFETY_BENCH_REWARD": "Agent-SafetyBench 奖励模式(rule|dense_rule)",
+    "AGENTHARM_REWARD": "AgentHarm 奖励模式(rule|dense_rule)",
     "EXPLORATION_PROFILE": "探索配置档位(off|robust_dapo_lite|spear_lite)",
     "EXPLORE_INTRINSIC": "计数式内在奖励开关",
     "EXPLORE_ADVANTAGE_BONUS": "探索 advantage bonus 总开关",

@@ -28,9 +28,9 @@
 #   MIX_SETA_RATIO           : mixed seta ratio
 #   MIX_SAFETY_RATIO         : mixed Agent-SafetyBench ratio
 #   MIX_AGENTHARM_RATIO      : mixed AgentHarm ratio
-#   SETA_SAFETY              : none|clawsentry (default none)
-#   SAFETY_BENCH_REWARD      : rule|dense_rule|clawsentry (default dense_rule)
-#   AGENTHARM_REWARD         : rule|dense_rule|clawsentry (default dense_rule)
+#   SETA_SAFETY              : none (default none)
+#   SAFETY_BENCH_REWARD      : rule|dense_rule (default dense_rule)
+#   AGENTHARM_REWARD         : rule|dense_rule (default dense_rule)
 #   TERMINAL_STRUCTURED_METRICS: Emit per-dataset JSON reward breakdowns (default 1)
 #   TERMINAL_METRICS_JSONL   : Override JSONL path (default <run_dir>/logs/metrics.jsonl)
 #   TERMINAL_WANDB_METRIC_PROFILE: compact|full (default compact)
@@ -152,8 +152,7 @@ export NUM_GPUS RUN_TIMESTAMP RUN_ID RUN_NAME
 SETA_SAFETY="${SETA_SAFETY:-none}"
 SAFETY_BENCH_REWARD="${SAFETY_BENCH_REWARD:-dense_rule}"
 AGENTHARM_REWARD="${AGENTHARM_REWARD:-dense_rule}"
-SAFETY_REWARD_COEF="${SAFETY_REWARD_COEF:-0}"
-export SETA_SAFETY SAFETY_BENCH_REWARD AGENTHARM_REWARD SAFETY_REWARD_COEF
+export SETA_SAFETY SAFETY_BENCH_REWARD AGENTHARM_REWARD
 
 # ── Exploration Options ──
 EXPLORATION_PROFILE="${EXPLORATION_PROFILE:-${EXPLORE_PROFILE:-spear_lite}}"
@@ -326,7 +325,7 @@ echo "  HARNESS_OPTION  = ${HARNESS_OPTION}"
 if [[ "${DATASET}" == "mixed" ]]; then
 echo "  MIX_RATIOS      = seta:${MIX_SETA_RATIO:-<default>} safety:${MIX_SAFETY_RATIO:-<default>} agentharm:${MIX_AGENTHARM_RATIO:-<unset>}"
 fi
-echo "  REWARD_MODES    = seta:${SETA_SAFETY} safety:${SAFETY_BENCH_REWARD} agentharm:${AGENTHARM_REWARD} coef:${SAFETY_REWARD_COEF}"
+echo "  REWARD_MODES    = seta:${SETA_SAFETY} safety:${SAFETY_BENCH_REWARD} agentharm:${AGENTHARM_REWARD}"
 echo "  STRUCTURED_LOGS = ${TERMINAL_STRUCTURED_METRICS} (jsonl=${TERMINAL_METRICS_JSONL:-<run_dir>/logs/metrics.jsonl})"
 echo "  WANDB_METRICS   = ${TERMINAL_WANDB_METRIC_PROFILE}"
 echo "  TRAJECTORY      = interval:${TRAJECTORY_SAVE_INTERVAL} policy:${TRAJECTORY_SAVE_POLICY:-<base-default>} task_interval:${TRAJECTORY_TASK_SAVE_INTERVAL:-<per-dataset>} per_step:${TRAJECTORY_TASK_MAX_PER_STEP:-<base-default>} per_task:${TRAJECTORY_TASK_MAX_PER_TASK:-<base-default>} max_total:${TRAJECTORY_MAX_TOTAL:-<base-default>} strata:${TRAJECTORY_SAVE_REWARD_STRATA:-<base-default>}"

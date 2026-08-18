@@ -9,7 +9,6 @@
 #   坑5: pre-flight cleanup of orphaned containers/networks from previous runs
 #   坑6: connectivity probe before starting training
 #   Extra: docker daemon health check before start
-#   Extra: ClawSentry gateway liveness check (if CLAWSENTRY_NEEDED=1)
 #
 # Usage (on CPU/docker worker):
 #   bash deploy/workers/run_pool_server_pu_v2.sh
@@ -23,8 +22,6 @@
 #   SKIP_PREFLIGHT_CLEANUP      (default 0)    — set 1 to skip orphan cleanup
 #   PROXY_ENV_FILE              (default /etc/seta_build_proxy.env)
 #   SKIP_PROXY_ENV              (default 0)    — set 1 to avoid sourcing proxy env
-#   CLAWSENTRY_NEEDED           (default 0)    — set 1 to also check CS gateway
-#   CS_GATEWAY_PORT             (default 8090) — ClawSentry gateway port
 #   DOCKER_DATA_ROOT            (default /data) — Docker data root to guard
 #   WORKER_MIN_DOCKER_FREE_GB   (default 50) — refuse start/admission below this
 #   WORKER_MAX_DOCKER_USED_PCT  (default 85) — refuse start/admission above this
@@ -124,8 +121,6 @@ DOCKER_NETWORK_LIFECYCLE_LOCK="${DOCKER_NETWORK_LIFECYCLE_LOCK:-/tmp/lightrl_doc
 POOL_SERVER_SHUTDOWN_GRACE="${POOL_SERVER_SHUTDOWN_GRACE:-60}"
 PROXY_ENV_FILE="${PROXY_ENV_FILE:-/etc/seta_build_proxy.env}"
 SKIP_PROXY_ENV="${SKIP_PROXY_ENV:-0}"
-CLAWSENTRY_NEEDED="${CLAWSENTRY_NEEDED:-0}"
-CS_GATEWAY_PORT="${CS_GATEWAY_PORT:-8090}"
 DOCKER_DATA_ROOT="$(detect_docker_data_root)"
 DOCKER_ROOT="${DOCKER_DATA_ROOT}"
 WORKER_DISK_GUARD_ENABLED="${WORKER_DISK_GUARD_ENABLED:-1}"
@@ -566,22 +561,6 @@ if [[ "${SKIP_PREFLIGHT_CLEANUP}" != "1" ]]; then
     fi
 else
     log "  ⏭  Skipped (SKIP_PREFLIGHT_CLEANUP=1)"
-fi
-
-# ── Pre-flight: ClawSentry gateway check (if needed) ─────────────────────────
-log "Pre-flight [6/6]: ClawSentry gateway check (CLAWSENTRY_NEEDED=${CLAWSENTRY_NEEDED})"
-if [[ "${CLAWSENTRY_NEEDED}" == "1" ]]; then
-    if curl -fsS --max-time 3 "http://127.0.0.1:${CS_GATEWAY_PORT}/health" >/dev/null 2>&1; then
-        log "  ✅ ClawSentry gateway OK at port ${CS_GATEWAY_PORT}"
-    else
-        log "  ❌ ClawSentry gateway NOT responding at 127.0.0.1:${CS_GATEWAY_PORT}"
-        log "     This will cause safety_coef * 0 = 0 (no safety reward) in training"
-        log "     Start it on GPU worker first, then re-run pool server"
-        log "     (The ClawSentry gateway is started by examples/training/train_qwen3_8b_seta_dive_po.sh on GPU worker)"
-        log "  ⚠️  Continuing anyway (pool_server doesn't run ClawSentry; GPU side does)"
-    fi
-else
-    log "  ⏭  Not needed (CLAWSENTRY_NEEDED=${CLAWSENTRY_NEEDED})"
 fi
 
 log "=== Pre-flight checks complete, starting pool_server ==="

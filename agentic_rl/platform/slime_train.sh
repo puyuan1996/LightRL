@@ -63,6 +63,6 @@ source "${_SLIME_TRAIN_LIB_DIR}/lib_bootstrap.sh"    # conda env, process cleanu
 source "${_SLIME_TRAIN_LIB_DIR}/lib_run_dir.sh"      # dataset/algo tags, unified run dir, claude-code preflight
 source "${_SLIME_TRAIN_LIB_DIR}/lib_rollout_cfg.sh"  # rollout knobs, log mirroring, model args
 source "${_SLIME_TRAIN_LIB_DIR}/lib_dataset.sh"      # dataset & reward config, agentharm/swesmith provisioning
-source "${_SLIME_TRAIN_LIB_DIR}/lib_worker.sh"       # worker/router URLs, readiness probes, stale-lease repair, robustness/ClawSentry/trajectory knobs
+source "${_SLIME_TRAIN_LIB_DIR}/lib_worker.sh"       # worker/router URLs, readiness probes, stale-lease repair, and trajectory knobs
 source "${_SLIME_TRAIN_LIB_DIR}/lib_args.sh"         # backend command assembly
-source "${_SLIME_TRAIN_LIB_DIR}/lib_launch.sh"       # router + ClawSentry gateway start, run-config dump, Ray/runtime env, job monitor, ckpt GC, failure capture, case study
+source "${_SLIME_TRAIN_LIB_DIR}/lib_launch.sh"       # router start, run-config dump, Ray/runtime env, job monitor, ckpt GC, failure capture, case study

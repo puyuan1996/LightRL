@@ -21,7 +21,6 @@ from slime.utils.types import Sample
 from slime.utils.trace_utils import build_sglang_meta_trace_attrs, trace_span
 
 from agentic_rl.algorithms.prm.agent import TerminalPRMAgent
-from agentic_rl.misc.clawsentry import ClawSentryClient
 from agentic_rl.platform.types import (
     Interaction,
     RunContext,
@@ -31,15 +30,8 @@ from agentic_rl.platform.types import (
 )
 from agentic_rl.environments.registry import (
     direct_score_source,
-    safety_reward_mode,
     slug_for,
     uses_remote_terminal_env as _uses_remote_terminal_env,
-)
-from agentic_rl.environments.reward_safety import (
-    DEFAULT_ZERO_THRESHOLD as _SAFETY_ZERO_THRESHOLD,
-    broadcast_to_turns as _safety_broadcast,
-    per_turn_score as _safety_per_turn_score,
-    trajectory_score as _safety_trajectory_score,
 )
 from agentic_rl.rollout.admission import (
     _acquire_remote_env_admission,
@@ -132,11 +124,7 @@ class _RunPlan:
     timeouts: TaskTimeouts
     prm_enable: bool
     prm_coef: float
-    safety_enable: bool
-    safety_coef: float
     traj_save_interval: int
-    safety_summary_weight: float
-    safety_zero_threshold: float
     task_key: str
     log_tag: str
     trace_target: Sample
@@ -158,7 +146,6 @@ class _TurnClients:
     sglang_client: Any = None
     agent_runner: Any = None
     prm_agent: Any = None
-    cs_client: Any = None
     agent_type: Optional[str] = None
     tau2_conversation_mode: str = "solo"
 
@@ -169,8 +156,6 @@ class _TurnLoopResult:
     turn_records: List[Dict[str, Any]] = field(default_factory=list)
     turn_uncertainty_records: List[Dict[str, Any]] = field(default_factory=list)
     prm_pending: List[tuple[int, asyncio.Task]] = field(default_factory=list)
-    cs_per_call: List[tuple[int, float]] = field(default_factory=list)
-    cs_per_call_full: List[Dict[str, Any]] = field(default_factory=list)
     final_response: Any = None
     final_model_response: Any = None
     reached_iteration_limit: bool = False
@@ -256,9 +241,6 @@ def _prepare_rollout_plan(args, sample: Sample, evaluation: bool) -> _RunPlan:
         eval=_timeout_arg(args, "eval_timeout", "EVAL_TIMEOUT", 600.0),
     )
 
-    safety_enable = safety_reward_mode(data_source) == "clawsentry"
-    safety_enable = safety_enable and (not evaluation)
-
     task_key = f"{task_spec.task_name}:{task_spec.task_path}"
     log_tag = (
         f"[task={task_spec.task_name} uid={run_ctx.uid} "
@@ -274,13 +256,7 @@ def _prepare_rollout_plan(args, sample: Sample, evaluation: bool) -> _RunPlan:
         timeouts=timeouts,
         prm_enable=bool(getattr(args, "prm_enable", False)) and (not evaluation),
         prm_coef=float(getattr(args, "prm_turn_coef", 1.0)),
-        safety_enable=safety_enable,
-        safety_coef=_env_float("SAFETY_REWARD_COEF", 0.0),
         traj_save_interval=_trajectory_save_interval(args, data_source=data_source),
-        safety_summary_weight=_env_float("SAFETY_REWARD_SUMMARY_WEIGHT", 0.3),
-        safety_zero_threshold=_env_float(
-            "SAFETY_REWARD_ZERO_THRESHOLD", _SAFETY_ZERO_THRESHOLD
-        ),
         task_key=task_key,
         log_tag=log_tag,
         trace_target=sample,
@@ -448,7 +424,7 @@ async def _open_env_session(plan: _RunPlan, session: _EnvSession) -> None:
     logger.info("%s Start terminal rollout", _log_tag)
 
 
-# ── Step 3: sglang / PRM / ClawSentry / harness clients ─────────────────────
+# ── Step 3: sglang / PRM / harness clients ──────────────────────────────────
 
 
 def _build_turn_clients(
@@ -534,29 +510,6 @@ def _build_turn_clients(
         )
         logger.info(
             "%s PRM enabled: url=%s coef=%.3f", _log_tag, prm_sglang_url, plan.prm_coef
-        )
-
-    if plan.safety_enable:
-        cs_base = os.getenv("CS_HTTP_URL", "http://127.0.0.1:8090")
-        cs_session_id = (
-            f"lightrl:{task_spec.task_name}:{plan.run_ctx.uid}"
-            f":g{plan.run_ctx.group_index}:s{plan.run_ctx.sample_index}"
-        )
-        cs_timeout = _env_float("SAFETY_REWARD_TIMEOUT", 2.0)
-        clients.cs_client = ClawSentryClient(
-            base_url=cs_base,
-            session_id=cs_session_id,
-            agent_id="lightrl-trainer",
-            auth_token=os.getenv("CS_AUTH_TOKEN") or None,
-            timeout=cs_timeout,
-            enabled=True,
-        )
-        logger.info(
-            "%s ClawSentry enabled: url=%s coef=%.3f sid=%s",
-            _log_tag,
-            cs_base,
-            plan.safety_coef,
-            cs_session_id,
         )
 
     clients.agent_runner = create_agent_runner(
@@ -731,25 +684,6 @@ async def _run_turn_loop(
                     # inline instead of paying one extra HTTP roundtrip per
                     # tool call when the 30s loop is already doing it.
                     await env_client.heartbeat(lease_id)
-                cs_dec_dict: dict[str, Any] | None = None
-                if clients.cs_client is not None:
-                    cs_dec = await clients.cs_client.pre_action(
-                        tool_call_request.tool_name,
-                        tool_call_request.args,
-                    )
-                    cs_score = _safety_per_turn_score(
-                        cs_dec, zero_threshold=plan.safety_zero_threshold
-                    )
-                    loop.cs_per_call.append((turn_idx, cs_score))
-                    if cs_dec is not None:
-                        cs_dec_dict = {
-                            "decision": cs_dec.decision,
-                            "risk_level": cs_dec.risk_level,
-                            "composite_score": cs_dec.composite_score,
-                            "reason": cs_dec.reason,
-                            "safety_score": cs_score,
-                        }
-                        loop.cs_per_call_full.append(cs_dec_dict)
                 with trace_span(
                     plan.trace_target,
                     "environment_tool",
@@ -773,7 +707,6 @@ async def _run_turn_loop(
                     "tool_name": tool_call_request.tool_name,
                     "args": tool_call_request.args,
                     "result": raw_result[:4096] if isinstance(raw_result, str) else str(raw_result)[:4096],
-                    "clawsentry": cs_dec_dict,
                 })
             should_continue_loop = True
 
@@ -945,7 +878,7 @@ async def _evaluate_outcome(
     return reward, eval_details, eval_error, status
 
 
-# ── Step 6: PRM / ClawSentry collection ─────────────────────────────────────
+# ── Step 6: PRM collection ──────────────────────────────────────────────────
 
 
 async def _collect_prm_scores(
@@ -995,52 +928,6 @@ async def _collect_prm_scores(
         "turn_details": prm_turn_details,
     }
     return prm_turn_scores
-
-
-async def _collect_safety_scores(
-    plan: _RunPlan,
-    clients: _TurnClients,
-    loop: _TurnLoopResult,
-    sample: Sample,
-) -> dict[int, float] | None:
-    if clients.cs_client is None:
-        return None
-    cs_summary = await clients.cs_client.fetch_summary()
-    per_call_scores = [score for (_idx, score) in loop.cs_per_call]
-    safety_traj = _safety_trajectory_score(
-        per_call_scores,
-        cs_summary,
-        summary_weight=plan.safety_summary_weight,
-        zero_threshold=plan.safety_zero_threshold,
-    )
-    turn_indices = [it.turn_idx for it in loop.interactions]
-    safety_turn_scores = _safety_broadcast(safety_traj, turn_indices)
-    cs_stats = clients.cs_client.stats()
-    sample.metadata["safety"] = {
-        "enabled": True,
-        "coef": plan.safety_coef,
-        "summary_weight": plan.safety_summary_weight,
-        "zero_threshold": plan.safety_zero_threshold,
-        "trajectory_score": safety_traj,
-        "per_call_scores": loop.cs_per_call,
-        "summary_composite_score": (
-            cs_summary.composite_score if cs_summary is not None else None
-        ),
-        "summary_dimensions": (
-            cs_summary.dimensions if cs_summary is not None else None
-        ),
-        "n_calls": cs_stats["calls"],
-        "n_errors": cs_stats["errors"],
-        "decisions": cs_stats["decisions"],
-    }
-    logger.info(
-        "%s ClawSentry trajectory_score=%.4f calls=%d errors=%d",
-        plan.log_tag,
-        safety_traj,
-        cs_stats["calls"],
-        cs_stats["errors"],
-    )
-    return safety_turn_scores
 
 
 # ── Step 7: exploration bonus injection (intrinsic/safety/LP-RND/Agent57/CDE) ──
@@ -1459,12 +1346,6 @@ async def _close_rollout_session(
     for _turn_idx, t in loop.prm_pending:
         if not t.done():
             t.cancel()
-
-    if clients.cs_client is not None:
-        try:
-            await clients.cs_client.aclose()
-        except Exception as exc:
-            logger.debug("ClawSentry aclose ignored: %s", exc)
 
     if clients.agent_runner is not None:
         try:

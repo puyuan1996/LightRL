@@ -65,11 +65,9 @@ def _install_import_stubs() -> None:
     sys.modules.setdefault("agent", agent)
     sys.modules.setdefault("agentic_rl.harnesses.prm.agent", prm_agent)
 
-    for name in ("agentic_rl.misc.clawsentry", "agentic_rl.inference.sglang", "agentic_rl.rollout.runner", "agentic_rl.environments.client"):
+    for name in ("agentic_rl.inference.sglang", "agentic_rl.rollout.runner", "agentic_rl.environments.client"):
         module = types.ModuleType(name)
-        if name == "agentic_rl.misc.clawsentry":
-            module.ClawSentryClient = object
-        elif name == "agentic_rl.inference.sglang":
+        if name == "agentic_rl.inference.sglang":
             module.SGLangTurnClient = object
         elif name == "agentic_rl.rollout.runner":
             module.create_agent_runner = lambda **_kwargs: None

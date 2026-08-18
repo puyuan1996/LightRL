@@ -1,134 +1,224 @@
 # LightRL
 
-**LightRL is a lightweight, efficient and scalable RL post-training framework for agentic environments.**
+<div align="center">
 
-中文文档见 [README_zh.md](README_zh.md)。
+<img src="assets/lightrl_logo_cropped.png" alt="LightRL Logo" width="100"/>
 
-Experiments are composed explicitly along four axes:
+**A lightweight, efficient, and scalable RL post-training framework for agentic environments.**
+
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](pyproject.toml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.4%2B-ee4c2c.svg)](https://pytorch.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+English | [简体中文](README_zh.md)
+
+</div>
+
+## Overview
+
+LightRL is an RL post-training framework for training language-model agents in
+interactive environments. Each experiment is composed explicitly along four
+axes, making recipes easy to inspect, reproduce, and extend:
+
+| Axis | Current options | Entry point |
+| --- | --- | --- |
+| Harness | Camel-Agent, Claude Code CLI | `agentic_rl/harnesses/` |
+| Environment | SETA, Agent-SafetyBench, AgentHarm, tau2, SWE-smith / SWE-verified | `agentic_rl/environments/` |
+| Model | Qwen3-8B, Qwen3-30B-A3B, GLM-5.1 | `configs/rollout/` |
+| Algorithm | GRPO / DAPO, DIVE-PO | Slime backend and `agentic_rl/algorithms/` |
+
+LightRL bundles the Slime and Megatron-LM training backends. Terminal
+environments run in isolated Docker workers and are accessed by training
+processes over HTTP. A worker may run on a dedicated CPU/Docker host or on the
+same host as GPU training; colocated deployments must reserve sufficient CPU,
+memory, Docker-network, and port capacity.
+
+## Contents
+
+- [Core capabilities](#core-capabilities)
+- [Execution model](#execution-model)
+- [Architecture](#architecture)
+- [Installation and requirements](#installation-and-requirements)
+- [Quickstart](#quickstart)
+- [Configuration and outputs](#configuration-and-outputs)
+- [Validation status](#validation-status)
+- [Development and extension](#development-and-extension)
+- [Documentation](#documentation)
+- [Acknowledgements](#acknowledgements)
+- [Citation](#citation)
+- [License](#license)
+
+## Core capabilities
+
+- **Recipe-driven training** — every experiment is a reviewable shell script;
+  `--dry-run` exposes the resolved data, model, parallelism, and backend command.
+- **Agentic environments** — covers SETA, Agent-SafetyBench, AgentHarm, tau2,
+  and SWE-smith / SWE-verified, with terminal tasks isolated in Docker workers.
+- **Explicit algorithm boundaries** — GRPO / DAPO come from the bundled Slime
+  backend; LightRL maintains DIVE-PO and the PRM reward agent under
+  `agentic_rl/algorithms/`.
+- **Low-cost extension** — environments, harnesses, and reward post-processors
+  have centralized registration points instead of scattered conditionals.
+- **Operational observability** — turn-level trajectories, JSONL metrics, W&B
+  curves, config snapshots, and dataset manifests share `runs/<RUN_ID>/`.
+- **Bounded end-to-end checks** — 4-GPU smoke recipes cover rollout, reward
+  shaping, and actor updates without requiring a full training run.
+
+## Execution model
 
 ```text
-Harness × Model × Algorithm × Environment
+Recipe script
+  → Slime launcher: data preparation, worker discovery, command assembly
+  → Rollout hook: harness + inference + environment interaction
+  → Reward shaping: score construction and optional DIVE-PO post-processing
+  → Actor update: training through Slime / Megatron-LM
 ```
 
-- **Harness**: Camel-Agent, Claude Code CLI (`agentic_rl/harnesses/`)
-- **Model**: Qwen3-8B, Qwen3-30B-A3B, GLM-5.1 (via configs/rollout templates)
-- **Algorithm**: GRPO / DAPO (provided by the bundled Slime backend),
-  DIVE-PO (LightRL-owned exploration extension)
-- **Environment**: SETA terminal tasks, Agent-SafetyBench, AgentHarm, tau2,
-  SWE-smith / SWE-verified (`agentic_rl/environments/`)
-
-The training backends are the in-repo Slime and Megatron-LM checkouts.
-Terminal environments execute in isolated Docker workers; GPU training
-processes reach them over HTTP through `WORKER_URLS` (optionally behind a
-local router when several workers are used).
-
-## Features
-
-- **Ready-to-run training recipes** — every experiment is a single reviewable
-  shell script; inspect the exact backend command with `--dry-run` before
-  anything starts.
-- **Agentic environment support** — SETA terminal tasks, Agent-SafetyBench,
-  AgentHarm, tau2, and SWE-smith / SWE-verified; terminal environments run
-  isolated in dedicated Docker workers and are reached over HTTP.
-- **Low-cost extension** — adding a benchmark environment is one declarative
-  line in the environment registry plus a runtime class; harnesses and reward
-  post-processors have equally explicit registration points.
-- **DIVE-PO exploration** — episodic / lifelong novelty estimation with
-  dual-stream advantage injection, toggled per recipe; GRPO / DAPO come from
-  the bundled Slime backend.
-- **Complete observability** — per-turn conversation trajectories, structured
-  JSONL metrics, and wandb curves, all on by default.
-- **Bounded validation scripts** — 4-GPU end-to-end smoke (rollout → reward →
-  gradient updates) that confirms a deployment in minutes.
+Terminal tasks require a Docker-capable worker exposed through `WORKER_URLS`.
+The worker may run on a dedicated CPU/Docker host or on the current GPU training
+host. Colocation is suitable for a resource-rich single machine, provided
+Docker containers and training processes do not contend for CPU, memory, disk,
+or ports. A single worker is contacted directly; multiple workers, or an
+explicit `START_ENV_POOL_SERVER=1`, enable the local lease router.
 
 ## Architecture
 
 ```text
 examples/training/<recipe>.sh
-  → agentic_rl/platform/slime_train.sh          # launcher: data prep, worker discovery, command assembly
-  → slime/train_async.py                        # training backend (GRPO/DAPO)
-      → agentic_rl/rollout/entrypoint.generate  # custom rollout hook
-          ├─ environments/registry.py           #   local runtime vs remote Docker worker
-          ├─ harnesses/factory.py               #   camel-agent / claude-code
-          ├─ inference/sglang.py                #   token-level generation via sglang
-          ├─ rollout/generate_steps.py          #   turn loop, scoring, exploration bonuses
-          └─ rollout/sample_builder.py          #   reward shaping → Sample.reward["score"]
-      → algorithms/dive_po/rewards/dual_stream  # custom reward post-process (group-normalized)
+  → agentic_rl/platform/slime_train.sh          # stable public launcher
+      ├─ slime_train/lib_*.sh                    # 7 phases: dirs, config, data, worker, args, launch
+      └─ slime/train_async.py                    # GRPO / DAPO backend
+          → agentic_rl/rollout/entrypoint.generate
+              ├─ environments/registry.py       # source, runtime, and reward policy registry
+              ├─ harnesses/factory.py           # Camel-Agent / Claude Code factory
+              ├─ inference/sglang.py            # shared sglang turn client
+              ├─ rollout/generate_steps.py      # multi-turn loop, scoring, exploration
+              └─ rollout/sample_builder.py      # reward shaping → Sample.reward["score"]
+          → algorithms/dive_po/rewards/dual_stream
+                                                   # optional group-normalized post-process
 ```
 
-## Repository layout
+The launcher loads `lib_bootstrap`, `lib_run_dir`, `lib_rollout_cfg`,
+`lib_dataset`, `lib_worker`, `lib_args`, and `lib_launch` in order. Recipes rely
+only on the stable `slime_train.sh` entry point, keeping project logic separate
+from third-party backend details.
+
+### Repository layout
 
 ```text
 LightRL/
 ├── agentic_rl/
-│   ├── algorithms/             # DIVE-PO (exploration, rewards, defaults) + PRM bonus agent
-│   ├── data/                   # dataset converters and download helpers (standalone scripts)
-│   ├── environments/           # registry.py, protocol.py, env runtimes, reward rules, HTTP client
-│   ├── evaluation/             # SWE-bench official-format export
-│   ├── harnesses/              # Camel-Agent / Claude Code harnesses + factory
-│   ├── inference/              # sglang turn client library (shared by rollout and harnesses)
-│   ├── misc/                   # rollout logging, JSONL sink, ClawSentry integration
-│   ├── platform/               # slime launcher, worker/router services, paths, env parsing, http client
-│   └── rollout/                # entrypoint hook, generate_steps, runner, admission, sglang factory, trajectory store
-├── configs/rollout/            # rollout model templates (only retained config layer)
-├── examples/                   # training recipes + bounded end-to-end validation
-├── benchmarks/                 # benchmark data and task definitions
-├── deploy/workers/             # Docker worker operations scripts
-├── tools/                      # analysis, evaluation, diagnostics
-├── tests/                      # unit tests (pytest)
-├── slime/                      # training backend (third-party)
-├── Megatron-LM/                # model training backend (third-party)
-├── runs/                       # all runtime outputs (git-ignored)
-└── docs/                       # architecture, algorithms, operations
+│   ├── algorithms/
+│   │   ├── dive_po/         # DIVE-PO exploration, rewards, and defaults
+│   │   └── prm/             # PRM (process reward) agent
+│   ├── data/                # conversion, download, and training-data preparation
+│   ├── environments/        # EnvSpec registry, protocols, runtimes, rewards, HTTP client
+│   ├── evaluation/          # SWE-bench export and evaluation adapters
+│   ├── harnesses/           # Camel-Agent / Claude Code harnesses and factory
+│   ├── inference/           # shared sglang turn client for rollout and harnesses
+│   ├── misc/                # rollout logs and JSONL sink
+│   ├── platform/            # Slime launcher, worker/router, paths, env parsing
+│   └── rollout/             # hook, turn loop, runner, admission, trajectory store
+├── configs/rollout/         # rollout model templates; the retained composition layer
+├── examples/
+│   ├── training/            # maintained recipes and world_model/WIP entry points
+│   └── validation/          # topology-free validation helpers
+├── benchmarks/              # benchmark data and task definitions
+├── deploy/workers/          # Docker worker launch, prewarm, cleanup, recovery
+├── tools/                   # analysis, evaluation, and developer diagnostics
+├── tests/                   # pytest unit and integration tests
+├── slime/                   # bundled third-party rollout/training backend
+├── Megatron-LM/             # bundled third-party model-training backend
+├── runs/                    # git-ignored configs, logs, metrics, trajectories
+└── docs/                    # architecture, algorithms, config, evaluation, operations
 ```
 
-## Requirements
+## Installation and requirements
 
-- Python ≥ 3.10. Real training expects the prepared cluster image (CUDA,
-  Slime, Megatron-LM, model checkpoints).
-- SETA/terminal tasks require a separate Docker-capable CPU worker.
-- GPU nodes must reach the worker service port (default `18081`).
-- Site addresses, credentials and scheduling parameters belong in environment
-  variables or the git-ignored `local/cluster/` — never in committed configs.
+- Python ≥ 3.10.
+- Real training requires a prepared runtime with CUDA, Slime, Megatron-LM, and
+  model checkpoints.
+- SETA and other terminal tasks require a Docker-capable worker, either on a
+  dedicated CPU host or on the current GPU training host.
+- Training processes must reach the worker service port (default `18081`);
+  use `127.0.0.1` for colocation or a training-reachable address across hosts.
+- Keep site addresses, credentials, and scheduling parameters in environment
+  variables or git-ignored `local/cluster/` files.
 
-For a source-only install of the Python package:
+Install the Python package from source:
 
 ```bash
 python3 -m pip install -e '.[rollout,worker,train]'
 python3 -c 'import agentic_rl'
 ```
 
-This does not provision model weights, CUDA, or the training backends.
+This installs the Python package and selected optional dependencies only. It
+does not provision CUDA, model weights, or the cluster runtime required by
+Slime and Megatron-LM.
 
 ## Quickstart
 
-### 1. Configure a Docker worker
+### 1. Start and configure a worker
+
+Start the worker on the selected Docker host, which may be a dedicated CPU node
+or the current GPU training node. See the
+[Docker worker guide](deploy/workers/README.md) for capacity, prewarming, and
+operations. On an already prepared machine, start the default pool server from
+the repository root:
 
 ```bash
-export WORKER_URLS=http://<WORKER_IP>:18081
-curl --noproxy '*' --fail http://<WORKER_IP>:18081/healthz
+bash deploy/workers/run_pool_server_pu_v2.sh
 ```
 
-Site-specific worker provisioning, credentials and scheduler launchers should
-live in ignored local configuration rather than the public repository.
+Then configure and check the endpoint in the training shell:
 
-### 2. Dry-run a recipe (GPU host)
+```bash
+export WORKER_URLS=http://<WORKER_HOST>:18081
+curl --noproxy '*' --fail http://<WORKER_HOST>:18081/healthz
+```
+
+Use `127.0.0.1` for `<WORKER_HOST>` when worker and training run on the same
+host. For remote deployment, use a reachable IP or hostname. Supply multiple
+workers as a comma-separated `WORKER_URLS`, or use `WORKER_URLS_FILE`.
+
+### 2. Inspect a recipe
+
+The maintained entry points are listed below. `examples/training/world_model/`
+is WIP and is not a stable training recipe.
+
+| Recipe | Harness | Model | Environment | Algorithm |
+| --- | --- | --- | --- | --- |
+| `train_qwen3_8b_seta_dapo.sh` | Camel-Agent | Qwen3-8B | SETA | DAPO |
+| `train_qwen3_8b_seta_dive_po.sh` | Camel-Agent | Qwen3-8B | SETA | DIVE-PO |
+| `train_qwen3_8b_mixed_dapo.sh` | Camel-Agent | Qwen3-8B | SETA + Agent-SafetyBench + AgentHarm | DAPO |
+| `train_glm_5_1_seta_dapo.sh` | Camel-Agent | GLM-5.1 | SETA | DAPO |
+
+Run `--dry-run` in the GPU training environment to inspect the resolved data,
+model, parallelism, and backend command:
 
 ```bash
 bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 bash examples/training/train_qwen3_8b_seta_dive_po.sh --dry-run
 bash examples/training/train_qwen3_8b_mixed_dapo.sh --dry-run
+bash examples/training/train_glm_5_1_seta_dapo.sh --dry-run
 ```
 
 ### 3. Launch training
 
 ```bash
-WORKER_URLS=http://<WORKER_IP>:18081 \
-NUM_GPUS=4 ACTOR_GPUS=2 ROLLOUT_GPUS=2 TP_SIZE=2 ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
+WORKER_URLS=http://<WORKER_HOST>:18081 \
+NUM_GPUS=4 ACTOR_GPUS=2 ROLLOUT_GPUS=2 TP_SIZE=2 \
+ROLLOUT_NUM_GPUS_PER_ENGINE=2 \
 bash examples/training/train_qwen3_8b_seta_dapo.sh
 ```
 
-### 4. Validate the public recipe
+Override the run name with `RUN_ID`. With `BACKGROUND=1`, launcher logs are
+written to `runs/<RUN_ID>/launcher.log`. The GLM-5.1 recipe additionally needs
+valid `HF_CKPT`, `REF_LOAD`, and compatible `MODEL_ARGS_FILE` values. See
+[training examples](examples/README.md) for the maintained entry points.
+
+### 4. Run source-level checks
 
 ```bash
 python3 -m compileall -q agentic_rl
@@ -137,77 +227,97 @@ WORKER_URLS=http://127.0.0.1:18081 \
   bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
-End-to-end scheduler launchers and cluster-specific smoke wrappers are kept in
-ignored local configuration because they contain site topology and paths.
+Cluster-specific launchers and smoke wrappers stay in ignored local
+configuration because they contain site topology and paths.
 
-## Configuration
+## Configuration and outputs
 
-Training configuration lives directly in the recipe scripts; environment
-variables override defaults. Python-side environment parsing is centralized
-in `agentic_rl/platform/env.py`, whose `ENV_VARS` table documents the
-rollout-domain variables. See [docs/configuration.md](docs/configuration.md).
+### Training configuration
 
-## Outputs
+Training defaults are defined in the recipe scripts. Environment-variable
+parsing is centralized in `agentic_rl/platform/env.py`; the `ENV_VARS` table
+documents the rollout-side variables. Environment and data-source capabilities
+are declared in the `EnvSpec` table in `agentic_rl/environments/registry.py`,
+while rollout model templates live in `configs/rollout/`. Environment variables
+override recipe defaults; see [configuration](docs/configuration.md) for fields,
+precedence, and examples.
+
+Keep site-specific addresses, credentials, proxies, and scheduler capacity out
+of public recipes. Provide them through environment variables or git-ignored
+`local/cluster/` files.
+
+### Output layout
+
+Each run writes to `runs/<RUN_ID>/`:
 
 ```text
 runs/<RUN_ID>/
-├── config/                # resolved config snapshot, generated dataset manifests
-├── environment_outputs/   # env-side agent runner outputs
-├── logs/                  # train.log, metrics.jsonl
-├── trajectories/          # per-sample traj.json + index.jsonl (side-channel)
-└── metrics/               # wandb / analysis
+├── config/                # resolved config snapshot and dataset manifests
+├── environment_outputs/   # environment-side AgentRunner outputs
+├── logs/                  # train.log, metrics.jsonl, and launcher logs
+├── trajectories/          # per-sample traj.json and side-channel index.jsonl
+└── metrics/               # W&B and offline analysis artifacts
 ```
 
-## Current validation status
+`runs/latest` points to the most recent run. Runtime artifacts belong under
+`runs/`, not at the repository root. See
+[checkpoint and W&B storage](docs/operations/checkpoint_wandb_storage_zh.md) for
+storage conventions.
 
-Latest bounded validations on 4 GPUs (2026-08-07, after the P0–P2 refactor
-round):
+## Validation status
 
-- SETA + DAPO: 3 rollouts, 6 actor train steps, non-zero finite updates
-  (`TRAINING_METRICS_OK`).
-- SETA + DIVE-PO: 3 rollouts, 7 actor train steps, 4 non-zero updates
-  (`EXAMPLE_VALIDATION_OK`); trajectory artifacts exported.
-- Mixed (SETA + Agent-SafetyBench + AgentHarm) + DAPO: 8 metric records,
-  4 actor train steps, 4 non-zero updates (`EXAMPLE_VALIDATION_OK`).
+The latest bounded validation (2026-08-07, 4 GPUs, after the P0–P2 refactor)
+reported:
+
+- SETA + DAPO: 3 rollouts, 6 actor training steps, finite non-zero updates, and
+  the `TRAINING_METRICS_OK` marker.
+- SETA + DIVE-PO: 3 rollouts, 7 actor steps, and 4 non-zero updates; complete
+  trajectory artifacts were exported with `EXAMPLE_VALIDATION_OK`.
+- Mixed SETA + Agent-SafetyBench + AgentHarm with DAPO: 8 metric records,
+  4 actor training steps, 4 non-zero updates, and `EXAMPLE_VALIDATION_OK`.
 
 These are short-horizon correctness checks, not convergence or benchmark
-claims.
+results.
 
-## Development
+## Development and extension
+
+Common source-level checks:
 
 ```bash
-python3 -m pytest tests/ -q        # 219 tests
+python3 -m pytest tests/ -q
 python3 -m compileall -q agentic_rl
 ```
 
-Extension points:
-
-- New environment → one `EnvSpec` in `agentic_rl/environments/registry.py`
-  + a runtime implementing `environments/protocol.py:EnvClient`.
-- New harness → register in `agentic_rl/harnesses/factory.py`
-  (`_HARNESS_ALIASES` + `_HARNESS_TARGETS`) and satisfy the
-  `rollout/runner.py:RolloutAgent` protocol.
-- New reward post-processing → expose `post_process_rewards(args, samples)`
-  and point `CUSTOM_REWARD_POST_PROCESS_PATH` at it.
+- **Environment** — register an `EnvSpec` in
+  `agentic_rl/environments/registry.py` and implement the
+  `environments/protocol.py:EnvClient` contract. Runtime selection, scoring,
+  safety rewards, and trajectory aliases are centralized in the registry.
+- **Harness** — add `_HARNESS_ALIASES` / `_HARNESS_TARGETS` entries in
+  `agentic_rl/harnesses/factory.py` and implement the
+  `rollout/runner.py:RolloutAgent` protocol. Lazy imports isolate optional
+  dependencies.
+- **Reward post-processing** — expose `post_process_rewards(args, samples)`
+  and set `CUSTOM_REWARD_POST_PROCESS_PATH` to its import path.
+- **Training recipe** — reuse the stable launcher in `examples/training/` and a
+  model template from `configs/rollout/`; keep site paths and credentials local.
 
 ## Documentation
 
-- [docs/architecture.md](docs/architecture.md) — package boundaries and layering
-- [docs/configuration.md](docs/configuration.md) — recipes and env vars
-- [docs/algorithms/dive_po_dual_stream.md](docs/algorithms/dive_po_dual_stream.md) — DIVE-PO reward math
-- [docs/harnesses/README.md](docs/harnesses/README.md) — harness selection
-- [docs/evaluation/README.md](docs/evaluation/README.md) — evaluation tooling
-- [docs/operations/](docs/operations/) — site-specific runbooks (our cluster;
-  adapt addresses/paths to your site)
+- [Architecture](docs/architecture.md) — boundaries, training path, router, registry
+- [Configuration](docs/configuration.md) — recipes, environment variables, precedence
+- [DIVE-PO reward math](docs/algorithms/dive_po_dual_stream.md) — dual-stream advantages
+- [Harness selection](docs/harnesses/README.md) — Camel-Agent / Claude Code integration
+- [Evaluation tools](docs/evaluation/README.md) — SWE-bench export and evaluation
+- [Docker worker](deploy/workers/README.md) — launch, capacity, prewarm, cleanup, recovery
+- [Checkpoint and W&B storage](docs/operations/checkpoint_wandb_storage_zh.md)
+- [Training examples](examples/README.md) — maintained recipes and validation entry points
 
 ## Acknowledgements
 
-LightRL builds on and bundles two training backends: [Slime](https://github.com/THUDM/slime)
-(rollout/training runtime) and [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
-(model training). The agentic RL stack — terminal environments, harnesses,
-reward shaping and the rollout orchestrator — was originally developed inside
-**OpenClaw-RL** and was extracted and refactored into this lightweight
-framework. We thank the authors of all these projects.
+LightRL bundles [Slime](https://github.com/THUDM/slime) for rollout/training
+runtime and [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) for model
+training. The agentic RL stack was originally developed in **OpenClaw-RL** and
+later extracted and refactored into this framework.
 
 ## Citation
 

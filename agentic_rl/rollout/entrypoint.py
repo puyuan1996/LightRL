@@ -27,7 +27,6 @@ from agentic_rl.rollout.generate_steps import (
     _build_turn_clients,
     _close_rollout_session,
     _collect_prm_scores,
-    _collect_safety_scores,
     _decide_status,
     _evaluate_outcome,
     _failure_specimen_record,
@@ -123,8 +122,6 @@ async def generate(
             )
 
         prm_turn_scores = await _collect_prm_scores(plan, clients, loop, sample)
-        safety_turn_scores = await _collect_safety_scores(plan, clients, loop, sample)
-
         # Build training samples
         dapo_overlong_cfg = _dapo_overlong_cfg(args)
         samples = _build_samples(
@@ -134,8 +131,6 @@ async def generate(
             status=status,
             prm_turn_scores=(prm_turn_scores if clients.prm_agent is not None else None),
             prm_coef=plan.prm_coef,
-            safety_turn_scores=safety_turn_scores,
-            safety_coef=plan.safety_coef,
             discount=1.0,
             encourage=False,
             outcome_is_score=direct_score_source(plan.data_source),
@@ -193,9 +188,7 @@ async def generate(
             raw_score=reward,
             eval_error=eval_error,
             turn_records=loop.turn_records,
-            safety_meta=sample.metadata.get("safety") if sample.metadata else None,
             prm_meta=sample.metadata.get("prm") if sample.metadata else None,
-            safety_coef=plan.safety_coef,
             prm_coef=plan.prm_coef,
             trajectory_save_interval=plan.traj_save_interval,
         )
@@ -262,9 +255,7 @@ async def generate(
                 raw_score=0.0,
                 eval_error=f"{type(exc).__name__}: {exc}",
                 turn_records=failed_turn_records,
-                safety_meta=sample.metadata.get("safety") if sample.metadata else None,
                 prm_meta=sample.metadata.get("prm") if sample.metadata else None,
-                safety_coef=plan.safety_coef,
                 prm_coef=plan.prm_coef,
                 trajectory_save_interval=plan.traj_save_interval,
             )

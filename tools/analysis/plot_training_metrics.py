@@ -42,7 +42,6 @@ TRAJ_RE = re.compile(
     r"\[task=(\S+) uid=(\S+) group_idx=(\d+) sample_idx=(\d+)\] "
     r"Rollout finished: status=(\S+) turns=(\d+) parse_errors=(\d+)"
 )
-CLAW_RE = re.compile(r"ClawSentry pre_action fail-open.*?'(\d+) ([^']+)'")
 RESET500_RE = re.compile(
     r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\].*Server error '500 .*?/reset'"
 )
@@ -96,7 +95,6 @@ def _parse_log(log_path: Path) -> dict[str, Any]:
     train_metrics: dict[int, dict] = {}
     train_points: list[dict[str, Any]] = []
     perf_metrics: dict[int, dict] = {}
-    clawsentry_errs: Counter = Counter()
     status_counts: Counter = Counter()
     turn_counts: list[int] = []
     parse_errs: list[int] = []
@@ -236,10 +234,6 @@ def _parse_log(log_path: Path) -> dict[str, Any]:
                 turn_counts.append(int(m.group(6)))
                 parse_errs.append(int(m.group(7)))
                 continue
-            m = CLAW_RE.search(line)
-            if m:
-                clawsentry_errs[f"{m.group(1)} {m.group(2)}"] += 1
-                continue
             m = RESET500_RE.search(line)
             if m:
                 # bucket by minute
@@ -260,7 +254,6 @@ def _parse_log(log_path: Path) -> dict[str, Any]:
         train_metrics=train_metrics,
         train_points=train_points,
         perf_metrics=perf_metrics,
-        clawsentry_errs=clawsentry_errs,
         status_counts=status_counts,
         turn_counts=turn_counts,
         parse_errs=parse_errs,
@@ -1220,7 +1213,6 @@ def _plot_all(
     out_dir: Path,
     collapse: int | None,
     reset500_total: int,
-    clawsentry_total: int,
 ) -> None:
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     Path(os.environ["MPLCONFIGDIR"]).mkdir(parents=True, exist_ok=True)
@@ -1483,8 +1475,6 @@ def _plot_all(
         suptitle_parts.append(f"collapse @ rollout {collapse}")
     if reset500_total:
         suptitle_parts.append(f"/reset 500: {reset500_total}")
-    if clawsentry_total:
-        suptitle_parts.append(f"ClawSentry errors: {clawsentry_total}")
     if suptitle_parts:
         fig.suptitle("Run overview — " + " | ".join(suptitle_parts), fontsize=13)
     fig_save("overview.png")
@@ -1496,7 +1486,6 @@ def _build_summary(
     rollout_metrics = parsed["rollout_metrics"]
     train_metrics = parsed["train_metrics"]
     train_diag = _train_step_diagnostics(parsed)
-    clawsentry_errs = parsed["clawsentry_errs"]
     status_counts = parsed["status_counts"]
     turn_counts = parsed["turn_counts"]
     parse_errs = parsed["parse_errs"]
@@ -1522,14 +1511,6 @@ def _build_summary(
 
     trunc_nums = [t for t in trunc if isinstance(t, (int, float))]
     trunc_mean = sum(trunc_nums) / len(trunc_nums) if trunc_nums else None
-
-    cs_total = sum(clawsentry_errs.values())
-    if any("429" in k for k in clawsentry_errs):
-        cs_status = "ALIVE_BUT_RATE_LIMITED"
-    elif clawsentry_errs:
-        cs_status = "OFFLINE"
-    else:
-        cs_status = "OK"
 
     summary = {
         "run_name": run_name,
@@ -1557,11 +1538,6 @@ def _build_summary(
             "entropy_loss": _stats(ent, "ent"),
             "lr_first": float(lr[0]) if lr and lr[0] is not None else None,
             "lr_last": float(lr[-1]) if lr and lr[-1] is not None else None,
-        },
-        "clawsentry": {
-            "total_errors": cs_total,
-            "error_breakdown": dict(clawsentry_errs),
-            "status": cs_status,
         },
         "reset500": {
             "total": sum(reset500_per_min.values()),
@@ -1618,8 +1594,17 @@ def plot_run(
     rollout_metrics = parsed["rollout_metrics"]
     train_metrics = parsed["train_metrics"]
     train_diag = _train_step_diagnostics(parsed)
+    has_structured_rollouts = any(
+        record.get("schema") == "terminal_rl.per_dataset_metrics.v1"
+        and record.get("phase") in {"train", "eval"}
+        for record in parsed["structured_metrics"]
+    )
+    has_structured_train = any(
+        record.get("schema") == "terminal_rl.actor_update_metrics.v1"
+        for record in parsed["structured_metrics"]
+    )
 
-    if not rollout_metrics and not train_metrics:
+    if not rollout_metrics and not train_metrics and not has_structured_rollouts and not has_structured_train:
         print("[!] no rollouts or train steps parsed — empty log?")
         summary = _build_summary(parsed, collapse=None, run_name=run_dir.name)
         json_path = out_dir / "summary_stats.json"
@@ -1650,7 +1635,6 @@ def plot_run(
         f"  structured dataset metrics: {len(structured_records)} "
         f"records ({', '.join(_structured_dataset_names(structured_records, include_overall=True)) or 'none'})"
     )
-    print(f"  ClawSentry errors: {sum(parsed['clawsentry_errs'].values())}")
     print(f"  /reset 500 events:  {sum(parsed['reset500_per_min'].values())}")
 
     r_ids = sorted(rollout_metrics)
@@ -1669,7 +1653,6 @@ def plot_run(
             out_dir=out_dir,
             collapse=collapse,
             reset500_total=sum(parsed["reset500_per_min"].values()),
-            clawsentry_total=sum(parsed["clawsentry_errs"].values()),
         )
 
     return summary

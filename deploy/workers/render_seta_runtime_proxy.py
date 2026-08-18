@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
 import tempfile
 from pathlib import Path
@@ -19,6 +20,11 @@ def main() -> int:
     parser.add_argument("--group", default="tinyproxy")
     parser.add_argument(
         "--log-file", default="/var/log/tinyproxy/seta-runtime-proxy.log"
+    )
+    parser.add_argument(
+        "--extra-allow",
+        default=os.getenv("SETA_RUNTIME_PROXY_EXTRA_ALLOW", ""),
+        help="Comma-separated client IP networks additionally allowed by tinyproxy.",
     )
     args = parser.parse_args()
 
@@ -49,6 +55,20 @@ def main() -> int:
         if not value or any(char.isspace() for char in value):
             raise SystemExit(f"unsupported whitespace/empty value for {name}")
 
+    extra_allow = []
+    for raw_network in args.extra_allow.split(","):
+        raw_network = raw_network.strip()
+        if not raw_network:
+            continue
+        try:
+            network = ipaddress.ip_network(raw_network, strict=False)
+        except ValueError as exc:
+            raise SystemExit(f"invalid --extra-allow network: {raw_network}") from exc
+        extra_allow.append(str(network))
+    allow_lines = "\n".join(f"Allow {network}" for network in extra_allow)
+    if allow_lines:
+        allow_lines += "\n"
+
     config = f"""User {args.user}
 Group {args.group}
 Port {args.port}
@@ -60,7 +80,7 @@ LogLevel Info
 DisableViaHeader Yes
 Allow 172.16.0.0/12
 Allow 192.168.0.0/16
-Upstream http {username}:{password}@{hostname}:{port}
+{allow_lines}Upstream http {username}:{password}@{hostname}:{port}
 ConnectPort 443
 ConnectPort 563
 """

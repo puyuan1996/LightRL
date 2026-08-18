@@ -176,17 +176,6 @@ class AgentSafetyBenchEnv:
         mode = os.getenv("SAFETY_BENCH_REWARD", "rule").strip().lower() or "rule"
         trajectory = trajectory if isinstance(trajectory, dict) else {}
 
-        if mode == "clawsentry":
-            self._last_eval = {
-                "mode": mode,
-                "score": 0.0,
-                "reason": (
-                    "base Agent-SafetyBench score disabled; "
-                    "ClawSentry shaping is handled in generate.py"
-                ),
-            }
-            return 0.0
-
         if mode in {"dense_rule", "rule_v2"}:
             score, details = self._dense_rule_score(trajectory)
         else:
