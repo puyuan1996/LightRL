@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -10,7 +11,11 @@ from typing import Any
 
 import torch
 
-from .evaluate_probe import _spearman
+from .cache_text_hidden import validate_hidden_cache_integrity
+from .checkpoint import select_evaluation_indices, trained_value_head_status
+from .evaluate_probe import _spearman, _subset_payload
+from .metrics import require_finite_tensor
+from .metadata import canonicalize_context_identity, is_verified_execution_reward_contract
 from .modules import TextLatentWorldModel, TextLatentWorldModelConfig
 
 
@@ -20,8 +25,16 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         for line in fh:
             line = line.strip()
             if line:
-                rows.append(json.loads(line))
+                rows.append(canonicalize_context_identity(json.loads(line)))
     return rows
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _float(value: Any) -> float | None:
@@ -63,18 +76,15 @@ def _load_cache(path: Path) -> dict[str, Any]:
     payload = torch.load(path, map_location="cpu", weights_only=False)
     if not isinstance(payload, dict):
         raise TypeError(f"Expected dict cache payload in {path}, got {type(payload).__name__}")
-    for key in ["state_hidden", "action_hidden", "target_hidden"]:
+    validate_hidden_cache_integrity(payload, require_verified=True)
+    for key in ["state_hidden", "action_hidden"]:
         if key not in payload:
             raise KeyError(f"Missing {key} in {path}")
     count = int(payload["state_hidden"].shape[0])
-    for key in ["action_hidden", "target_hidden"]:
+    for key in ["action_hidden"]:
         if int(payload[key].shape[0]) != count:
             raise ValueError(f"Inconsistent {key} length: expected {count}, got {int(payload[key].shape[0])}")
     return payload
-
-
-def _rankdata(values: list[float]) -> torch.Tensor:
-    return torch.tensor(values, dtype=torch.float32)
 
 
 def _group_records(
@@ -100,6 +110,22 @@ def _group_records(
             valid_indices = valid_indices[:max_candidates]
         if len(valid_indices) < min_candidates:
             continue
+        action_identities = []
+        for idx in valid_indices:
+            action_hash = records[idx].get("action_hash")
+            action_text = records[idx].get("action_text")
+            if action_text is not None:
+                action_identities.append(
+                    "text:" + hashlib.sha256(str(action_text).encode("utf-8")).hexdigest()
+                )
+            elif action_hash:
+                action_identities.append(f"hash:{action_hash}")
+            else:
+                action_identities.append(None)
+        if any(identity is None for identity in action_identities):
+            continue
+        if len(set(action_identities)) != len(action_identities):
+            continue
         if require_reward_variation:
             rewards = {
                 _float(records[idx].get("reward_score"))
@@ -110,6 +136,144 @@ def _group_records(
                 continue
         groups.append(valid_indices)
     return groups
+
+
+def _require_candidate_groups(groups: list[list[int]]) -> None:
+    if not groups:
+        raise ValueError(
+            "no eligible candidate groups remain after split/group/reward filters; "
+            "check group_key, min_candidates, distinct actions, and reward variation"
+        )
+
+
+def _validate_candidate_group_scope(
+    group_key: str,
+    evaluation_split: dict[str, Any],
+    *,
+    checkpoint_metadata: dict[str, Any] | None = None,
+    records: list[dict[str, Any]] | None = None,
+) -> None:
+    if evaluation_split.get("scope") != "group_heldout":
+        return
+    split_group_key = evaluation_split.get("split_group_key")
+    if split_group_key == group_key:
+        return
+    split_metadata = (checkpoint_metadata or {}).get("split")
+    if not isinstance(split_metadata, dict) or not isinstance(records, list):
+        raise ValueError(
+            "candidate group disjointness cannot be verified when group_key differs from split_group_key"
+        )
+    train_indices = split_metadata.get("train_indices")
+    val_indices = split_metadata.get("val_indices")
+    if not isinstance(train_indices, list) or not isinstance(val_indices, list):
+        raise ValueError("checkpoint split indices are required to verify candidate group disjointness")
+
+    def values(indices: list[int]) -> set[str]:
+        output: set[str] = set()
+        for index in indices:
+            if not isinstance(index, int) or index < 0 or index >= len(records):
+                raise ValueError("checkpoint split index is invalid for candidate group validation")
+            value = records[index].get(group_key)
+            if value is None or not str(value).strip():
+                raise ValueError(f"candidate group key {group_key!r} is incomplete across the split")
+            output.add(str(value))
+        return output
+
+    if values(train_indices) & values(val_indices):
+        raise ValueError(
+            f"candidate group key {group_key!r} overlaps between train and validation records"
+        )
+
+
+def _evaluation_gate_eligible(
+    *,
+    execution_outcome_eligible: bool,
+    evaluation_split: dict[str, Any],
+    training_contract_compatible: bool = True,
+    checkpoint_strict_eligible: bool = True,
+) -> bool:
+    return bool(
+        execution_outcome_eligible
+        and training_contract_compatible
+        and checkpoint_strict_eligible
+        and evaluation_split.get("scope") == "group_heldout"
+    )
+
+
+def _reward_label_contract(records: list[dict[str, Any]]) -> dict[str, Any]:
+    fields = [
+        "reward_label_scope",
+        "reward_label_source",
+        "reward_label_semantics",
+        "reward_label_is_execution_outcome",
+    ]
+    contracts: dict[str, dict[str, Any]] = {}
+    for row in records:
+        if _float(row.get("reward_score", row.get("reward"))) is None:
+            continue
+        contract = {field: row.get(field) for field in fields}
+        key = json.dumps(contract, ensure_ascii=False, sort_keys=True, default=str)
+        contracts[key] = contract
+    if len(contracts) > 1:
+        raise ValueError("candidate-set records contain inconsistent reward label contracts")
+    contract = next(iter(contracts.values())) if contracts else {field: None for field in fields}
+    contract["labeled_count"] = sum(
+        _float(row.get("reward_score", row.get("reward"))) is not None for row in records
+    )
+    contract["unlabeled_count"] = len(records) - contract["labeled_count"]
+    contract["verified_execution_outcome"] = (
+        contract["labeled_count"] > 0 and is_verified_execution_reward_contract(contract)
+    )
+    return contract
+
+
+def _validate_reward_label_contract(contract: dict[str, Any], *, allow_unverified: bool) -> bool:
+    verified = contract.get("verified_execution_outcome") is True
+    if not verified and not allow_unverified:
+        raise ValueError(
+            "candidate-set execution eval requires reward labels verified as execution outcomes; "
+            "use --allow-unverified-reward-labels only for a gate-ineligible diagnostic"
+        )
+    return verified
+
+
+def _validate_training_reward_contract(
+    checkpoint_metadata: dict[str, Any],
+    evaluation_contract: dict[str, Any],
+    *,
+    architecture_version: str,
+) -> tuple[bool, str]:
+    fields = [
+        "reward_label_scope",
+        "reward_label_source",
+        "reward_label_semantics",
+        "reward_label_is_execution_outcome",
+    ]
+    train_contract = checkpoint_metadata.get("train_value_label_contract")
+    if not isinstance(train_contract, dict):
+        return False, f"{architecture_version} checkpoint has no auditable train reward label contract"
+    mismatched = [field for field in fields if train_contract.get(field) != evaluation_contract.get(field)]
+    if mismatched:
+        raise ValueError(
+            "checkpoint/evaluation reward label contracts differ for: " + ", ".join(mismatched)
+        )
+    if (
+        train_contract.get("verified_execution_outcome") is not True
+        or not is_verified_execution_reward_contract(train_contract)
+    ):
+        return False, "checkpoint value head was not trained on verified execution-outcome labels"
+    if not is_verified_execution_reward_contract(evaluation_contract):
+        return False, "evaluation reward labels are not verified execution outcomes"
+    return True, "train and evaluation reward label contracts match"
+
+
+def _checkpoint_provenance_gate_status(checkpoint_metadata: dict[str, Any]) -> tuple[bool, str]:
+    diagnostic_only = checkpoint_metadata.get("diagnostic_only")
+    if diagnostic_only is False:
+        return True, "checkpoint explicitly records strict-eligible training provenance"
+    if diagnostic_only is True:
+        return False, "checkpoint was produced by a diagnostic-only training run"
+    return False, "checkpoint predates explicit diagnostic-only provenance metadata"
 
 
 def evaluate_candidate_sets(
@@ -125,6 +289,8 @@ def evaluate_candidate_sets(
     require_reward_variation: bool = True,
     device_name: str = "auto",
     uncertainty_coef: float = 0.0,
+    split: str = "auto",
+    allow_unverified_reward_labels: bool = False,
 ) -> dict[str, Any]:
     if device_name == "auto":
         device_name = "cuda" if torch.cuda.is_available() else "cpu"
@@ -135,6 +301,51 @@ def evaluate_candidate_sets(
     count = int(payload["state_hidden"].shape[0])
     if len(records) != count:
         raise ValueError(f"records/cache length mismatch: records={len(records)} cache={count}")
+    cache_metadata = payload.get("metadata")
+    cache_metadata = cache_metadata if isinstance(cache_metadata, dict) else {}
+    expected_records_digest = cache_metadata.get("input_records_sha256")
+    if not expected_records_digest:
+        raise ValueError(
+            "cache metadata does not contain input_records_sha256; rebuild the cache before candidate eval"
+        )
+    actual_records_digest = _file_sha256(records_path)
+    if actual_records_digest != expected_records_digest:
+        raise ValueError("records/cache provenance mismatch: input_records_sha256 differs")
+
+    model, checkpoint_metadata = _load_checkpoint(checkpoint, device)
+    source_record_indices, evaluation_split = select_evaluation_indices(
+        checkpoint_metadata,
+        cache_metadata,
+        count=count,
+        requested_split=split,
+    )
+    _validate_candidate_group_scope(
+        group_key,
+        evaluation_split,
+        checkpoint_metadata=checkpoint_metadata,
+        records=records,
+    )
+    records = [records[index] for index in source_record_indices]
+    payload = _subset_payload(payload, source_record_indices)
+    reward_label_contract = _reward_label_contract(records)
+    execution_outcome_eligible = _validate_reward_label_contract(
+        reward_label_contract,
+        allow_unverified=allow_unverified_reward_labels,
+    )
+    training_contract_compatible, training_contract_reason = _validate_training_reward_contract(
+        checkpoint_metadata,
+        reward_label_contract,
+        architecture_version=model.architecture_version,
+    )
+    checkpoint_strict_eligible, checkpoint_strict_reason = _checkpoint_provenance_gate_status(
+        checkpoint_metadata
+    )
+    gate_eligible = _evaluation_gate_eligible(
+        execution_outcome_eligible=execution_outcome_eligible,
+        evaluation_split=evaluation_split,
+        training_contract_compatible=training_contract_compatible,
+        checkpoint_strict_eligible=checkpoint_strict_eligible,
+    )
 
     groups = _group_records(
         records,
@@ -143,20 +354,25 @@ def evaluate_candidate_sets(
         max_candidates=max_candidates,
         require_reward_variation=require_reward_variation,
     )
+    _require_candidate_groups(groups)
 
-    model, checkpoint_metadata = _load_checkpoint(checkpoint, device)
+    value_trained, value_reason = trained_value_head_status(checkpoint_metadata)
+    if not value_trained:
+        raise ValueError(f"candidate-set eval requires a reward-supervised value head: {value_reason}")
+    if uncertainty_coef != 0.0:
+        raise ValueError(
+            "uncertainty_coef must be 0.0 for v1 checkpoints because the uncertainty head has no dedicated loss"
+        )
     tensors = {
         "state_hidden": payload["state_hidden"].float().to(device),
         "action_hidden": payload["action_hidden"].float().to(device),
-        "target_hidden": payload["target_hidden"].float().to(device),
     }
     with torch.no_grad():
         out = model(**tensors)
         if out["value"] is None:
             raise ValueError("candidate-set eval requires a checkpoint with value_head enabled")
-        value = out["value"].detach().float().cpu()
-        uncertainty = out["uncertainty"].detach().float().cpu() if out["uncertainty"] is not None else torch.zeros_like(value)
-        score = value - float(uncertainty_coef) * uncertainty
+        value = require_finite_tensor(out["value"].detach().float().cpu(), name="candidate value scores")
+        score = value
 
     group_rows: list[dict[str, Any]] = []
     top1_rewards: list[float] = []
@@ -170,7 +386,6 @@ def evaluate_candidate_sets(
         rewards = torch.tensor([float(records[idx].get("reward_score")) for idx in indices], dtype=torch.float32)
         scores = score[indices]
         values = value[indices]
-        uncertainties = uncertainty[indices]
         order = torch.argsort(scores, descending=True)
         best_idx = int(order[0].item())
         oracle_idx = int(torch.argmax(rewards).item())
@@ -196,10 +411,10 @@ def evaluate_candidate_sets(
                 "task_name": first_record.get("task_name"),
                 "task_path": first_record.get("task_path"),
                 "selected_local_index": best_idx,
-                "selected_record_index": indices[best_idx],
+                "selected_record_index": source_record_indices[indices[best_idx]],
                 "selected_reward": top_reward,
                 "oracle_local_index": oracle_idx,
-                "oracle_record_index": indices[oracle_idx],
+                "oracle_record_index": source_record_indices[indices[oracle_idx]],
                 "oracle_reward": oracle_reward,
                 "random_expected_reward": random_reward,
                 "oracle_regret": regret,
@@ -208,11 +423,11 @@ def evaluate_candidate_sets(
                 "spearman_reason": corr_reason,
                 "candidates": [
                     {
-                        "record_index": int(idx),
+                        "record_index": int(source_record_indices[idx]),
+                        "subset_record_index": int(idx),
                         "rank": int((order == local_idx).nonzero(as_tuple=False)[0].item()),
                         "score": float(scores[local_idx].item()),
                         "value": float(values[local_idx].item()),
-                        "uncertainty": float(uncertainties[local_idx].item()),
                         "reward": float(rewards[local_idx].item()),
                         "uid": records[idx].get("uid"),
                         "sample_index": records[idx].get("sample_index"),
@@ -231,7 +446,7 @@ def evaluate_candidate_sets(
 
     candidate_count_hist = Counter(len(group) for group in groups)
     summary = {
-        "schema_version": "openclaw_text_jepa_u2_candidate_set_eval_v1",
+        "schema_version": "openclaw_text_jepa_u2_candidate_set_eval_v4",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "checkpoint": str(checkpoint),
         "cache": str(cache),
@@ -241,8 +456,32 @@ def evaluate_candidate_sets(
         "group_key": group_key,
         "min_candidates": int(min_candidates),
         "max_candidates": int(max_candidates),
+        "distinct_actions_required": True,
         "require_reward_variation": bool(require_reward_variation),
         "uncertainty_coef": float(uncertainty_coef),
+        "uncertainty": {
+            "available": False,
+            "reason": "uncertainty_head_has_no_dedicated_training_objective",
+        },
+        "evaluation_split": evaluation_split,
+        "reward_label_contract": reward_label_contract,
+        "training_reward_contract_compatible": training_contract_compatible,
+        "training_reward_contract_reason": training_contract_reason,
+        "checkpoint_strict_eligible": checkpoint_strict_eligible,
+        "checkpoint_strict_reason": checkpoint_strict_reason,
+        "execution_outcome_eligible": execution_outcome_eligible,
+        "gate_eligible": gate_eligible,
+        "observational_gate_eligible": gate_eligible,
+        "t3_branched_gate_eligible": False,
+        "t3_branched_gate_reason": "branched candidate manifest and environment snapshot provenance are not implemented",
+        "diagnostic_only": not gate_eligible,
+        "t3_diagnostic_only": True,
+        "model_architecture": model.architecture_version,
+        "value_score_path": (
+            "predicted_outcome_latent"
+            if model.architecture_version == "shared_latent_v2"
+            else "direct_state_action_latent"
+        ),
         "record_count": len(records),
         "candidate_group_count": len(groups),
         "candidate_record_count": sum(len(group) for group in groups),
@@ -266,8 +505,11 @@ def evaluate_candidate_sets(
         "cache_metadata": payload.get("metadata", {}),
         "notes": [
             "This is an offline candidate-set evaluation over already executed candidates.",
-            "Ranking scores use only state/action features via the value head; target_hidden is used only as observed-label context in the trained checkpoint/cache, not as the selection score.",
-            "For production U2, candidate actions must be generated before execution and evaluated against real execution labels.",
+            "Ranking uses only state/action features via the value head; target_hidden is not passed to the model.",
+            "reward_score is a replay training-reward label unless reward_label_contract explicitly verifies an execution outcome.",
+            "A gate-eligible result also requires a group-heldout split and distinct actions within every candidate group.",
+            "gate_eligible is the legacy observational P2 gate; it is not a branched T3 eligibility claim.",
+            "Production U2 must generate candidates before execution and evaluate them against real labels.",
         ],
     }
     summary = _json_sanitize(summary)
@@ -299,6 +541,8 @@ def main() -> None:
     parser.add_argument("--allow-constant-reward-groups", action="store_true")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--uncertainty-coef", type=float, default=0.0)
+    parser.add_argument("--split", choices=["auto", "all", "train", "val"], default="auto")
+    parser.add_argument("--allow-unverified-reward-labels", action="store_true")
     args = parser.parse_args()
 
     summary = evaluate_candidate_sets(
@@ -313,6 +557,8 @@ def main() -> None:
         require_reward_variation=not args.allow_constant_reward_groups,
         device_name=args.device,
         uncertainty_coef=args.uncertainty_coef,
+        split=args.split,
+        allow_unverified_reward_labels=args.allow_unverified_reward_labels,
     )
     metrics = summary["metrics"]
     print(

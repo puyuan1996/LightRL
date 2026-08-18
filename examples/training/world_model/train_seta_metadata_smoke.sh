@@ -47,9 +47,7 @@ fi
 WORLD_MODEL_ARGS=(
   "--skip-eval-before-train"
   "--world-model-enable"
-  "--world-model-mode" "offline"
-  "--world-model-loss-coef" "0"
-  "--world-model-hidden-source" "none"
+  "--world-model-metadata-max-chars" "${WM_METADATA_MAX_CHARS:-4096}"
   "--save-debug-rollout-data" "${WM_SMOKE_METADATA_DIR}/rollout_{rollout_id}.pt"
 )
 

@@ -3,9 +3,9 @@ from slime.world_model.candidate_set_eval import _group_records
 
 def test_group_records_drops_missing_reward_candidates():
     records = [
-        {"context_hash": "ctx", "reward_score": 1.0},
+        {"context_hash": "ctx", "action_text": "a", "reward_score": 1.0},
         {"context_hash": "ctx", "reward_score": None},
-        {"context_hash": "ctx", "reward_score": -1.0},
+        {"context_hash": "ctx", "action_text": "b", "reward_score": -1.0},
     ]
 
     groups = _group_records(

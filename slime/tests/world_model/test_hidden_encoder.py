@@ -58,7 +58,9 @@ def _transition():
 
 def test_policy_hidden_encoder_uses_one_forward_for_state_and_action():
     model = _Model()
-    encoder = PolicyHiddenEncoder(model, _Tokenizer(), hidden_layer=-1, backprop_to_llm=False)
+    encoder = PolicyHiddenEncoder(
+        model, _Tokenizer(), hidden_layer=-1, backprop_to_llm=False, strict_action_boundary=False
+    )
 
     output = encoder([_transition()])
 
@@ -71,7 +73,9 @@ def test_policy_hidden_encoder_uses_one_forward_for_state_and_action():
 
 def test_policy_hidden_encoder_backprop_flag_reaches_backbone():
     model = _Model()
-    encoder = PolicyHiddenEncoder(model, _Tokenizer(), hidden_layer=-1, backprop_to_llm=True)
+    encoder = PolicyHiddenEncoder(
+        model, _Tokenizer(), hidden_layer=-1, backprop_to_llm=True, strict_action_boundary=False
+    )
 
     output = encoder([_transition()])
     (output["state_hidden"].sum() + output["action_hidden"].sum()).backward()

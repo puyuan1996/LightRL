@@ -16,7 +16,14 @@ def _write_checkpoint(path, *, hidden_dim=4, latent_dim=3):
         sigreg_num_proj=4,
     )
     model = TextLatentWorldModel(config)
-    torch.save({"config": config.__dict__, "state_dict": model.state_dict()}, path)
+    torch.save(
+        {
+            "config": config.__dict__,
+            "state_dict": model.state_dict(),
+            "metadata": {"cache_metadata": {"encoder_fingerprint_sha256": "unit-test"}},
+        },
+        path,
+    )
 
 
 def test_evaluate_probe_old_artifacts_single_sample_marks_shuffle_unavailable(tmp_path):
@@ -30,6 +37,7 @@ def test_evaluate_probe_old_artifacts_single_sample_marks_shuffle_unavailable(tm
             "state_hidden": torch.randn(1, 4),
             "action_hidden": torch.randn(1, 4),
             "target_hidden": torch.randn(1, 4),
+            "metadata": {"encoder_fingerprint_sha256": "unit-test"},
         },
         cache_path,
     )
@@ -40,6 +48,7 @@ def test_evaluate_probe_old_artifacts_single_sample_marks_shuffle_unavailable(tm
         output=out_path,
         device_name="cpu",
         bootstrap_samples=0,
+        split="all",
     )
     payload = json.loads(out_path.read_text(encoding="utf-8"))
 
@@ -68,6 +77,7 @@ def test_evaluate_probe_uses_reward_mask_and_constant_reward_reason(tmp_path):
                 {"uid": "u2", "task_name": "task", "status": "completed", "has_tool_result": False},
                 {"uid": "u3", "task_name": "task", "status": "failed", "has_tool_result": False},
             ],
+            "metadata": {"encoder_fingerprint_sha256": "unit-test"},
         },
         cache_path,
     )
@@ -78,6 +88,7 @@ def test_evaluate_probe_uses_reward_mask_and_constant_reward_reason(tmp_path):
         output=out_path,
         device_name="cpu",
         bootstrap_samples=8,
+        split="all",
     )
     metrics = summary["metrics"]
 
@@ -87,7 +98,7 @@ def test_evaluate_probe_uses_reward_mask_and_constant_reward_reason(tmp_path):
     assert metrics["action_delta"] is not None
     assert metrics["value_reward"]["reward_mask_count"] == 2
     assert metrics["value_reward"]["spearman"] is None
-    assert metrics["value_reward"]["reason"] == "constant_input"
+    assert metrics["value_reward"]["reason"].endswith("constant_input")
     assert summary["record_metadata_summary"]["status_hist"]["completed"] == 2
 
 
@@ -101,6 +112,7 @@ def test_evaluate_probe_rejects_empty_cache(tmp_path):
             "state_hidden": torch.empty(0, 4),
             "action_hidden": torch.empty(0, 4),
             "target_hidden": torch.empty(0, 4),
+            "metadata": {"encoder_fingerprint_sha256": "unit-test"},
         },
         cache_path,
     )

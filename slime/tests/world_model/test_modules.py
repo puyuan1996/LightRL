@@ -25,7 +25,7 @@ def test_text_latent_world_model_loss_backward():
     assert "wm/action_delta" in metrics
     loss.backward()
     assert any(param.grad is not None for param in model.parameters())
-    assert any(param.grad is not None for param in model.target_adapter.parameters())
+    assert any(param.grad is not None for param in model.target_projector.parameters())
 
 
 def test_adaln_predictor_keeps_action_out_of_attention_tokens():

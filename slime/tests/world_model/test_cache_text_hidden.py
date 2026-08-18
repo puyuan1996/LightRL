@@ -81,7 +81,7 @@ def test_cache_text_hidden_writes_metadata_and_reward_mask(tmp_path, monkeypatch
     payload = torch.load(output_path, map_location="cpu", weights_only=False)
     assert payload["state_hidden"].shape == (2, 8)
     assert payload["record_count"] == 2
-    assert payload["metadata"]["schema_version"] == "openclaw_text_jepa_hidden_cache_v1"
+    assert payload["metadata"]["schema_version"] == "openclaw_text_jepa_hidden_cache_v4"
     assert payload["record_metadata"][0]["uid"] == "u1"
     assert payload["reward"].tolist() == [1.5, 0.0]
     assert payload["reward_mask"].tolist() == [True, False]
