@@ -143,7 +143,7 @@ def main() -> None:
     parser.add_argument(
         "--raw-dir",
         type=Path,
-        default=Path("benchmarks/agentharm"),
+        default=Path("benchmarks/datasets/agentharm"),
     )
     parser.add_argument(
         "--root",

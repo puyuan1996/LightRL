@@ -100,12 +100,12 @@ def main() -> None:
     parser.add_argument(
         "--input-dir",
         type=Path,
-        default=Path("benchmarks/agentharm"),
+        default=Path("benchmarks/datasets/agentharm"),
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("benchmarks/agentharm_convert"),
+        default=Path("benchmarks/datasets/agentharm_convert"),
     )
     parser.add_argument(
         "--include-chat-train",

@@ -11,7 +11,8 @@ from tqdm import tqdm
 import sys
 from load_tasks import TBenchTrainingTask, load_terminal_bench_tasks
 
-DATASET_DIR = Path(os.getenv("DATASET_DIR", "./benchmarks"))
+ENVIRONMENT_DIR = Path(os.getenv("DATASET_DIR", "./benchmarks/environments"))
+DATASET_DIR = Path(os.getenv("BENCHMARK_DATA_DIR", "./benchmarks/datasets"))
 
 
 def convert_tasks(
@@ -53,7 +54,7 @@ def convert_tasks(
 
     for task in tqdm(tasks, desc="Converting tasks"):
         # find path relative to outdir
-        task_path = task.task_path.relative_to(DATASET_DIR)
+        task_path = task.task_path.relative_to(ENVIRONMENT_DIR)
         print(f"Processing task: {task.task_name} at {task_path}")
         record = {
             "task_name": task.task_name,

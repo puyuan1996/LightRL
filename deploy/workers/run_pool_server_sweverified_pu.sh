@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." &>/dev/null && pwd)"
 TERMINAL_RL_DIR="${REPO_ROOT}/agentic_rl"
 
-export DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/benchmarks}"
+export DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/benchmarks/environments}"
 export ENV_SERVER_PORT="${ENV_SERVER_PORT:-18083}"
 export TERMINAL_RL_POOL_NAMESPACE="${TERMINAL_RL_POOL_NAMESPACE:-sweverified}"
 export TBENCH_DOCKER_IMAGE_SOURCE="${TBENCH_DOCKER_IMAGE_SOURCE:-build}"
