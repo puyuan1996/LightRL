@@ -7,9 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 from tqdm import tqdm
 
-# Add project to path
-import sys
-from load_tasks import TBenchTrainingTask, load_terminal_bench_tasks
+from agentic_rl.data.load_tasks import TBenchTrainingTask, load_terminal_bench_tasks
 
 ENVIRONMENT_DIR = Path(os.getenv("DATASET_DIR", "./benchmarks/environments"))
 DATASET_DIR = Path(os.getenv("BENCHMARK_DATA_DIR", "./benchmarks/datasets"))
