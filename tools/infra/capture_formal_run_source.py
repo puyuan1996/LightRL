@@ -29,7 +29,7 @@ DEFAULT_CAPTURE_PATHS = [
     "tools/dev/smoke_seta_worker.py",
     "tools/evaluation/build_seta_fixed_eval.py",
     "tools/evaluation/compare_seta_fixed_eval.py",
-    "tools/reproducibility/capture_formal_run_source.py",
+    "tools/infra/capture_formal_run_source.py",
 ]
 
 

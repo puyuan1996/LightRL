@@ -400,7 +400,7 @@ CFGEOF
 
 if [[ "${FORMAL_CAPTURE_SOURCE_STATE:-0}" == "1" ]]; then
   log "Capturing formal-run source state..."
-  "${TRAIN_PYTHON}" "${REPO_ROOT}/tools/reproducibility/capture_formal_run_source.py" \
+  "${TRAIN_PYTHON}" "${REPO_ROOT}/tools/infra/capture_formal_run_source.py" \
     --run-dir "${RUN_DIR}"
 fi
 
