@@ -35,7 +35,7 @@ WM_USE_DAPO_REPLAY_BUFFER=1 \
 WM_MAX_TRAJECTORIES=2 \
 WM_MAX_TRANSITIONS=8 \
 WM_EPOCHS=1 \
-tools/world_model/run_world_model_seta_latent.sh
+examples/training/world_model/train_seta_latent.sh
 ```
 
 默认 hash hidden 只验证工程闭环。正式 policy hidden：
@@ -43,7 +43,7 @@ tools/world_model/run_world_model_seta_latent.sh
 ```bash
 WM_ENCODER=hf-policy \
 WM_HF_MODEL=/path/to/Qwen3-8B \
-tools/world_model/run_world_model_seta_latent.sh
+examples/training/world_model/train_seta_latent.sh
 ```
 
 两个默认关闭的 option：

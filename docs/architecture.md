@@ -49,6 +49,38 @@ examples/training/<recipe>.sh
 
 ## 3. `agentic_rl` 目录职责
 
+### 分层与依赖方向
+
+```text
+env.py / types.py / http_client.py / http_server.py
+                    ↓
+       data/ + harnesses/ + algorithms/
+                    ↓
+             environments/
+                    ↓
+                rollout/
+                    ↓
+        platform/ + trainer + scripts
+
+evaluation/ 只读取轨迹或结果产物，不被 rollout 反向调用。
+```
+
+- 根模块只定义不依赖业务包的数据类型、环境变量和 HTTP 小工具。
+- `data/` 供给数据；`environments/` 执行交互动力学；`evaluation/` 对已有结果打分或导出。
+- `harnesses/protocol.py` 拥有 `TurnClient` 契约；各 harness 只面向该契约，不 import rollout 实现。
+- `rollout/backends/` 实现推理引擎并由本地工厂选择，采样循环不知道 SGLang 的构造细节。
+- `platform/` 是最高层服务与编排；任何下层包都不得 import `platform`。
+- 新增内部 import 前用 AST 依赖 DFS 检查；包 `__init__.py` 仅显式导出，重可选依赖采用惰性导入。
+
+上图的例外只有单向的 `environments → data.tau2_support`，用于共享 Tau2 数据集定义的任务文本规范化；`data` 不反向依赖环境。
+
+### 根部基础模块
+
+- `types.py`：`TaskSpec`、`Interaction`、`RunContext`、`TurnContext`、`TurnResult`。
+- `env.py`：环境变量解析与任务超时配置。
+- `http_client.py`：与业务无关的 HTTP 重试、超时和 JSON 客户端。
+- `http_server.py`：服务端 JSON 解析；不命名为 `http.py`，以免遮蔽 Python 标准库。
+
 ### `algorithms/`：算法扩展
 
 - `dive_po/`：DIVE-PO 默认配置、探索奖励和探索状态管理。
