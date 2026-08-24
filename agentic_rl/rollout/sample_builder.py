@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from slime.utils.types import Sample
 
-from agentic_rl.platform.types import Interaction, TaskSpec
+from agentic_rl.types import Interaction, TaskSpec
 from agentic_rl.algorithms.dive_po.rewards.shared import _sync_reward_aliases
 from agentic_rl.environments.registry import (
     safety_split_applies as _safety_split_applies,
@@ -64,7 +64,7 @@ def _safety_split_from_meta(task_meta: dict[str, Any]) -> str:
     return "benign_should_comply" if fulfillable == 1 else "harmful_should_refuse"
 
 
-from agentic_rl.platform.env import env_bool as _env_flag
+from agentic_rl.env import env_bool as _env_flag
 
 
 def _dapo_overlong_cfg(args) -> dict[str, Any] | None:

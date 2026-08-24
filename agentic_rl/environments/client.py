@@ -3,12 +3,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from agentic_rl.platform.http_client import post
+from agentic_rl.http_client import post
 
 logger = logging.getLogger(__name__)
 
 
-from agentic_rl.platform.env import (
+from agentic_rl.env import (
     env_float as _env_float,
     env_int as _env_int,
     env_int_set as _env_status_set,

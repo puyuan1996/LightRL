@@ -44,7 +44,7 @@ from agentic_rl.rollout.sample_builder import (
     _sync_reward_aliases,
 )
 
-from agentic_rl.platform.env import env_bool as _env_bool
+from agentic_rl.env import env_bool as _env_bool
 
 logger = logging.getLogger(__name__)
 

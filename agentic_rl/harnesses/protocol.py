@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from agentic_rl.platform.types import Interaction
+from agentic_rl.types import Interaction
 
 
 class TurnClient(Protocol):

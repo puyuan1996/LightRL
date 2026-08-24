@@ -6,7 +6,7 @@ different warning and empty-string behaviour).  Import from here instead of
 re-defining them; call sites typically alias the underscore names so existing
 code keeps working::
 
-    from agentic_rl.platform.env import env_bool as _env_bool, env_float as _env_float
+    from agentic_rl.env import env_bool as _env_bool, env_float as _env_float
 
 Two helper families exist on purpose:
 

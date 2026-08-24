@@ -234,7 +234,7 @@ configuration because they contain site topology and paths.
 ### Training configuration
 
 Training defaults are defined in the recipe scripts. Environment-variable
-parsing is centralized in `agentic_rl/platform/env.py`; the `ENV_VARS` table
+parsing is centralized in `agentic_rl/env.py`; the `ENV_VARS` table
 documents the rollout-side variables. Environment and data-source capabilities
 are declared in the `EnvSpec` table in `agentic_rl/environments/registry.py`,
 while rollout model templates live in `configs/rollout/`. Environment variables

@@ -14,14 +14,14 @@ from openai.types.chat.chat_completion import Choice
 from openai.types.completion_usage import CompletionUsage
 
 from agentic_rl.harnesses.tool_calls import process_tool_calls
-from agentic_rl.platform.http_client import post as async_post
+from agentic_rl.http_client import post as async_post
 
 # async_post is a module-level function with a static signature; probing it
 # once here avoids per-request inspect.signature() calls in generate_turn().
 _POST_SUPPORTS_HEADERS = "headers" in inspect.signature(async_post).parameters
 _POST_SUPPORTS_TIMEOUT = "timeout" in inspect.signature(async_post).parameters
 
-from agentic_rl.platform.types import Interaction
+from agentic_rl.types import Interaction
 
 logger = logging.getLogger(__name__)
 

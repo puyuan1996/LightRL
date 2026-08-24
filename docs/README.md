@@ -4,7 +4,7 @@
 
 - [architecture.md](architecture.md)——包边界、主链路与扩展点（环境注册表、
   env 解析、训练三层入口)。
-- [configuration.md](configuration.md)——recipe 即配置；`platform/env.py`
+- [configuration.md](configuration.md)——recipe 即配置；`agentic_rl/env.py`
   的 `ENV_VARS` 声明表；`environments/registry.py` 的 `EnvSpec` 表。
 - [refactor_review_20260731.md](refactor_review_20260731.md)——2026-07-31
   包结构审查记录（分层边界的历史快照）。

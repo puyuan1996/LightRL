@@ -10,7 +10,7 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
-from agentic_rl.platform.env import env_flag as _env_enabled
+from agentic_rl.env import env_flag as _env_enabled
 
 
 def _format_float(value: Any, width: int = 8) -> str:

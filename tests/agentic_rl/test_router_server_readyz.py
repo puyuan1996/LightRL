@@ -55,7 +55,7 @@ def _install_import_stubs(monkeypatch):
     aiohttp_mod.ClientTimeout = _ClientTimeout
     aiohttp_mod.TCPConnector = _TCPConnector
 
-    request_utils_mod = types.ModuleType("agentic_rl.platform.http")
+    request_utils_mod = types.ModuleType("agentic_rl.http")
 
     async def _json_payload(_request):
         return {}
@@ -66,7 +66,7 @@ def _install_import_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "fastapi", fastapi_mod)
     monkeypatch.setitem(sys.modules, "fastapi.responses", responses_mod)
     monkeypatch.setitem(sys.modules, "aiohttp", aiohttp_mod)
-    monkeypatch.setitem(sys.modules, "agentic_rl.platform.http", request_utils_mod)
+    monkeypatch.setitem(sys.modules, "agentic_rl.http", request_utils_mod)
     sys.modules.pop("agentic_rl.platform.router_app", None)
     return importlib.import_module("agentic_rl.platform.router_app")
 

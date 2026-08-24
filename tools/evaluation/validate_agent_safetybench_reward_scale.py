@@ -90,7 +90,7 @@ def _install_import_stubs() -> None:
 
 _install_import_stubs()
 
-from agentic_rl.platform.types import Interaction  # noqa: E402
+from agentic_rl.types import Interaction  # noqa: E402
 from agentic_rl.rollout.entrypoint import _build_samples  # noqa: E402
 from slime.utils.types import Sample  # noqa: E402
 

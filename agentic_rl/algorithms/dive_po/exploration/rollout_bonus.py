@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 
 from slime.utils.types import Sample
 
-from agentic_rl.platform.types import Interaction, RunContext
+from agentic_rl.types import Interaction, RunContext
 from agentic_rl.algorithms.dive_po.exploration.agent57.memory import create_episodic_memory_backend
 from agentic_rl.algorithms.dive_po.exploration.agent57.controller import (
     coarse_observation_fingerprint as _agent57_coarse_observation_fingerprint,
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 _AGENT57_CONFIG = _agent57_config_from_env()
 
 
-from agentic_rl.platform.env import (
+from agentic_rl.env import (
     env_bool as _env_bool,
     env_float as _env_float,
     env_int as _env_int,

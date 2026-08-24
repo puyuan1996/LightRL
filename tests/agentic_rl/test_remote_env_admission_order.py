@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
-from agentic_rl.platform.types import RunContext, TaskTimeouts
+from agentic_rl.types import RunContext, TaskTimeouts
 from agentic_rl.rollout import generate_steps
 
 

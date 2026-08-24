@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from agentic_rl.platform.types import RunContext, TaskSpec, TaskTimeouts
+from agentic_rl.types import RunContext, TaskSpec, TaskTimeouts
 
 logger = logging.getLogger("lightrl.env.worker.admission")
 
@@ -130,7 +130,7 @@ class ResetAdmissionBacklogError(Exception):
         )
 
 
-from agentic_rl.platform.env import env_float as _env_float, env_int as _env_int
+from agentic_rl.env import env_float as _env_float, env_int as _env_int
 
 
 def _env_bool(name: str, default: bool) -> bool:

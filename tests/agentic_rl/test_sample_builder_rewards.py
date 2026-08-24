@@ -24,7 +24,7 @@ for path in (REPO_ROOT / "slime", TERMINAL_RL_DIR):
 
 from slime.utils.types import Sample
 
-from agentic_rl.platform.types import Interaction
+from agentic_rl.types import Interaction
 from agentic_rl.rollout.sample_builder import (
     _build_samples,
     _dapo_overlong_cfg,

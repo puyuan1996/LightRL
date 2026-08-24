@@ -13,7 +13,7 @@ if str(ROOT_DIR / "slime") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "slime"))
 
 from agentic_rl.rollout.runner import AgentRunner, create_agent_runner, normalize_harness_option
-from agentic_rl.platform.types import Interaction, TurnResult
+from agentic_rl.types import Interaction, TurnResult
 
 
 def test_normalize_harness_option_aliases():

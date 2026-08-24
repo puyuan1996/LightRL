@@ -226,7 +226,7 @@ WORKER_URLS=http://127.0.0.1:18081 \
 ### 训练配置
 
 训练默认配置直接写在 recipe 脚本中。Python 侧环境变量解析集中于
-`agentic_rl/platform/env.py`，其中的 `ENV_VARS` 表记录 rollout 相关变量。
+`agentic_rl/env.py`，其中的 `ENV_VARS` 表记录 rollout 相关变量。
 环境与数据源能力集中在 `agentic_rl/environments/registry.py` 的 `EnvSpec`
 表中，模型侧 rollout 模板集中在 `configs/rollout/`。环境变量可覆盖 recipe
 默认值；完整字段、优先级和示例见[配置说明](docs/configuration.md)。

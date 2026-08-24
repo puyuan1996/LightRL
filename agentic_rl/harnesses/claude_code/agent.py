@@ -22,7 +22,7 @@ from urllib import error, request
 from agentic_rl.harnesses.claude_code.qwen_gateway import ClaudeCodeQwenGateway
 from agentic_rl.harnesses.claude_code.prompts import get_developer_agent_prompt
 from agentic_rl.harnesses.protocol import TurnClient
-from agentic_rl.platform.types import Interaction, TurnResult
+from agentic_rl.types import Interaction, TurnResult
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ ClaudeCodeFinalResponse = ClaudeCodeResponse
 ClaudeCodeModelResponse = ClaudeCodeResponse
 
 
-from agentic_rl.platform.env import (
+from agentic_rl.env import (
     env_bool as _env_flag,
     env_float as _env_float,
     env_int as _env_int,

@@ -4,7 +4,7 @@ import inspect
 from typing import Any, Dict, List, Optional, Protocol
 
 from agentic_rl.harnesses.protocol import TurnClient
-from agentic_rl.platform.types import TurnContext, TurnResult
+from agentic_rl.types import TurnContext, TurnResult
 from agentic_rl.harnesses.factory import create_harness, display_harness_name
 import logging
 

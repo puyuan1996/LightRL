@@ -16,7 +16,7 @@ from agentic_rl.environments.terminal.docker_compose import (
     DockerImageTransientBuildError,
     TaskImageBlacklistedError,
 )
-from agentic_rl.platform.http import json_payload
+from agentic_rl.http import json_payload
 from agentic_rl.platform.worker_admission import (
     CapacityError,
     ResetAdmissionBacklogError,

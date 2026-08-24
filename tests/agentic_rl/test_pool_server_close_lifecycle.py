@@ -102,12 +102,12 @@ def _install_import_stubs(monkeypatch):
     responses_mod.JSONResponse = _JSONResponse
     responses_mod.Response = _Response
 
-    custom_types_mod = types.ModuleType("agentic_rl.platform.types")
+    custom_types_mod = types.ModuleType("agentic_rl.types")
     custom_types_mod.TaskSpec = _TaskSpec
     custom_types_mod.RunContext = _RunContext
     custom_types_mod.TaskTimeouts = _TaskTimeouts
 
-    request_utils_mod = types.ModuleType("agentic_rl.platform.http")
+    request_utils_mod = types.ModuleType("agentic_rl.http")
 
     async def _json_payload(_request):
         return {}
@@ -148,8 +148,8 @@ def _install_import_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "uvicorn", types.ModuleType("uvicorn"))
     monkeypatch.setitem(sys.modules, "fastapi", fastapi_mod)
     monkeypatch.setitem(sys.modules, "fastapi.responses", responses_mod)
-    monkeypatch.setitem(sys.modules, "agentic_rl.platform.types", custom_types_mod)
-    monkeypatch.setitem(sys.modules, "agentic_rl.platform.http", request_utils_mod)
+    monkeypatch.setitem(sys.modules, "agentic_rl.types", custom_types_mod)
+    monkeypatch.setitem(sys.modules, "agentic_rl.http", request_utils_mod)
     monkeypatch.setitem(sys.modules, "agentic_rl.environments.terminal.runtime", terminal_env_mod)
     monkeypatch.setitem(
         sys.modules, "agentic_rl.environments.terminal.docker_compose", docker_compose_utils_mod

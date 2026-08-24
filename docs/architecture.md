@@ -99,9 +99,7 @@ GRPO/DAPO 的核心优化器由 Slime 提供；LightRL 主要负责其环境交�
 
 ### `platform/`：训练平台与 worker 基础设施
 
-- `env.py`：统一环境变量解析和变量说明表。
 - `paths.py`：统一 run、log、metric、trajectory 和 checkpoint 路径。
-- `types.py`：任务、turn、运行上下文等公共类型。
 - `router.py`、`router_app.py`、`router_cli.py`：将训练侧环境请求转发到 worker。
 - `worker_app.py`、`worker_cli.py`、`worker_pool.py`：管理环境租约、并发、Docker 生命周期和资源压力。
 - `worker_admission.py`：worker 的容量和并发准入控制。

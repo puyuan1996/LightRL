@@ -17,12 +17,12 @@ from typing import Any, Dict, List
 
 from slime.utils.types import Sample
 
-from agentic_rl.platform.types import RunContext, TaskSpec
+from agentic_rl.types import RunContext, TaskSpec
 
 logger = logging.getLogger(__name__)
 
 
-from agentic_rl.platform.env import env_bool as _env_bool, env_int as _env_int
+from agentic_rl.env import env_bool as _env_bool, env_int as _env_int
 from agentic_rl.environments.registry import (
     interval_candidates_for_slug as _interval_candidates_for_slug,
 )
