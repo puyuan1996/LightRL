@@ -92,7 +92,7 @@ examples/training/<recipe>.sh
           → agentic_rl/rollout/entrypoint.generate
               ├─ environments/registry.py       # source, runtime, and reward policy registry
               ├─ harnesses/factory.py           # Camel-Agent / Claude Code factory
-              ├─ inference/sglang.py            # shared sglang turn client
+              ├─ rollout/backends/sglang.py     # shared sglang turn client
               ├─ rollout/generate_steps.py      # multi-turn loop, scoring, exploration
               └─ rollout/sample_builder.py      # reward shaping → Sample.reward["score"]
           → algorithms/dive_po/rewards/dual_stream
@@ -116,10 +116,9 @@ LightRL/
 │   ├── environments/        # EnvSpec registry, protocols, runtimes, rewards, HTTP client
 │   ├── evaluation/          # SWE-bench export and evaluation adapters
 │   ├── harnesses/           # Camel-Agent / Claude Code harnesses and factory
-│   ├── inference/           # shared sglang turn client for rollout and harnesses
 │   ├── misc/                # rollout logs and JSONL sink
 │   ├── platform/            # Slime launcher, worker/router, paths, env parsing
-│   └── rollout/             # hook, turn loop, runner, admission, trajectory store
+│   └── rollout/             # hook, turn loop, serving backends, admission, trajectory store
 ├── configs/rollout/         # rollout model templates; the retained composition layer
 ├── examples/
 │   ├── training/            # maintained recipes and world_model/WIP entry points

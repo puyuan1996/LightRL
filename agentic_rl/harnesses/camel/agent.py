@@ -27,7 +27,7 @@ from camel.types.agents import ToolCallingRecord
 from camel.utils import OpenAITokenCounter
 from camel.utils.token_counting import BaseTokenCounter
 
-from agentic_rl.inference.sglang import SGLangTurnClient
+from agentic_rl.harnesses.protocol import TurnClient
 
 from .prompts import get_developer_agent_prompt
 
@@ -79,7 +79,7 @@ class CamelAgentBackend(BaseModelBackend):
         self,
         model_type: ModelType | str,
         *,
-        sglang_client: SGLangTurnClient | None = None,
+        sglang_client: TurnClient | None = None,
         model_config_dict: Dict[str, Any] | None = None,
         token_counter: BaseTokenCounter | None = None,
     ) -> None:
@@ -157,7 +157,7 @@ class CamelAgent(ChatAgent):
         self,
         *,
         model_type: str,
-        sglang_client: SGLangTurnClient,
+        sglang_client: TurnClient,
         non_think_mode: bool,
         max_total_tokens: int,
         max_parse_errors: int | None = None,

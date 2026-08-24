@@ -88,7 +88,7 @@ examples/training/<recipe>.sh
           → agentic_rl/rollout/entrypoint.generate
               ├─ environments/registry.py       # 数据源、运行模式与奖励策略注册
               ├─ harnesses/factory.py           # Camel-Agent / Claude Code 工厂
-              ├─ inference/sglang.py            # 共享的 sglang 轮次客户端
+              ├─ rollout/backends/sglang.py     # 共享的 sglang 轮次客户端
               ├─ rollout/generate_steps.py      # 多轮交互、评分与探索奖励
               └─ rollout/sample_builder.py      # 奖励成形 → Sample.reward["score"]
           → algorithms/dive_po/rewards/dual_stream
@@ -111,10 +111,9 @@ LightRL/
 │   ├── environments/        # EnvSpec 注册表、协议、runtime、奖励规则与 HTTP client
 │   ├── evaluation/          # SWE-bench 等官方格式导出与评测适配
 │   ├── harnesses/           # Camel-Agent / Claude Code harness 与统一工厂
-│   ├── inference/           # rollout 与 harness 共用的 sglang 轮次客户端
 │   ├── misc/                # rollout 日志与 JSONL sink
 │   ├── platform/            # Slime 启动器、worker/router、路径与环境变量解析
-│   └── rollout/             # 入口钩子、交互循环、runner、准入与轨迹存储
+│   └── rollout/             # 入口钩子、交互循环、推理后端、准入与轨迹存储
 ├── configs/rollout/         # rollout 模型模板（唯一保留的组合配置层）
 ├── examples/
 │   ├── training/            # 正式训练 recipe 与 world_model/WIP 入口

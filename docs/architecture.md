@@ -86,11 +86,6 @@ GRPO/DAPO 的核心优化器由 Slime 提供；LightRL 主要负责其环境交�
 - `claude_code/`：Claude Code agent、MCP server、prompt 和 Qwen gateway 适配。
 - `_developer_prompt.py`：公共 developer prompt 生成逻辑。
 
-### `inference/`：模型推理
-
-- `factory.py`：推理后端工厂。
-- `sglang.py`：SGLang 生成客户端，负责请求、重试、超时和结果处理。
-
 ### `rollout/`：核心交互与样本生成
 
 - `entrypoint.py`：注册给 Slime 的自定义生成入口。
@@ -98,7 +93,7 @@ GRPO/DAPO 的核心优化器由 Slime 提供；LightRL 主要负责其环境交�
 - `runner.py`：agent runner 工厂和统一调用接口。
 - `environment_factory.py`：创建本地或远程环境客户端。
 - `admission.py`：环境并发准入、熔断、租约释放和失败恢复。
-- `sglang_factory.py`：创建 SGLang client。
+- `backends/`：推理引擎实现与工厂；当前包含 SGLang 生成客户端、重试、超时和结果处理。
 - `sample_builder.py`：把交互 turn 转换成训练 `Sample`，处理 outcome、PRM、DAPO overlong 和探索奖励。
 - `trajectory_store.py`：保存 `traj.json`、任务元数据、reward breakdown 和轨迹索引。
 

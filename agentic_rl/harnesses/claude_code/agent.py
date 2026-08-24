@@ -21,8 +21,8 @@ from urllib import error, request
 
 from agentic_rl.harnesses.claude_code.qwen_gateway import ClaudeCodeQwenGateway
 from agentic_rl.harnesses.claude_code.prompts import get_developer_agent_prompt
+from agentic_rl.harnesses.protocol import TurnClient
 from agentic_rl.platform.types import Interaction, TurnResult
-from agentic_rl.inference.sglang import SGLangTurnClient
 
 logger = logging.getLogger(__name__)
 
@@ -232,7 +232,7 @@ class ClaudeCodeAgent:
         self,
         *,
         model_type: str,
-        sglang_client: SGLangTurnClient,
+        sglang_client: TurnClient,
         max_total_tokens: int,
         env_client: Any | None = None,
         lease_id: str | None = None,
@@ -353,7 +353,7 @@ class ClaudeCodeAgent:
         self,
         context_messages: list[dict[str, Any]] | None = None,
         *,
-        sglang_client: SGLangTurnClient | None = None,
+        sglang_client: TurnClient | None = None,
         tool_schemas: List[Dict[str, Any]] | None = None,
         turn_idx: int = 0,
     ) -> TurnResult:

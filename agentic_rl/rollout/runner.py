@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
+from agentic_rl.harnesses.protocol import TurnClient
 from agentic_rl.platform.types import TurnContext, TurnResult
 from agentic_rl.harnesses.factory import create_harness, display_harness_name
-
-if TYPE_CHECKING:
-    from agentic_rl.inference.sglang import SGLangTurnClient
 import logging
 
 
@@ -46,7 +44,7 @@ class AgentRunner:
         self,
         *,
         rollout_agent: RolloutAgent,
-        sglang_client: SGLangTurnClient,
+        sglang_client: TurnClient,
         tool_schemas: List[Dict[str, Any]],
     ) -> None:
         self._rollout_agent = rollout_agent
@@ -172,7 +170,7 @@ class AgentRunner:
 def create_agent_runner(
     *,
     agent_type: str,
-    sglang_client: SGLangTurnClient,
+    sglang_client: TurnClient,
     model_type: str,
     tool_schemas: List[Dict[str, Any]],
     non_think_mode: bool,
