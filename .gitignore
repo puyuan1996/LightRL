@@ -69,6 +69,8 @@ swe.pem
 /benchmarks/sweverified_convert/
 /benchmarks/sweverified_env/
 /benchmarks/.sweverified_artifact.lock
+# Generated task views belong under runs/, not in benchmark source assets.
+/benchmarks/environments/seta_env_retry/
 
 # Local scratch and historical exports
 /agentic_rl/archive/

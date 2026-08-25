@@ -141,6 +141,7 @@ EXIT=0
 | `agentic_rl/inference/__init__.py` | delete | 1 行空包壳；具体实现已 `git mv`；全库无旧 import；非 CLI；文档已更新 |
 | Tau2 两份 helper 函数体 | merge | 同名同语义，两方改为 import `data.tau2_support` |
 | Dockerfile precheck 两份函数体 | merge | dev CLI 文档明示要求 byte-for-byte 与 runtime 一致，改为共用 validation |
+| `benchmarks/environments/seta_env_retry/` | delete | 121 个受跟踪条目全为两次历史运行生成的软链接；无普通文件、无代码/配置引用；已加 ignore 防止回归 |
 | tools 一次性脚本 | 无删除 | 全库无引用者均是独立 CLI 或有 docs，不满足三条死代码证据 |
 
 没有 legacy 目录、re-export shim、`DeprecationWarning` 或旧路径别名。

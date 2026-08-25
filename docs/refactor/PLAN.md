@@ -85,7 +85,8 @@ tools/
 | `agentic_rl/evaluation/swebench/report.py` 的未跟踪副本 | 原 canonical 路径 | merge/restore | docs 已声明 evaluation，副本字节相同 |
 | `benchmarks/{agent_safetybench,agentharm,mcpsafety}*` | `benchmarks/datasets/<same>` | move | 原始/转换数据与运行环境分离 |
 | `benchmarks/seta_env_convert` | `benchmarks/datasets/seta_env_convert` | move | JSONL/split/manifest 属数据供给 |
-| `benchmarks/{seta_env,seta_env_retry}` | `benchmarks/environments/{seta_env,seta_env_retry}` | move | Docker 任务属交互环境资产 |
+| `benchmarks/seta_env` | `benchmarks/environments/seta_env` | move | Docker 任务属交互环境资产 |
+| `benchmarks/seta_env_retry` | — | delete | 121 个软链接是两次运行生成的 retry view，无代码/配置引用 |
 | `tools/world_model/*` | `tools/evaluation/*` | move | 均为 probe/eval，不需要研究主题顶层目录 |
 | `tools/network/*` | `tools/infra/*` | move | 网络是基础设施生命周期 |
 | `tools/reproducibility/*` | `tools/infra/*` | move | 源码/运行快照属基础设施 |
