@@ -77,5 +77,6 @@ swe.pem
 /tmp_doc_*/
 /workspace/
 /backup/
+/interview/
 /file
 /=*
