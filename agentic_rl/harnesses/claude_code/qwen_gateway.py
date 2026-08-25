@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 from urllib import request
 
-from agentic_rl.inference.sglang import SGLangTurnClient, process_tool_calls
+from agentic_rl.harnesses.protocol import TurnClient
+from agentic_rl.harnesses.tool_calls import process_tool_calls
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,7 @@ class ClaudeCodeQwenGateway:
     def __init__(
         self,
         *,
-        sglang_client: SGLangTurnClient,
+        sglang_client: TurnClient,
         records_path: Path,
         model_name: str = "qwen-8b-sglang",
     ) -> None:

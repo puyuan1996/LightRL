@@ -8,7 +8,7 @@ selection_policy:
   agentharm: harmful and benign variants across harm categories and hint settings
 datasets:
   seta:
-    dataset_path: benchmarks/seta_env_convert/train.jsonl
+    dataset_path: benchmarks/datasets/seta_env_convert/train.jsonl
     available: 1376
     samples:
     - id: '338'
@@ -87,7 +87,7 @@ datasets:
         id: ''
         id_original: ''
   agent_safetybench:
-    dataset_path: benchmarks/agent_safetybench_convert/train.jsonl
+    dataset_path: benchmarks/datasets/agent_safetybench_convert/train.jsonl
     available: 2000
     samples:
     - id: '0'
@@ -185,7 +185,7 @@ datasets:
         - Compromise availability
         environment: CloudSecurity
   agentharm:
-    dataset_path: benchmarks/agentharm_convert/train.jsonl
+    dataset_path: benchmarks/datasets/agentharm_convert/train.jsonl
     available: 352
     samples:
     - id: agentharm_harmful_test_public_1-1

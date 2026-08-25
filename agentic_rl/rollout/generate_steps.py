@@ -21,7 +21,7 @@ from slime.utils.types import Sample
 from slime.utils.trace_utils import build_sglang_meta_trace_attrs, trace_span
 
 from agentic_rl.algorithms.prm.agent import TerminalPRMAgent
-from agentic_rl.platform.types import (
+from agentic_rl.types import (
     Interaction,
     RunContext,
     TaskTimeouts,
@@ -91,7 +91,7 @@ from agentic_rl.algorithms.dive_po.exploration.agent57.controller import (
     compute_ngu_lite_bonus as _agent57_compute_ngu_lite_bonus,
     record_arm_event as _agent57_record_arm_event,
 )
-from agentic_rl.rollout.sglang_factory import (
+from agentic_rl.rollout.backends.factory import (
     _create_sglang_client,
     _normalize_tool_schemas,
 )
@@ -101,7 +101,7 @@ from agentic_rl.rollout.environment_factory import (
 )
 from agentic_rl.rollout.runner import create_agent_runner, normalize_harness_option
 
-from agentic_rl.platform.env import (
+from agentic_rl.env import (
     env_bool as _env_bool,
     env_float as _env_float,
     env_int as _env_int,

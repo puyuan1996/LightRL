@@ -36,9 +36,9 @@ except ImportError as exc:  # pragma: no cover - dependency exists in this repo 
 
 
 DATASET_DEFAULTS = {
-    "seta": "benchmarks/seta_env_convert/train.jsonl",
-    "agent_safetybench": "benchmarks/agent_safetybench_convert/train.jsonl",
-    "agentharm": "benchmarks/agentharm_convert/train.jsonl",
+    "seta": "benchmarks/datasets/seta_env_convert/train.jsonl",
+    "agent_safetybench": "benchmarks/datasets/agent_safetybench_convert/train.jsonl",
+    "agentharm": "benchmarks/datasets/agentharm_convert/train.jsonl",
 }
 
 SETA_BUCKETS = [

@@ -25,7 +25,7 @@ from terminal_bench.parsers.parser_factory import ParserFactory
 from terminal_bench.terminal.docker_compose_manager import DockerComposeManager
 from terminal_bench.terminal.terminal import Terminal
 
-from agentic_rl.platform.types import RunContext, TaskSpec, TaskTimeouts
+from agentic_rl.types import RunContext, TaskSpec, TaskTimeouts
 
 from agentic_rl.environments.agentharm.runtime import AgentHarmEnv
 from agentic_rl.environments.agent_safetybench.runtime import AgentSafetyBenchEnv
@@ -72,7 +72,7 @@ class _DockerCleanupDeadlineExceeded(TimeoutError):
     pass
 
 
-from agentic_rl.platform.env import env_float as _env_float, env_int as _env_int
+from agentic_rl.env import env_float as _env_float, env_int as _env_int
 
 
 # Legacy "anything not explicitly falsey is true" semantics (empty string is

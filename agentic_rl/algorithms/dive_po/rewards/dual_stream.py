@@ -27,13 +27,13 @@ import math
 import os
 from typing import Any
 
-from agentic_rl.algorithms.dive_po.rewards import postprocess as base
+import agentic_rl.algorithms.dive_po.rewards.postprocess as base
 
 
 logger = logging.getLogger(__name__)
 
 
-from agentic_rl.platform.env import (
+from agentic_rl.env import (
     env_flag as _env_flag,
     env_float as _env_float,
     env_int as _env_int,

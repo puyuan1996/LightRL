@@ -6,7 +6,7 @@
   },
   "eval_task_count": 48,
   "input": {
-    "existing_eval": "benchmarks/seta_env_convert/eval_fixed12.jsonl",
+    "existing_eval": "benchmarks/datasets/seta_env_convert/eval_fixed12.jsonl",
     "existing_eval_sha256": "5bba3ce8a02e7f116692a254958c2d4e6540f29dcbfdceb12122864384385042",
     "seen_logs": [
       {
@@ -18,7 +18,7 @@
         "sha256": "eae9c4a54308e4afd9e111335cb6557eeda6a1a34cf55521dcdd5551843fc261"
       }
     ],
-    "training_data": "benchmarks/seta_env_convert/train_minus_eval12.filtered.jsonl",
+    "training_data": "benchmarks/datasets/seta_env_convert/train_minus_eval12.filtered.jsonl",
     "training_data_sha256": "fe550642e1b4c2fed55ce048659d2a14f6929a721baa817629767cb4f5a13a52"
   },
   "schema": "seta.fixed_eval_manifest.v1",

@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-DATASET_DIR = Path(os.getenv("DATASET_DIR", "./benchmarks"))
+DATASET_DIR = Path(os.getenv("DATASET_DIR", "./benchmarks/environments"))
 
 
 def _download_github_folder(

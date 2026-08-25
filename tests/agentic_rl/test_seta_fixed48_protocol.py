@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "slime"))
 from slime.utils.arguments import _resolve_eval_datasets
 
 
-CONVERTED = ROOT / "benchmarks" / "seta_env_convert"
+CONVERTED = ROOT / "benchmarks" / "datasets" / "seta_env_convert"
 
 
 def _rows(path: Path) -> list[dict]:
@@ -45,7 +45,14 @@ def test_fixed48_is_disjoint_stratified_and_manifested():
     difficulties = Counter()
     for task_id in eval_ids:
         task = yaml.safe_load(
-            (ROOT / "benchmarks" / "seta_env" / task_id / "task.yaml").read_text()
+            (
+                ROOT
+                / "benchmarks"
+                / "environments"
+                / "seta_env"
+                / task_id
+                / "task.yaml"
+            ).read_text()
         )
         difficulties[str(task["difficulty"]).lower()] += 1
     assert difficulties == {"hard": 25, "medium": 22, "easy": 1}

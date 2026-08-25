@@ -240,13 +240,13 @@ def audit_run(
 
     _check_hash(Path(str(config.get("prompt_data", ""))), config.get("train_set_sha256"), "train set", errors)
     _check_hash(
-        REPO_ROOT / "benchmarks/seta_env_convert/eval_fixed48_v2.jsonl",
+        REPO_ROOT / "benchmarks/datasets/seta_env_convert/eval_fixed48_v2.jsonl",
         config.get("eval_set_sha256"),
         "eval set",
         errors,
     )
     _check_hash(
-        REPO_ROOT / "benchmarks/seta_env_convert/eval_fixed48_v2.manifest.json",
+        REPO_ROOT / "benchmarks/datasets/seta_env_convert/eval_fixed48_v2.manifest.json",
         config.get("eval_manifest_sha256"),
         "eval manifest",
         errors,

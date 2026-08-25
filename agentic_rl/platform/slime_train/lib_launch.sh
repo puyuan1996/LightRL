@@ -400,7 +400,7 @@ CFGEOF
 
 if [[ "${FORMAL_CAPTURE_SOURCE_STATE:-0}" == "1" ]]; then
   log "Capturing formal-run source state..."
-  "${TRAIN_PYTHON}" "${REPO_ROOT}/tools/reproducibility/capture_formal_run_source.py" \
+  "${TRAIN_PYTHON}" "${REPO_ROOT}/tools/infra/capture_formal_run_source.py" \
     --run-dir "${RUN_DIR}"
 fi
 
@@ -489,6 +489,9 @@ RUNTIME_ENV_JSON="{
     \"PATH\": \"${PATH}\",
     \"LD_LIBRARY_PATH\": \"${LD_LIBRARY_PATH:-}\",
     \"PYTHONPATH\": \"${RUNTIME_PYTHONPATH}\",
+    \"LIGHTRL_SETA_SUPPORT_SITE_PATHS\": \"${LIGHTRL_SETA_SUPPORT_SITE_PATHS:-}\",
+    \"LIGHTRL_SETA_FALLBACK_SITE_PATHS\": \"${LIGHTRL_SETA_FALLBACK_SITE_PATHS:-}\",
+    \"LIGHTRL_SETA_FALLBACK_MODULES\": \"${LIGHTRL_SETA_FALLBACK_MODULES:-}\",
     \"PYTHONUNBUFFERED\": \"1\",
     \"PYTHONFAULTHANDLER\": \"1\",
     \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",

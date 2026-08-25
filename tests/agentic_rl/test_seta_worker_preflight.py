@@ -21,7 +21,11 @@ from prebuild_seta_worker import (  # noqa: E402
 class SetaWorkerPreflightTest(unittest.TestCase):
     def test_seeded_warmup_matches_formal_rollout_order(self) -> None:
         tasks = _load_tasks(
-            ROOT / "benchmarks" / "seta_env_convert" / "train_minus_eval12.filtered.jsonl",
+            ROOT
+            / "benchmarks"
+            / "datasets"
+            / "seta_env_convert"
+            / "train_minus_eval12.filtered.jsonl",
             preserve_order=True,
         )
         scheduled = _schedule_tasks(

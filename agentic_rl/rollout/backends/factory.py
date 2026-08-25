@@ -4,7 +4,7 @@ import logging
 import os
 from typing import Any, Dict, List
 
-from agentic_rl.inference.sglang import SGLangTurnClient
+from agentic_rl.rollout.backends.sglang import SGLangTurnClient
 
 logger = logging.getLogger(__name__)
 

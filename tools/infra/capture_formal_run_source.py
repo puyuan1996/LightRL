@@ -15,12 +15,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CAPTURE_PATHS = [
-    "benchmarks/seta_env/327/data",
-    "benchmarks/seta_env_convert/eval_fixed12.jsonl",
-    "benchmarks/seta_env_convert/train_minus_eval12.filtered.jsonl",
-    "benchmarks/seta_env_convert/eval_fixed48_v2.jsonl",
-    "benchmarks/seta_env_convert/eval_fixed48_v2.manifest.json",
-    "benchmarks/seta_env_convert/train_minus_eval48_v2.filtered.jsonl",
+    "benchmarks/environments/seta_env/327/data",
+    "benchmarks/datasets/seta_env_convert/eval_fixed12.jsonl",
+    "benchmarks/datasets/seta_env_convert/train_minus_eval12.filtered.jsonl",
+    "benchmarks/datasets/seta_env_convert/eval_fixed48_v2.jsonl",
+    "benchmarks/datasets/seta_env_convert/eval_fixed48_v2.manifest.json",
+    "benchmarks/datasets/seta_env_convert/train_minus_eval48_v2.filtered.jsonl",
     "configs/evaluation/seta_fixed48_v2.yaml",
     "configs/evaluation/seta_fixed12_score_v1.yaml",
     "tests/agentic_rl/test_seta_fixed48_gate.py",
@@ -29,7 +29,7 @@ DEFAULT_CAPTURE_PATHS = [
     "tools/dev/smoke_seta_worker.py",
     "tools/evaluation/build_seta_fixed_eval.py",
     "tools/evaluation/compare_seta_fixed_eval.py",
-    "tools/reproducibility/capture_formal_run_source.py",
+    "tools/infra/capture_formal_run_source.py",
 ]
 
 

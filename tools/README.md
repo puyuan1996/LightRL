@@ -6,9 +6,9 @@
 ```text
 tools/
 ├── analysis/       # 轨迹、训练指标、case study 和 DIVE-PO 对比分析
-├── evaluation/     # 安全评测、SWE-bench 官方 harness 和结果汇总
+├── evaluation/     # 安全/SWE/SETA/LWM 评测、probe 和结果汇总
 ├── dev/            # worker 等开发期冒烟与诊断
-└── world_model/    # LWM 数据、probe、候选集和离线评估工具
+└── infra/          # 网络、可复现性快照与运行环境辅助
 ```
 
 这里的脚本通常处理已有运行结果或协助开发，不是正式训练配方。典型用法：
@@ -19,6 +19,6 @@ python3 tools/analysis/plot_training_metrics.py --run-dir runs/<RUN_ID>
 bash tools/analysis/run_case_study.sh runs/<RUN_ID>
 ```
 
-安全评测入口及参数见 [`docs/evaluation/README.md`](../docs/evaluation/README.md)；
-LWM 工具仍处于开发阶段，使用前阅读
+评测入口及参数见 [`docs/evaluation/README.md`](../docs/evaluation/README.md)；
+LWM 评测工具仍处于开发阶段，使用前阅读
 [`docs/algorithms/lwm_guide_zh.md`](../docs/algorithms/lwm_guide_zh.md)。

@@ -49,6 +49,38 @@ examples/training/<recipe>.sh
 
 ## 3. `agentic_rl` 目录职责
 
+### 分层与依赖方向
+
+```text
+env.py / types.py / http_client.py / http_server.py
+                    ↓
+       data/ + harnesses/ + algorithms/
+                    ↓
+             environments/
+                    ↓
+                rollout/
+                    ↓
+        platform/ + trainer + scripts
+
+evaluation/ 只读取轨迹或结果产物，不被 rollout 反向调用。
+```
+
+- 根模块只定义不依赖业务包的数据类型、环境变量和 HTTP 小工具。
+- `data/` 供给数据；`environments/` 执行交互动力学；`evaluation/` 对已有结果打分或导出。
+- `harnesses/protocol.py` 拥有 `TurnClient` 契约；各 harness 只面向该契约，不 import rollout 实现。
+- `rollout/backends/` 实现推理引擎并由本地工厂选择，采样循环不知道 SGLang 的构造细节。
+- `platform/` 是最高层服务与编排；任何下层包都不得 import `platform`。
+- 新增内部 import 前用 AST 依赖 DFS 检查；包 `__init__.py` 仅显式导出，重可选依赖采用惰性导入。
+
+上图的例外只有单向的 `environments → data.tau2_support`，用于共享 Tau2 数据集定义的任务文本规范化；`data` 不反向依赖环境。
+
+### 根部基础模块
+
+- `types.py`：`TaskSpec`、`Interaction`、`RunContext`、`TurnContext`、`TurnResult`。
+- `env.py`：环境变量解析与任务超时配置。
+- `http_client.py`：与业务无关的 HTTP 重试、超时和 JSON 客户端。
+- `http_server.py`：服务端 JSON 解析；不命名为 `http.py`，以免遮蔽 Python 标准库。
+
 ### `algorithms/`：算法扩展
 
 - `dive_po/`：DIVE-PO 默认配置、探索奖励和探索状态管理。
@@ -86,11 +118,6 @@ GRPO/DAPO 的核心优化器由 Slime 提供；LightRL 主要负责其环境交�
 - `claude_code/`：Claude Code agent、MCP server、prompt 和 Qwen gateway 适配。
 - `_developer_prompt.py`：公共 developer prompt 生成逻辑。
 
-### `inference/`：模型推理
-
-- `factory.py`：推理后端工厂。
-- `sglang.py`：SGLang 生成客户端，负责请求、重试、超时和结果处理。
-
 ### `rollout/`：核心交互与样本生成
 
 - `entrypoint.py`：注册给 Slime 的自定义生成入口。
@@ -98,15 +125,13 @@ GRPO/DAPO 的核心优化器由 Slime 提供；LightRL 主要负责其环境交�
 - `runner.py`：agent runner 工厂和统一调用接口。
 - `environment_factory.py`：创建本地或远程环境客户端。
 - `admission.py`：环境并发准入、熔断、租约释放和失败恢复。
-- `sglang_factory.py`：创建 SGLang client。
+- `backends/`：推理引擎实现与工厂；当前包含 SGLang 生成客户端、重试、超时和结果处理。
 - `sample_builder.py`：把交互 turn 转换成训练 `Sample`，处理 outcome、PRM、DAPO overlong 和探索奖励。
 - `trajectory_store.py`：保存 `traj.json`、任务元数据、reward breakdown 和轨迹索引。
 
 ### `platform/`：训练平台与 worker 基础设施
 
-- `env.py`：统一环境变量解析和变量说明表。
 - `paths.py`：统一 run、log、metric、trajectory 和 checkpoint 路径。
-- `types.py`：任务、turn、运行上下文等公共类型。
 - `router.py`、`router_app.py`、`router_cli.py`：将训练侧环境请求转发到 worker。
 - `worker_app.py`、`worker_cli.py`、`worker_pool.py`：管理环境租约、并发、Docker 生命周期和资源压力。
 - `worker_admission.py`：worker 的容量和并发准入控制。

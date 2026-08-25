@@ -15,7 +15,7 @@ from mcp.server.fastmcp import FastMCP
 SERVER_NAME = "terminal_rl"
 
 
-from agentic_rl.platform.env import env_float as _env_float, env_int as _env_int
+from agentic_rl.env import env_float as _env_float, env_int as _env_int
 
 
 def _base_url() -> str:

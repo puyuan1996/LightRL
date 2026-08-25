@@ -6,7 +6,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Dict
 
-from agentic_rl.platform.types import RunContext, TaskSpec
+from agentic_rl.types import RunContext, TaskSpec
 from agentic_rl.environments.client import TerminalEnvClient
 from agentic_rl.environments.protocol import EnvClient
 from agentic_rl.environments.registry import local_env_spec
@@ -16,7 +16,7 @@ from agentic_rl.rollout.sample_builder import _make_task_spec
 logger = logging.getLogger(__name__)
 
 
-from agentic_rl.platform.env import env_float as _env_float
+from agentic_rl.env import env_float as _env_float
 
 
 def _normalize_tau2_conversation_mode(raw_mode: Any) -> str:

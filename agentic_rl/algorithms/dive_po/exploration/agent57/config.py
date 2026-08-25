@@ -18,7 +18,7 @@ import numpy as np
 from agentic_rl.algorithms.dive_po.exploration.agent57.memory import resolve_episodic_backend_name
 
 
-from agentic_rl.platform.env import (
+from agentic_rl.env import (
     env_bool as _env_bool,
     env_float as _env_float,
     env_int as _env_int,

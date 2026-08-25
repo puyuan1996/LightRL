@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from agentic_rl.platform.types import TaskTimeouts
+from agentic_rl.types import TaskTimeouts
 from agentic_rl.environments.terminal.runtime import (
     TerminalEnv,
     force_remove_orphan_docker_objects,

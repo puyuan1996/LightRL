@@ -26,7 +26,7 @@ examples/training/<recipe>.sh
 `configs/rollout/` 只保留传给 rollout 的模型模板配置。站点地址、凭据和调度参数应通过
 环境变量或被 Git 忽略的 `local/cluster/` 提供。
 
-Python 侧的环境变量解析统一在 `agentic_rl/platform/env.py`（`env_bool` /
+Python 侧的环境变量解析统一在 `agentic_rl/env.py`（`env_bool` /
 `env_int` / `env_float` / `env_flag` 等）；该模块的 `ENV_VARS` 表是
 rollout 域变量的集中声明（名称 → 含义），新增变量请在此登记。环境
 （数据源）相关的判定集中在 `agentic_rl/environments/registry.py` 的

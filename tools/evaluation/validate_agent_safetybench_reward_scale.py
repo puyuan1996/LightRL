@@ -65,9 +65,13 @@ def _install_import_stubs() -> None:
     sys.modules.setdefault("agent", agent)
     sys.modules.setdefault("agentic_rl.harnesses.prm.agent", prm_agent)
 
-    for name in ("agentic_rl.inference.sglang", "agentic_rl.rollout.runner", "agentic_rl.environments.client"):
+    for name in (
+        "agentic_rl.rollout.backends.sglang",
+        "agentic_rl.rollout.runner",
+        "agentic_rl.environments.client",
+    ):
         module = types.ModuleType(name)
-        if name == "agentic_rl.inference.sglang":
+        if name == "agentic_rl.rollout.backends.sglang":
             module.SGLangTurnClient = object
         elif name == "agentic_rl.rollout.runner":
             module.create_agent_runner = lambda **_kwargs: None
@@ -86,7 +90,7 @@ def _install_import_stubs() -> None:
 
 _install_import_stubs()
 
-from agentic_rl.platform.types import Interaction  # noqa: E402
+from agentic_rl.types import Interaction  # noqa: E402
 from agentic_rl.rollout.entrypoint import _build_samples  # noqa: E402
 from slime.utils.types import Sample  # noqa: E402
 

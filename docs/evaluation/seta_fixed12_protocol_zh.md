@@ -4,10 +4,10 @@
 
 ## 1. 权威文件
 
-- 样本：`benchmarks/seta_env_convert/eval_fixed12.jsonl`
+- 样本：`benchmarks/datasets/seta_env_convert/eval_fixed12.jsonl`
 - 评估配置：`configs/evaluation/seta_fixed12_score_v1.yaml`
 - 当前成对实验入口：`runs/refactor/launch_seta_fixed12_score_8g.sh`
-- 当前训练集：`benchmarks/seta_env_convert/train_minus_eval12.filtered.jsonl`
+- 当前训练集：`benchmarks/datasets/seta_env_convert/train_minus_eval12.filtered.jsonl`
 - fixed12 SHA256：`5bba3ce8a02e7f116692a254958c2d4e6540f29dcbfdceb12122864384385042`
 - 当前训练集 SHA256：`fe550642e1b4c2fed55ce048659d2a14f6929a721baa817629767cb4f5a13a52`
 
@@ -39,7 +39,7 @@
 
 ## 3. 如何选取
 
-fixed12 在提交 `b998a985`（2026-08-07）中首次加入。源集合是当时的 `benchmarks/seta_env_convert/train.jsonl`，共 1376 个互异任务。
+fixed12 在提交 `b998a985`（2026-08-07）中首次加入。源集合是当时的 `benchmarks/datasets/seta_env_convert/train.jsonl`，共 1376 个互异任务。
 
 选择方法是按该 JSONL 的既有行序做确定性的系统抽样：
 
@@ -115,9 +115,9 @@ fixed12 只能作为趋势哨兵：
 ## 8. 快速复核
 
 ```bash
-sha256sum benchmarks/seta_env_convert/eval_fixed12.jsonl
-wc -l benchmarks/seta_env_convert/eval_fixed12.jsonl \
-      benchmarks/seta_env_convert/train_minus_eval12.filtered.jsonl
+sha256sum benchmarks/datasets/seta_env_convert/eval_fixed12.jsonl
+wc -l benchmarks/datasets/seta_env_convert/eval_fixed12.jsonl \
+      benchmarks/datasets/seta_env_convert/train_minus_eval12.filtered.jsonl
 ```
 
 预期 fixed12 为12行，哈希为本文记录值；当前 filtered 训练集为1344行。正式实验的最终 `run_config.json` 还应记录相同的 `eval_protocol`、`eval_seed`、`eval_steps` 和 `eval_set_sha256`。

@@ -8,7 +8,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-from agentic_rl.platform.env import (
+from agentic_rl.env import (
     env_bool as _env_bool,
     env_float as _env_float,
     env_int as _env_int,

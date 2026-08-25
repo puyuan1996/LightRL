@@ -659,7 +659,7 @@ echo ""
 # ── Start pool_server ─────────────────────────────────────────────────────────
 cd "${REPO_ROOT}"
 
-export DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/benchmarks}"
+export DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/benchmarks/environments}"
 export TBENCH_OUTPUT_ROOT="${TBENCH_OUTPUT_ROOT:-${OPENCLAW_REMOTE_LOG_DIR}/task_outputs}"
 export TBENCH_DOCKER_IMAGE_SOURCE="${TBENCH_DOCKER_IMAGE_SOURCE:-build}"
 export TBENCH_DOCKER_PULL_PREFIX="${TBENCH_DOCKER_PULL_PREFIX:-}"

@@ -22,7 +22,7 @@ import random
 
 import httpx
 
-from agentic_rl.platform.env import env_int as _env_int
+from agentic_rl.env import env_int as _env_int
 
 logger = logging.getLogger(__name__)
 

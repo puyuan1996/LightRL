@@ -33,7 +33,7 @@ from agentic_rl.algorithms.dive_po.rewards.shared import (
 logger = logging.getLogger(__name__)
 
 
-from agentic_rl.platform.env import env_flag as _env_flag, env_float as _env_float
+from agentic_rl.env import env_flag as _env_flag, env_float as _env_float
 
 
 

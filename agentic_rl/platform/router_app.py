@@ -8,7 +8,7 @@ import aiohttp
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from agentic_rl.platform.http import json_payload
+from agentic_rl.http_server import json_payload
 from agentic_rl.platform.router import (
     Router,
     _env_float,

@@ -63,7 +63,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("benchmarks/agent_safetybench_convert"),
+        default=Path("benchmarks/datasets/agent_safetybench_convert"),
     )
     parser.add_argument(
         "--include-tools-in-prompt",

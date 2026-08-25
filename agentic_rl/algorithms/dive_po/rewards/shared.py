@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # Re-exported from the platform-wide env module so the rewards package keeps
 # its historical import path (``rewards.shared.env_int``).
-from agentic_rl.platform.env import env_int, env_str  # noqa: F401
+from agentic_rl.env import env_int, env_str  # noqa: F401
 
 
 def schedule_multiplier(schedule: str, train_step: Any, decay_steps: int) -> float:
@@ -95,7 +95,7 @@ def normalize_values(values: list[float], use_std: bool) -> list[float]:
 # mirroring); keep exactly one implementation here so the log view cannot
 # drift from the training math.  Leading underscore names are kept so existing
 # call sites in both modules only change their import line.
-from agentic_rl.platform.env import env_float as _env_float  # noqa: E402
+from agentic_rl.env import env_float as _env_float  # noqa: E402
 
 
 def _sample_train_step(sample: Any) -> Any:

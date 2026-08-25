@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/benchmarks/seta_env}"
+DATASET_DIR="${DATASET_DIR:-${REPO_ROOT}/benchmarks/environments/seta_env}"
 DOCKER_BASE_MIRROR_PREFIX="${DOCKER_BASE_MIRROR_PREFIX:-docker.m.daocloud.io/library}"
 DOCKER_BASE_PREFETCH_TIMEOUT="${DOCKER_BASE_PREFETCH_TIMEOUT:-600}"
 
