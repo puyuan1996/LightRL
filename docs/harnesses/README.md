@@ -17,3 +17,22 @@ HARNESS_OPTION=claude-code \
 
 注：PRM(process reward model）奖励 agent 不是 harness，位于
 `agentic_rl/algorithms/prm/`，通过 recipe 的 PRM 相关参数启用。
+
+## 训练 rollout harness vs 评估适配层
+
+上面的 `camel-agent` / `claude-code`(`agentic_rl/harnesses/factory.py`）是
+**训练 rollout** 用的 harness，由 recipe 的 `HARNESS_OPTION` 选择。
+
+离线**评估**另有适配层 `agentic_rl/harnesses/eval/`，入口为
+`create_eval_harness()` / `normalize_eval_harness_name()`，支持：
+
+- `terminus-2`：Harbor terminus-2 agent(Terminal-Bench 风格数据集）;
+- `claude-code`：Harbor 内置 claude-code agent;
+- `camel-agent`:slime `eval_only` 链路。
+
+两套注册表互相独立；评估的命令行工具、配置示例与批量/报告能力见
+[tools/evaluation/README.md](../../tools/evaluation/README.md)，用户侧的
+评测配方入口见 [examples/evaluation/README.md](../../examples/evaluation/README.md)。
+
+另有 `agentic_rl/evaluation/` 是被 rollout 管线 import 的官方格式导出库
+（目前仅 SWE-bench)，与上述两层都不相同，三者分工勿混淆。

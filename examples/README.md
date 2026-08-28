@@ -1,7 +1,7 @@
 # LightRL 用户工作流
 
-`examples/` 是仓库的公开训练入口；`tools/` 只保存分析、评测和
-开发诊断等辅助工具。
+`examples/` 是仓库的公开训练与评估入口；`tools/` 只保存分析、评测和
+开发诊断等辅助工具的实现。
 
 ```text
 examples/
@@ -12,8 +12,16 @@ examples/
 │   ├── train_qwen3_8b_mixed_dapo.sh
 │   ├── train_glm_5_1_seta_dapo.sh
 │   └── world_model/             # LWM/WIP 训练与 metadata smoke
-└── validation/                 # 不含站点拓扑的通用辅助文件
+├── validation/                 # 不含站点拓扑的通用辅助文件
+└── evaluation/                 # 离线评估配方(机制在 tools/evaluation/)
 ```
+
+## 评估入口
+
+离线评估(对任意 ckpt 跑 benchmark、批量对比多个 ckpt)的用户配方见
+[evaluation/README.md](evaluation/README.md);评估机制(CLI、配置、
+harness 适配器)由 `tools/evaluation/` 与 `agentic_rl/harnesses/eval/`
+提供。
 
 ## 训练入口
 

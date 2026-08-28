@@ -116,8 +116,28 @@ def test_claude_code_agent_runs_cli_and_writes_mcp_config(tmp_path, monkeypatch)
     assert "--permission-mode" in argv
     cfg = json.loads((workspace / "claude_mcp_config.json").read_text())
     server = cfg["mcpServers"]["terminal_rl"]
+    assert Path(server["args"][0]).is_file()
+    assert Path(server["args"][0]).name == "mcp_server.py"
     assert server["env"]["CLAUDE_CODE_TERMINAL_ENV_SERVER_URL"] == FakeEnvClient.base_url
     assert server["env"]["CLAUDE_CODE_TERMINAL_LEASE_ID"] == "lease-1"
+
+
+def test_claude_code_root_falls_back_from_bypass_permissions(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CODE_WORKSPACE_ROOT", str(tmp_path / "workspaces"))
+    monkeypatch.setenv("CLAUDE_CODE_PERMISSION_MODE", "bypassPermissions")
+    monkeypatch.setattr(claude_agent_module.os, "geteuid", lambda: 0)
+
+    agent = claude_agent_module.ClaudeCodeAgent(
+        model_type="Qwen3",
+        sglang_client=DummySGLangClient(),
+        env_client=FakeEnvClient(),
+        lease_id="lease-root",
+        run_context=types.SimpleNamespace(uid="root-mode"),
+        task_meta={"task_name": "seta-task", "task_path": "seta_env/1"},
+        max_total_tokens=8192,
+    )
+
+    assert agent._permission_mode == "dontAsk"
 
 
 def test_claude_code_sglang_backend_records_qwen_logprobs(tmp_path, monkeypatch):

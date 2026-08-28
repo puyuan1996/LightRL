@@ -286,10 +286,21 @@ class ClaudeCodeAgent:
             "CLAUDE_CODE_NO_SESSION_PERSISTENCE",
             True,
         )
-        self._permission_mode = os.getenv(
+        requested_permission_mode = os.getenv(
             "CLAUDE_CODE_PERMISSION_MODE",
             "bypassPermissions",
         ).strip()
+        if (
+            requested_permission_mode == "bypassPermissions"
+            and hasattr(os, "geteuid")
+            and os.geteuid() == 0
+        ):
+            logger.warning(
+                "Claude Code forbids bypassPermissions under root; using dontAsk "
+                "permission mode with the explicit terminal_rl allowedTools list."
+            )
+            requested_permission_mode = "dontAsk"
+        self._permission_mode = requested_permission_mode
         self._allowed_tools = os.getenv(
             "CLAUDE_CODE_ALLOWED_TOOLS",
             DEFAULT_ALLOWED_TOOLS,
@@ -708,7 +719,7 @@ class ClaudeCodeAgent:
         base_url = str(getattr(self._env_client, "base_url", "")).rstrip("/")
         if not base_url:
             raise RuntimeError("env_client.base_url is required for claude-code MCP tools")
-        server_path = Path(__file__).with_name("claude_code_mcp_server.py")
+        server_path = Path(__file__).with_name("mcp_server.py")
         env = {
             "CLAUDE_CODE_TERMINAL_ENV_SERVER_URL": base_url,
             "CLAUDE_CODE_TERMINAL_LEASE_ID": str(self._lease_id),

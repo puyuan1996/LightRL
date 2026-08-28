@@ -167,7 +167,17 @@ CLAUDE_CODE_TURN_TIMEOUT_SEC="${CLAUDE_CODE_TURN_TIMEOUT_SEC:-900}"
 CLAUDE_CODE_TOOL_TIMEOUT_MS="${CLAUDE_CODE_TOOL_TIMEOUT_MS:-300000}"
 CLAUDE_CODE_MAX_TOOL_ROUNDS="${CLAUDE_CODE_MAX_TOOL_ROUNDS:-10}"
 CLAUDE_CODE_OUTPUT_FORMAT="${CLAUDE_CODE_OUTPUT_FORMAT:-json}"
-CLAUDE_CODE_PERMISSION_MODE="${CLAUDE_CODE_PERMISSION_MODE:-bypassPermissions}"
+if [[ -z "${CLAUDE_CODE_PERMISSION_MODE+x}" ]]; then
+  # Claude Code rejects bypassPermissions when the CLI runs as root, which is
+  # the normal execution user in privileged GPU RJobs. dontAsk prevents a
+  # headless permission prompt while explicit allowedTools remains the only
+  # tool allowlist.
+  if [[ "$(id -u)" -eq 0 ]]; then
+    CLAUDE_CODE_PERMISSION_MODE="dontAsk"
+  else
+    CLAUDE_CODE_PERMISSION_MODE="bypassPermissions"
+  fi
+fi
 CLAUDE_CODE_ALLOWED_TOOLS="${CLAUDE_CODE_ALLOWED_TOOLS:-mcp__terminal_rl__shell_exec,mcp__terminal_rl__shell_view,mcp__terminal_rl__shell_write_to_process,mcp__terminal_rl__shell_write_content_to_file,mcp__terminal_rl__read_file,mcp__terminal_rl__write_file,mcp__terminal_rl__list_dir}"
 CLAUDE_CODE_DISALLOWED_TOOLS="${CLAUDE_CODE_DISALLOWED_TOOLS:-}"
 CLAUDE_CODE_EXTRA_ARGS="${CLAUDE_CODE_EXTRA_ARGS:-}"
