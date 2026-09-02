@@ -1,5 +1,5 @@
 """Regression test: eval_rollout_log must import the SWE-bench exporter from its
-post-refactor location (agentic_rl.evaluation.swebench.report), not the removed
+post-refactor location (tools.evaluation.benchmarks.swebench.report), not the removed
 flat ``swebench_report`` module. Before the fix, setting SWEBENCH_RESULTS_DIR
 made every eval rollout crash with ModuleNotFoundError."""
 

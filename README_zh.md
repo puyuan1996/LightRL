@@ -249,7 +249,7 @@ runs/<RUN_ID>/
 
 `runs/latest` 指向最近一次运行。训练产物应进入 `runs/`，不应在仓库根目录
 散落临时文件。checkpoint 与 W&B 的存储约定见
-[Checkpoint 与 W&B 存储](docs/operations/checkpoint_wandb_storage_zh.md)。
+[Checkpoint 与 W&B 存储](docs/operations/checkpoint-wandb.md)。
 
 ## 验证状态
 
@@ -292,7 +292,7 @@ python3 -m compileall -q agentic_rl
 - [Harness 选择](docs/harnesses/README.md)——Camel-Agent / Claude Code 接入
 - [评测工具](docs/evaluation/README.md)——SWE-bench 等评测与格式导出
 - [Docker worker](deploy/workers/README.md)——启动、容量、预热、清理与恢复
-- [Checkpoint 与 W&B 存储](docs/operations/checkpoint_wandb_storage_zh.md)
+- [Checkpoint 与 W&B 存储](docs/operations/checkpoint-wandb.md)
 - [训练示例](examples/README.md)——稳定配方、参数与验证入口
 
 ## 致谢

@@ -36,18 +36,8 @@ nohup.out
 /experiments/**/*job*.sh
 /local/
 /deploy/*job*/
-/deploy/workers/*job*
-/deploy/workers/*runtime_proxy.py
-/deploy/workers/*watchdog*
-/deploy/workers/*worker_doctor.sh
-/deploy/workers/fix_docker_overlay2_no_space.sh
-/deploy/workers/fix_dockerd_and_proxy.sh
-/deploy/workers/lightrl-pool*-*.conf
-/deploy/workers/*seta-runtime-proxy*
-/deploy/workers/prebuild_proxied_base_images.sh
-/deploy/workers/setup_new_worker.sh
-/deploy/workers/start_server.sh
-/deploy/workers/start_watchdog.sh
+# Worker lifecycle/repair scripts under deploy/workers are intentionally
+# tracked.  Site credentials must still stay outside the repository.
 /docs/manual_validation_*.md
 /docs/operations/*job*
 /docs/operations/*workers.md
@@ -79,7 +69,7 @@ swe.pem
 /agentic_rl/logs/
 /tmp_doc_*/
 /workspace/
-/backup/
+# Archived source kept under repository-level backup/ is intentionally tracked.
 /interview/
 /file
 /=*

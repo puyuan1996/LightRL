@@ -31,5 +31,8 @@
 
 ## 运维
 
-- [operations/checkpoint_wandb_storage_zh.md](operations/checkpoint_wandb_storage_zh.md)——
+- [operations/README.md](operations/README.md)——通用运维文档导航。
+- [operations/checkpoint-wandb.md](operations/checkpoint-wandb.md)——
   tracker 感知的 checkpoint 清理、磁盘满非致命策略与 W&B offline 同步。
+- `records/operations/`——仅保留本地的 RJob、node53、Docker worker 和评测现场记录，
+  入口见其 `README.md`。

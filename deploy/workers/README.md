@@ -2,8 +2,9 @@
 
 This directory runs on the **CPU worker**: a pool server that manages Docker containers and executes terminal tasks on behalf of GPU training nodes.
 
-Site-specific provisioning, proxy credentials, watchdog units, and recovery
-runbooks are intentionally kept outside the tracked repository.
+Site-specific proxy credentials must remain outside the repository. The
+provisioning, watchdog, recovery, and private-DinD scripts are tracked here;
+their credential-bearing environment files are still created only on workers.
 
 ---
 
@@ -15,6 +16,12 @@ runbooks are intentionally kept outside the tracked repository.
 |---|---|
 | `restart_docker_force.sh` | Manual force-restart of dockerd (bypasses systemctl, used by watchdog and as escape hatch) |
 | `prewarm_seta_base_images.sh` | Prewarms task base images without embedding a site path. |
+| `setup_new_worker.sh` | Provisions a new CPU/Docker worker. |
+| `fix_dockerd_and_proxy.sh` | Repairs Docker and build/runtime proxy state. |
+| `docker_worker_doctor.sh` | Diagnoses or repairs a CPU worker. |
+| `fix_docker_overlay2_no_space.sh` | Handles Docker overlay2 storage pressure. |
+| `docker_watchdog_v2.sh` / `start_watchdog.sh` | Monitors dockerd and pool lifecycle. |
+| `start_rjob_dind_worker.sh` | Starts the private RJob dockerd and optional SETA pool. |
 
 ### Steady-state (every training run)
 
@@ -80,4 +87,8 @@ For 8×4 (current default), 16×8=128 has been observed to saturate dockerd. v2 
 
 ## Archived scripts
 
-Historical one-off launchers were removed during the LightRL refactor; use Git history when an older implementation is needed.
+Only the superseded `start_server_legacy.sh` remains under the repository-level
+`backup/` directory. It is not used by the current `run_pool_server_pu_v2.sh`
+workflow. The files that used to be under `deploy/workers/backup/` are active
+worker operations and now live directly under `deploy/workers/` so their
+documented and runtime paths agree.

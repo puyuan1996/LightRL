@@ -3051,7 +3051,7 @@ def eval_rollout_log(rollout_id, args, data, extra_metrics=None):
 
     if all_samples and os.getenv("SWEBENCH_RESULTS_DIR", "").strip():
         try:
-            from agentic_rl.evaluation.swebench.report import write_official_artifacts
+            from tools.evaluation.benchmarks.swebench.report import write_official_artifacts
 
             summary = write_official_artifacts(all_samples)
             if summary is not None:

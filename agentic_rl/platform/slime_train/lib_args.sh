@@ -1,4 +1,8 @@
 # ── Args ─────────────────────────────────────────────────────────────
+# The launch stage uses this entrypoint for the Ray job.  Define it here too
+# so `--dry-run` prints eval_only.py when an evaluation recipe overrides it.
+SLIME_ENTRYPOINT="${SLIME_ENTRYPOINT:-${SLIME_DIR}/train_async.py}"
+
 CKPT_ARGS=(
   --hf-checkpoint "${HF_CKPT}"
   --ref-load "${REF_LOAD}"
@@ -310,9 +314,11 @@ TRAIN_ARGS=(
 )
 
 if [[ "${DRY_RUN}" == "1" ]]; then
-  log "DRY_RUN=1: final train_async command only; router/Ray/training will not start"
+  log "DRY_RUN=1: final Slime command only; router/Ray/training will not start"
   printf '[dry-run] '
-  printf '%q ' "${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py" "${TRAIN_ARGS[@]}"
+  # Keep dry-run output aligned with lib_launch.sh, which honors
+  # SLIME_ENTRYPOINT for eval-only recipes as well as training.
+  printf '%q ' "${TRAIN_PYTHON}" -u "${SLIME_ENTRYPOINT:-${SLIME_DIR}/train_async.py}" "${TRAIN_ARGS[@]}"
   printf '\n'
   exit 0
 fi

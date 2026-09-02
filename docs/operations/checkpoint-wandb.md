@@ -1,4 +1,7 @@
-# Checkpoint 与 W&B 离线存储
+# 存储：Checkpoint 与 W&B Offline
+
+> 类型：可复用存储约定。适用：训练、评测和 RJob 运行目录的 checkpoint、指标与
+> W&B 离线产物布局。
 
 ## 默认布局
 

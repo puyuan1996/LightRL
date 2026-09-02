@@ -158,9 +158,10 @@ brainctl RJob、model relay、节点级 docker 外部网络、正向代理、离
 
 ## 备注
 
-- 与 `agentic_rl/evaluation/` 的区别:后者是被 rollout 管线 import 的
-  官方格式导出库(目前仅 SWE-bench),不是离线评估工具,勿混淆。
-  用户侧的评测配方入口见 `examples/evaluation/`。
+- SWE-bench 官方格式导出库在 `tools/evaluation/benchmarks/swebench/report.py`
+  (被 rollout 管线 `misc/rollout_log.py` 在设置了 `SWEBENCH_RESULTS_DIR` 时
+  import,不是离线评估 CLI,勿混淆)。用户侧的评测配方入口见
+  `examples/evaluation/`。
 - camel-agent 适配的是 slime `eval_only` 重量级运行时(自行拉起训练/推理
   引擎),通常需配合集群启动脚本;`serving` 段对它不生效。
 - Harbor `claude-code` agent 的 kwargs/env 参数面随 Harbor 版本变化,

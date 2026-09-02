@@ -260,7 +260,7 @@ runs/<RUN_ID>/
 
 `runs/latest` points to the most recent run. Runtime artifacts belong under
 `runs/`, not at the repository root. See
-[checkpoint and W&B storage](docs/operations/checkpoint_wandb_storage_zh.md) for
+[checkpoint and W&B storage](docs/operations/checkpoint-wandb.md) for
 storage conventions.
 
 ## Validation status
@@ -308,7 +308,7 @@ python3 -m compileall -q agentic_rl
 - [Harness selection](docs/harnesses/README.md) — Camel-Agent / Claude Code integration
 - [Evaluation tools](docs/evaluation/README.md) — SWE-bench export and evaluation
 - [Docker worker](deploy/workers/README.md) — launch, capacity, prewarm, cleanup, recovery
-- [Checkpoint and W&B storage](docs/operations/checkpoint_wandb_storage_zh.md)
+- [Checkpoint and W&B storage](docs/operations/checkpoint-wandb.md)
 - [Training examples](examples/README.md) — maintained recipes and validation entry points
 
 ## Acknowledgements

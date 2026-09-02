@@ -37,5 +37,5 @@ HARNESS_OPTION=claude-code \
 [tools/evaluation/README.md](../../tools/evaluation/README.md)，用户侧的
 评测配方入口见 [examples/evaluation/README.md](../../examples/evaluation/README.md)。
 
-另有 `agentic_rl/evaluation/` 是被 rollout 管线 import 的官方格式导出库
-（目前仅 SWE-bench)，与上述两层都不相同，三者分工勿混淆。
+另有 `tools/evaluation/benchmarks/swebench/report.py` 是被 rollout 管线
+import 的官方格式导出库，与上述两层都不相同，三者分工勿混淆。
