@@ -123,11 +123,6 @@ LightRL/
 ├── deploy/runtime/          # worker 代理、镜像预热与依赖资源
 ├── deploy/ops/              # worker 诊断、修复与清理
 ├── deploy/archive/          # 仅供历史兼容的旧入口（不用于新部署）
-├── local/                   # 被 Git 忽略的本地运维工作区（local/README.md）
-│   ├── rjob/                # RJob 提交与 DinD 评估
-│   ├── cluster/             # worker 地址与 watcher
-│   ├── ops/                 # 本地容器清理操作
-│   └── state/               # 自动生成的日志、锁与 PID
 ├── tools/                   # 分析、评测和开发诊断工具
 │   └── evaluation/          # 通用评测编排与按 benchmark 归类的入口
 ├── tests/                   # pytest 单元与集成测试
@@ -145,11 +140,8 @@ LightRL/
   也可位于当前 GPU 训练主机。
 - 训练进程必须能访问 worker 服务端口（默认 `18081`）；同机部署可使用
   `127.0.0.1`，跨主机部署应使用训练节点可达的地址。
-- 站点地址、凭据和调度参数应放入环境变量或被 Git 忽略的
-  `local/cluster/` 文件，不要提交到仓库。
-- RJob 提交与生命周期脚本仅供本地使用，统一位于 `local/rjob/`。
-- 本地目录职责和状态文件规则见本机被忽略的 `local/README.md`（不随公共
-  仓库发布）。
+- 站点地址、凭据和调度参数应放入环境变量或站点侧的 Git 忽略配置文件，
+  不要提交到仓库。
 
 源码安装 Python 包：
 
@@ -202,7 +194,7 @@ CONFIRM_LOCAL_CLEANUP=1 \
 该配方要求 4 张 GPU、可达的 `WORKER_URLS`、Qwen3-8B checkpoint 以及已安装
 的项目运行时依赖（至少包括 PyYAML、Ray、CUDA/sglang）。SETA worker 的
 `/healthz` 检查通过后才会启动 `slime/eval_only.py`。站点专用的 RJob/DinD
-提交脚本位于被 Git 忽略的 `local/rjob/`，不应复制到公共 recipe。
+提交脚本不应复制到公共 recipe。
 
 ### 2. 检查训练配方
 
@@ -250,8 +242,7 @@ WORKER_URLS=http://127.0.0.1:18081 \
 ```
 
 通用的开发 smoke 与静态检查位于 `tools/dev/`；包含站点拓扑、凭据或调度
-参数的 RJob 提交脚本位于被 Git 忽略的 `local/rjob/`，以避免把集群细节带入
-公共 recipe。
+参数的 RJob 提交脚本不纳入公共 recipe，以避免把集群细节带入代码库。
 
 ## 配置与输出
 
@@ -264,7 +255,7 @@ WORKER_URLS=http://127.0.0.1:18081 \
 默认值；完整字段、优先级和示例见[配置说明](docs/configuration.md)。
 
 站点专用地址、凭据、代理和调度容量不得写入公共 recipe，应通过环境变量或
-被 Git 忽略的 `local/cluster/` 提供。
+站点侧的 Git 忽略配置提供。
 
 ### 输出目录
 
@@ -321,8 +312,8 @@ python3 -m compileall -q agentic_rl
 
 - [架构说明](docs/architecture.md)——包边界、训练链路、router 与注册表设计
 - [配置说明](docs/configuration.md)——recipe、环境变量与覆盖优先级
-- [部署总览](deploy/README.md)——worker、运行时资源、运维工具与本地 RJob 的边界
-- [DIVE-PO 奖励数学](docs/algorithms/dive_po_dual_stream.md)——双流优势与奖励后处理
+- [部署总览](deploy/README.md)——worker、运行时资源与运维工具的职责边界
+- [DIVE-PO](docs/algorithms/dive_po_dual_stream.md)——双流优势与奖励后处理
 - [Harness 选择](docs/harnesses/README.md)——Camel-Agent / Claude Code 接入
 - [评测工具](docs/evaluation/README.md)——通用评测编排、SETA fixed12 与格式导出
 - [Docker worker](deploy/workers/README.md)——启动、容量、预热、清理与恢复
