@@ -8,26 +8,21 @@ from __future__ import annotations
 
 from importlib import import_module
 
-_EVAL_HARNESS_ALIASES = {
-    "terminus2": "terminus2", "terminus-2": "terminus2", "terminus_2": "terminus2",
-    "claude_code_cli": "claude_code_cli", "claude-code": "claude_code_cli",
-    "claude-code-cli": "claude_code_cli", "claude_code": "claude_code_cli",
-    "claude": "claude_code_cli",
-    "camel_agent": "camel_agent", "camel": "camel_agent",
-    "camel-agent": "camel_agent", "camelagent": "camel_agent",
-}
+from agentic_rl.harnesses.identity import aliases_for, get_harness_descriptor
+
+_EVAL_HARNESS_ALIASES = aliases_for("eval")
 _EVAL_HARNESS_TARGETS = {
-    "terminus2": ("agentic_rl.harnesses.eval.terminus2", "Terminus2EvalHarness"),
-    "claude_code_cli": ("agentic_rl.harnesses.eval.claude_code_cli", "ClaudeCodeCliEvalHarness"),
-    "camel_agent": ("agentic_rl.harnesses.eval.camel_agent", "CamelAgentEvalHarness"),
+    descriptor.canonical_name: tuple(descriptor.eval_target.rsplit(":", 1))
+    for descriptor in (get_harness_descriptor(name) for name in _EVAL_HARNESS_ALIASES.values())
+    if descriptor.eval_target is not None
 }
 
 
 def normalize_eval_harness_name(value: str | None) -> str:
     requested = value or "terminus2"
     try:
-        return _EVAL_HARNESS_ALIASES[requested]
-    except KeyError as exc:
+        return get_harness_descriptor(requested, capability="eval").canonical_name
+    except ValueError as exc:
         raise ValueError(
             f"Unsupported eval harness option: {value!r}. "
             "Available: terminus-2, claude-code, camel-agent"

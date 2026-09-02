@@ -18,7 +18,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../../.." && pwd)}"
 
 SHIELD_MODEL_TARGET="${SHIELD_MODEL_TARGET:-${REPO_ROOT}/runs/models/ShieldAgent}"
 COPY_WEIGHTS="${COPY_WEIGHTS:-0}"

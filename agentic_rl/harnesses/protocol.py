@@ -7,6 +7,19 @@ from typing import Any, Protocol
 from agentic_rl.types import Interaction
 
 
+class RolloutHarness(Protocol):
+    """Minimal lifecycle expected by the rollout runner.
+
+    Concrete training harnesses may expose additional constructor and tool
+    handling details; this protocol documents the reusable boundary without
+    coupling evaluation adapters to training state.
+    """
+
+    def start_turn_loop(self, input_message: Any) -> Any: ...
+
+    def finalize_response(self, response: Any) -> Any: ...
+
+
 class TurnClient(Protocol):
     tokenizer: Any
     sampling_params: dict[str, Any]
@@ -32,4 +45,4 @@ class TurnClient(Protocol):
     ) -> list[int]: ...
 
 
-__all__ = ["TurnClient"]
+__all__ = ["RolloutHarness", "TurnClient"]

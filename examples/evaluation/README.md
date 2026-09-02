@@ -1,5 +1,7 @@
 # 评估配方入口(Evaluation Recipes)
 
+命令统一推荐 `python3 -m tools.evaluation ...`；旧的直接脚本路径仍可用。
+
 本目录是**离线评估的用户入口**:给出典型评测场景的配方(配置 +
 命令)。评测机制本身(适配层、runner、CLI)在
 [`tools/evaluation/`](../../tools/evaluation/README.md),
@@ -21,20 +23,20 @@ Harbor + terminus-2,适用于 terminal-bench-2.x 这类 docker 任务集:
 ```bash
 cp tools/evaluation/configs/tb21_terminus2.example.yaml my-tb-eval.yaml
 # 编辑 dataset.path / serving.model_path / serving.model_name / output_dir
-python3 tools/evaluation/eval_cli.py run --config my-tb-eval.yaml --dry-run
-python3 tools/evaluation/eval_cli.py run --config my-tb-eval.yaml
+python3 -m tools.evaluation run --config my-tb-eval.yaml --dry-run
+python3 -m tools.evaluation run --config my-tb-eval.yaml
 ```
 
 先单题冒烟再全量:
 
 ```bash
-python3 tools/evaluation/eval_cli.py smoke --config my-tb-eval.yaml --task <task-name>
+python3 -m tools.evaluation smoke --config my-tb-eval.yaml --task <task-name>
 ```
 
 常用覆盖(不改配置文件):
 
 ```bash
-python3 tools/evaluation/eval_cli.py run --config my-tb-eval.yaml \
+python3 -m tools.evaluation run --config my-tb-eval.yaml \
   --set serving.model_path=/path/to/ckpt --set serving.model_name=my-ckpt \
   --set run.concurrency=16 --set run.max_input_tokens=32768
 ```
@@ -44,8 +46,8 @@ python3 tools/evaluation/eval_cli.py run --config my-tb-eval.yaml \
 ```bash
 cp tools/evaluation/configs/batch.example.yaml my-batch.yaml
 # 在 models: 列表里逐个填 model_path / model_name
-python3 tools/evaluation/eval_cli.py batch --config my-batch.yaml
-python3 tools/evaluation/eval_cli.py report \
+python3 -m tools.evaluation batch --config my-batch.yaml
+python3 -m tools.evaluation report \
   --results "my-batch-output/*/eval_result.json" --output my-batch-output/compare
 ```
 
@@ -59,7 +61,7 @@ python3 tools/evaluation/eval_cli.py report \
 ```bash
 cp tools/evaluation/configs/seta_camel.example.yaml my-seta-eval.yaml
 # 编辑 extra.slime_root / extra.slime_args(--hf-checkpoint、--load、--prompt-data 等)
-python3 tools/evaluation/eval_cli.py run --config my-seta-eval.yaml
+python3 -m tools.evaluation run --config my-seta-eval.yaml
 ```
 
 ## 配方 4:Claude Code CLI 作为 agent
@@ -67,7 +69,7 @@ python3 tools/evaluation/eval_cli.py run --config my-seta-eval.yaml
 ```bash
 cp tools/evaluation/configs/tb21_claude_code.example.yaml my-cc-eval.yaml
 # agent_kwargs / agent_env 需按所用 Harbor 版本核对(见 tools/evaluation/README 备注)
-python3 tools/evaluation/eval_cli.py run --config my-cc-eval.yaml
+python3 -m tools.evaluation run --config my-cc-eval.yaml
 ```
 
 ## 站点差异怎么处理

@@ -1,7 +1,7 @@
 import hashlib
 import json
 
-from tools.evaluation.audit_seta_fixed48_run import _audit_eval_artifact
+from tools.evaluation.benchmarks.seta.audit_seta_fixed48_run import _audit_eval_artifact
 
 
 def _write_artifact(run_dir, *, stream="seta_fixed48_explore", k=8):

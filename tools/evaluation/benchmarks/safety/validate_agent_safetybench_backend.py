@@ -11,7 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 AGENTIC_RL_DIR = REPO_ROOT / "agentic_rl"
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))

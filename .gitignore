@@ -73,6 +73,7 @@ swe.pem
 /benchmarks/environments/seta_env_retry/
 
 # Local scratch and historical exports
+/docs/records/
 /agentic_rl/archive/
 /agentic_rl/build_outputs/
 /agentic_rl/logs/

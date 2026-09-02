@@ -6,7 +6,7 @@ import types
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 AGENTIC_RL_DIR = REPO_ROOT / "agentic_rl"
 for path in (REPO_ROOT, REPO_ROOT / "slime"):
     if str(path) not in sys.path:

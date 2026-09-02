@@ -27,8 +27,8 @@ DEFAULT_CAPTURE_PATHS = [
     "tests/agentic_rl/test_seta_fixed48_protocol.py",
     "tools/dev/prebuild_seta_worker.py",
     "tools/dev/smoke_seta_worker.py",
-    "tools/evaluation/build_seta_fixed_eval.py",
-    "tools/evaluation/compare_seta_fixed_eval.py",
+    "tools/evaluation/benchmarks/seta/build_seta_fixed_eval.py",
+    "tools/evaluation/benchmarks/seta/compare_seta_fixed_eval.py",
     "tools/infra/capture_formal_run_source.py",
 ]
 

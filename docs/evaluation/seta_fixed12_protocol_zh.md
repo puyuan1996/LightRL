@@ -57,7 +57,9 @@ position_i = 125 × i,  i = 0, 1, ..., 11
 
 选中后，12题被从训练集合中留出：原始补集 `train_minus_eval12.jsonl` 有1364题；当前正式实验进一步使用过滤后的 `train_minus_eval12.filtered.jsonl`，有1344题。当前训练文件与 fixed12 的 task-id 交集为空。
 
-注意：`tools/evaluation/build_seta_fixed_eval.py` 是后来扩展 fixed48 的分层选择器。它保留 fixed12，再从未见任务中补36题；它不是 fixed12 的原始生成方法。
+注意：`tools/evaluation/benchmarks/seta/build_seta_fixed_eval.py` 是后来扩展
+fixed48 的分层选择器。它保留 fixed12，再从未见任务中补36题；它不是
+fixed12 的原始生成方法。
 
 ## 4. 当前评估协议
 

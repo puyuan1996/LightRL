@@ -3,10 +3,12 @@
 
 Usage examples (paths are placeholders):
 
-    python3 tools/evaluation/eval_cli.py run --config tools/evaluation/configs/tb21_terminus2.example.yaml --dry-run
-    python3 tools/evaluation/eval_cli.py smoke --config <cfg> --task <task-name>
-    python3 tools/evaluation/eval_cli.py batch --config tools/evaluation/configs/batch.example.yaml
-    python3 tools/evaluation/eval_cli.py report --results '<runs>/*/eval_result.json' --output <out>/compare
+    python3 -m tools.evaluation run --config tools/evaluation/configs/tb21_terminus2.example.yaml --dry-run
+    python3 -m tools.evaluation smoke --config <cfg> --task <task-name>
+    python3 -m tools.evaluation batch --config tools/evaluation/configs/batch.example.yaml
+    python3 -m tools.evaluation report --results '<runs>/*/eval_result.json' --output <out>/compare
+
+The direct script path is retained for existing automation.
 """
 
 from __future__ import annotations
@@ -17,11 +19,12 @@ from pathlib import Path
 
 _TOOLS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _TOOLS_DIR.parents[1]
-for _path in (str(_REPO_ROOT), str(_TOOLS_DIR)):
-    if _path not in sys.path:
-        sys.path.insert(0, _path)
+# ``python tools/evaluation/eval_cli.py`` starts with tools/evaluation on
+# sys.path, so add the repository root before importing the package form.
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-from core.config import build_specs, load_config  # noqa: E402
+from tools.evaluation.core.config import build_specs, load_config  # noqa: E402
 
 
 def _add_config_args(parser: argparse.ArgumentParser) -> None:
@@ -59,7 +62,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "report":
-        from core.report import load_results, render_markdown, write_report
+        from tools.evaluation.core.report import load_results, render_markdown, write_report
 
         results = load_results(args.results)
         print(render_markdown(results))
@@ -70,7 +73,7 @@ def main() -> int:
     config = load_config(args.config, args.overrides)
 
     if args.command == "batch":
-        from core.batch import run_batch
+        from tools.evaluation.core.batch import run_batch
 
         _, failures = run_batch(config, dry_run=args.dry_run, poll_interval_s=args.poll_interval)
         return 1 if failures else 0
@@ -80,7 +83,7 @@ def main() -> int:
         config.setdefault("run", {})["concurrency"] = 1
         config["run"]["max_retries"] = 0
 
-    from core.runner import run_eval
+    from tools.evaluation.core.runner import run_eval
 
     spec, serving = build_specs(config)
     run_eval(spec, serving, dry_run=args.dry_run, poll_interval_s=args.poll_interval)

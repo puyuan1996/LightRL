@@ -4,29 +4,25 @@ import inspect
 from importlib import import_module
 from typing import Any
 
-_HARNESS_ALIASES = {
-    "camel_agent": "camel_agent", "camel": "camel_agent",
-    "camel-agent": "camel_agent", "camelagent": "camel_agent",
-    "claude_code_cli": "claude_code_cli", "claude": "claude_code_cli",
-    "claude-code": "claude_code_cli", "claude_code": "claude_code_cli",
-    "claude-code-harness": "claude_code_cli",
-}
+from agentic_rl.harnesses.identity import aliases_for, get_harness_descriptor
+
+_HARNESS_ALIASES = aliases_for("train")
 _HARNESS_TARGETS = {
-    "camel_agent": ("agentic_rl.harnesses.camel.agent", "CamelAgent"),
-    "claude_code_cli": ("agentic_rl.harnesses.claude_code.agent", "ClaudeCodeAgent"),
+    descriptor.canonical_name: tuple(descriptor.train_target.rsplit(":", 1))
+    for descriptor in (get_harness_descriptor(name) for name in _HARNESS_ALIASES.values())
+    if descriptor.train_target is not None
 }
-# Canonical -> user-facing display name (logs, turn records, CLI help).
 _HARNESS_DISPLAY_NAMES = {
-    "camel_agent": "camel-agent",
-    "claude_code_cli": "claude-code",
+    descriptor.canonical_name: descriptor.display_name
+    for descriptor in (get_harness_descriptor(name) for name in _HARNESS_ALIASES.values())
 }
 
 
 def normalize_harness_name(value: str | None) -> str:
     requested = value or "camel_agent"
     try:
-        return _HARNESS_ALIASES[requested]
-    except KeyError as exc:
+        return get_harness_descriptor(requested, capability="train").canonical_name
+    except ValueError as exc:
         raise ValueError(
             f"Unsupported harness option: {value!r}. Available: camel-agent, claude-code"
         ) from exc

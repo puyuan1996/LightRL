@@ -1,8 +1,8 @@
 """Core helpers for the evaluation tool layer (config, serving, runner, batch, report)."""
 
-from core.config import apply_override, build_specs, deep_merge, load_config
-from core.report import load_results, render_markdown, write_report
-from core.runner import run_eval
+from .config import apply_override, build_specs, deep_merge, load_config
+from .report import load_results, render_markdown, write_report
+from .runner import run_eval
 
 __all__ = [
     "apply_override",

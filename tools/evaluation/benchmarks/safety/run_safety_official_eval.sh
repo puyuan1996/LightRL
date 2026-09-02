@@ -9,7 +9,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../../.." && pwd)}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 ASB_ROOT="${ASB_ROOT:-${AGENT_SAFETYBENCH_ROOT:-}}"
@@ -40,8 +40,8 @@ REUSE_ASB_SHIELD_RESULTS="${REUSE_ASB_SHIELD_RESULTS:-0}"
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  bash tools/evaluation/run_safety_official_eval.sh <run_dir>...
-  bash tools/evaluation/run_safety_official_eval.sh model_a=<run_dir> model_b=<run_dir>
+  bash tools/evaluation/benchmarks/safety/run_safety_official_eval.sh <run_dir>...
+  bash tools/evaluation/benchmarks/safety/run_safety_official_eval.sh model_a=<run_dir> model_b=<run_dir>
 
 Options:
   RUN_ASB_SHIELD=1             run ShieldAgent for runs containing AgentSafetyBench
@@ -54,7 +54,7 @@ Options:
 
 Example:
   BATCH_SIZE=4 CUDA_VISIBLE_DEVICES=0 \
-  bash tools/evaluation/run_safety_official_eval.sh \
+  bash tools/evaluation/benchmarks/safety/run_safety_official_eval.sh \
     init=runs/eval/eval_qwen3-8b_init_mock_2026-06-09_022431
 EOF
 }
@@ -209,7 +209,7 @@ with index_path.open(encoding="utf-8") as f:
 shards = sorted(set(index.get("weight_map", {}).values()))
 missing = [name for name in shards if not (model_dir / name).is_file()]
 if missing:
-    cmd = f"cd {repo_root} && bash tools/evaluation/prepare_shieldagent.sh"
+    cmd = f"cd {repo_root} && bash tools/evaluation/benchmarks/safety/prepare_shieldagent.sh"
     raise SystemExit(
         "[ERROR] ShieldAgent model shards are missing or broken in "
         f"{model_dir}: {missing}\n"
@@ -412,7 +412,7 @@ SUMMARY_ARGS=()
 if [[ "${ALLOW_PARTIAL_ASB_SHIELD}" == "1" ]]; then
   SUMMARY_ARGS+=("--allow-partial-asb-shield")
 fi
-"${PYTHON_BIN}" tools/evaluation/summarize_safety_eval.py runs \
+"${PYTHON_BIN}" tools/evaluation/benchmarks/safety/summarize_safety_eval.py runs \
   "${SUMMARY_ARGS[@]}" \
   "${SHIELD_ARGS[@]}" \
   "${RUN_DIRS[@]}" | tee "${SUMMARY_OUT}"

@@ -14,6 +14,9 @@ HARNESS_OPTION=claude-code \
 
 映射集中在 `agentic_rl/harnesses/factory.py`，使用惰性 import 保持可选依赖隔离。
 展示名（canonical → 连字符形式）由同一文件的 `display_harness_name()` 提供。
+训练与评估共用的 canonical 名称、别名和能力声明位于
+`agentic_rl/harnesses/identity.py`；实现注册仍按能力分开，避免评估运行时
+加载训练依赖。
 
 注：PRM(process reward model）奖励 agent 不是 harness，位于
 `agentic_rl/algorithms/prm/`，通过 recipe 的 PRM 相关参数启用。

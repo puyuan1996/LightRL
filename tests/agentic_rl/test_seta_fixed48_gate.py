@@ -8,7 +8,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
     "compare_seta_fixed_eval",
-    ROOT / "tools" / "evaluation" / "compare_seta_fixed_eval.py",
+    ROOT
+    / "tools"
+    / "evaluation"
+    / "benchmarks"
+    / "seta"
+    / "compare_seta_fixed_eval.py",
 )
 gate = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None

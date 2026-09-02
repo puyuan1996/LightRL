@@ -1,5 +1,15 @@
 # tools/evaluation — 通用评估工具集
 
+推荐从仓库根目录使用包入口：
+
+```bash
+python3 -m tools.evaluation --help
+```
+
+安装项目后也可使用 `lightrl-eval --help`。历史的
+`python3 tools/evaluation/eval_cli.py ...` 路径继续支持，便于直接运行已有
+作业脚本。
+
 把"起服务 → 生成 harness 配置 → 跑评测 → 回收归一化结果 → 多模型对比"
 这条链路从一次性脚本重构成通用工具。分两层:
 
@@ -17,12 +27,42 @@
 ```bash
 cp tools/evaluation/configs/tb21_terminus2.example.yaml /path/to/my-eval.yaml
 # 编辑 dataset.path / serving.model_path / output_dir 等
-python3 tools/evaluation/eval_cli.py run --config /path/to/my-eval.yaml --dry-run   # 先看将执行什么
-python3 tools/evaluation/eval_cli.py run --config /path/to/my-eval.yaml
+python3 -m tools.evaluation run --config /path/to/my-eval.yaml --dry-run   # 先看将执行什么
+python3 -m tools.evaluation run --config /path/to/my-eval.yaml
 ```
 
 `--dry-run` 只打印生成的 harness 配置、启动命令、进程环境 overlay 和
 (managed 模式下)SGLang 启动命令,不执行。
+
+## 目录布局
+
+通用编排代码与 benchmark 实现分开，benchmark 脚本按数据集/评测协议归类：
+
+```text
+tools/evaluation/
+├── core/                 # 配置、serving 生命周期、runner、batch、report
+├── benchmarks/
+│   ├── seta/             # SETA fixed-suite 构建、审计、paired gate
+│   ├── safety/           # AgentSafetyBench、AgentHarm、ShieldAgent
+│   ├── swebench/         # SWE-bench Verified 官方 harness
+│   └── world_model/      # world-model probes 与 candidate-set eval
+├── utilities/            # 与单一 benchmark 无关的工具
+├── configs/              # 通用/ harness 配置模板
+├── site/                 # 节点与站点相关 profile
+└── runtime_overlays/     # 运行时注入 overlay
+```
+
+新脚本请放入对应的 `benchmarks/<name>/`，不在根目录新增
+benchmark-specific 文件。
+
+常用 benchmark 入口：
+
+| Benchmark | 入口 |
+| --- | --- |
+| SETA | `build_seta_fixed_eval.py`, `audit_seta_fixed48_run.py`, `compare_seta_fixed_eval.py`（均位于 `benchmarks/seta/`） |
+| Safety | `bash tools/evaluation/benchmarks/safety/run_safety_official_eval.sh` |
+| SWE-bench | `bash tools/evaluation/benchmarks/swebench/run_swebench_verified_official_harness.sh` |
+| World Model | `bash tools/evaluation/benchmarks/world_model/run_world_model_<probe>.sh` |
 
 ## 评估一个 ckpt
 
@@ -37,7 +77,7 @@ python3 tools/evaluation/eval_cli.py run --config /path/to/my-eval.yaml
 4. 单题冒烟用 `smoke` 子命令(自动 concurrency=1、max_retries=0):
 
 ```bash
-python3 tools/evaluation/eval_cli.py smoke --config <cfg> --task <task-name>
+python3 -m tools.evaluation smoke --config <cfg> --task <task-name>
 ```
 
 命令行覆盖配置(可重复):`--set run.concurrency=8 --set serving.port=30001`。
@@ -50,8 +90,8 @@ managed serving 参数,`models` 列表逐个给 `name` / `model_path` /
 `<defaults.output_dir>/<name>/` 子目录,互不覆盖。
 
 ```bash
-python3 tools/evaluation/eval_cli.py batch --config /path/to/batch.yaml --dry-run
-python3 tools/evaluation/eval_cli.py batch --config /path/to/batch.yaml
+python3 -m tools.evaluation batch --config /path/to/batch.yaml --dry-run
+python3 -m tools.evaluation batch --config /path/to/batch.yaml
 ```
 
 managed 模式下批量会自动逐模型切换 SGLang(stop → start → 等待就绪);
@@ -60,7 +100,7 @@ managed 模式下批量会自动逐模型切换 SGLang(stop → start → 等待
 ## 结果对比(report)
 
 ```bash
-python3 tools/evaluation/eval_cli.py report \
+python3 -m tools.evaluation report \
   --results '/path/to/eval-runs/*/eval_result.json' \
   --output /path/to/compare
 ```

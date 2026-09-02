@@ -22,7 +22,7 @@ from pathlib import Path
 from agentic_rl.harnesses.eval import create_eval_harness
 from agentic_rl.harnesses.eval.base import EvalResult, EvalRunSpec, ServingSpec
 
-from core import serving as serving_mod
+from . import serving as serving_mod
 
 
 def result_to_dict(result: EvalResult) -> dict:

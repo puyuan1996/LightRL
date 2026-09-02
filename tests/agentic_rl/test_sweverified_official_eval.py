@@ -23,7 +23,12 @@ SMOKE_PATH = ROOT / "tools" / "dev" / "smoke_swe_worker.py"
 SWE_UTILS_PATH = AGENTIC_RL / "environments" / "terminal" / "swe_utils.py"
 WORKER = ROOT / "deploy" / "workers" / "run_pool_server_sweverified_pu.sh"
 OFFICIAL_HARNESS = (
-    ROOT / "tools" / "evaluation" / "run_swebench_verified_official_harness.sh"
+    ROOT
+    / "tools"
+    / "evaluation"
+    / "benchmarks"
+    / "swebench"
+    / "run_swebench_verified_official_harness.sh"
 )
 TERMINAL_ENV = AGENTIC_RL / "environments" / "terminal" / "runtime.py"
 WATCHDOG = ROOT / "deploy" / "workers" / "docker_watchdog_v2.sh"

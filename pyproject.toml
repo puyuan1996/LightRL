@@ -11,6 +11,9 @@ dependencies = [
   "pyyaml>=6.0",
 ]
 
+[project.scripts]
+lightrl-eval = "tools.evaluation.eval_cli:main"
+
 [project.optional-dependencies]
 rollout = [
   "aiohttp>=3.9",
@@ -45,7 +48,8 @@ dev = [
 
 
 [tool.setuptools.packages.find]
-include = ["agentic_rl*"]
+include = ["agentic_rl*", "tools*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

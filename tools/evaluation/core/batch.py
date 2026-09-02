@@ -28,9 +28,9 @@ from pathlib import Path
 
 from agentic_rl.harnesses.eval.base import EvalResult
 
-from core.config import build_specs, deep_merge
-from core.runner import run_eval
-from core.serving import DEFAULT_COMMAND_TEMPLATE
+from .config import build_specs, deep_merge
+from .runner import run_eval
+from .serving import DEFAULT_COMMAND_TEMPLATE
 
 
 def run_batch(
@@ -87,7 +87,7 @@ def run_batch(
 
     report_cfg = dict(config.get("report") or {})
     if report_cfg.get("output") and not dry_run:
-        from core.report import write_report
+        from .report import write_report
 
         write_report(results, str(report_cfg["output"]))
         log(f"report written: {report_cfg['output']}.md / .csv")
