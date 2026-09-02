@@ -9,12 +9,12 @@
 #                runs diagnose again.
 #
 # Typical usage on a CPU worker:
-#   bash deploy/workers/docker_worker_doctor.sh diagnose \
+#   bash deploy/ops/docker_worker_doctor.sh diagnose \
 #     --train-log /mnt/shared-storage-user/puyuan/code/LightRL/runs/<run>/logs/train.log
 #
 #   sudo env DOCKER_DATA_ROOT=/data \
 #     PROXY_URL=http://httpproxy-headless.kubebrain.svc.pjlab.local:3128 \
-#     bash deploy/workers/docker_worker_doctor.sh full-repair \
+#     bash deploy/ops/docker_worker_doctor.sh full-repair \
 #     --train-log /mnt/shared-storage-user/puyuan/code/LightRL/runs/<run>/logs/train.log
 
 set -uo pipefail
@@ -443,7 +443,7 @@ write_recommendations() {
     echo
     if ! docker_ready; then
       echo "- Docker API is not responsive. This matches wedged dockerd/stale socket symptoms."
-      echo "  Run: sudo env DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT} bash deploy/workers/docker_worker_doctor.sh full-repair"
+      echo "  Run: sudo env DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT} bash deploy/ops/docker_worker_doctor.sh full-repair"
     fi
     if [ "${TRAIN_ERRNO11:-0}" != "0" ]; then
       echo "- Errno 11 / Resource temporarily unavailable appears in the train log."
@@ -461,7 +461,7 @@ write_recommendations() {
     fi
     if [ "${TRAIN_NOSPACE:-0}" != "0" ]; then
       echo "- no space left on device appears. Run:"
-      echo "  sudo env DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT} AGGRESSIVE=1 bash deploy/workers/fix_docker_overlay2_no_space.sh"
+      echo "  sudo env DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT} AGGRESSIVE=1 bash deploy/ops/fix_docker_overlay2_no_space.sh"
     fi
     if [ "${TRAIN_EVAL_TIMEOUT:-0}" != "0" ]; then
       echo "- Evaluation timeouts appear. After Docker is stable, inspect slow tasks and consider"
@@ -476,7 +476,7 @@ write_recommendations() {
     echo "  cd ${REPO_ROOT}"
     echo "  sudo env DOCKER_DATA_ROOT=${DOCKER_DATA_ROOT} \\"
     echo "    PROXY_URL=\${PROXY_URL:-http://httpproxy-headless.kubebrain.svc.pjlab.local:3128} \\"
-    echo "    bash deploy/workers/docker_worker_doctor.sh full-repair \\"
+    echo "    bash deploy/ops/docker_worker_doctor.sh full-repair \\"
     if [ -n "${TRAIN_LOG}" ]; then
       echo "    --train-log ${TRAIN_LOG}"
     else
@@ -485,7 +485,7 @@ write_recommendations() {
     echo
     echo "Then restart pool_server:"
     echo "  cd ${REPO_ROOT}"
-    echo "  nohup bash deploy/workers/run_pool_server_pu_v2.sh > /tmp/cpu_pool.log 2>&1 &"
+    echo "  nohup bash deploy/workers/run_pool_server.sh > /tmp/cpu_pool.log 2>&1 &"
     echo "  curl --noproxy '*' http://127.0.0.1:${POOL_PORT}/healthz"
   } > "${rec}"
 
@@ -523,7 +523,7 @@ soft_repair() {
   log "soft-repair: starting"
   if docker_ready; then
     log "Docker API is responsive; running conservative cleanup."
-    DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT}" bash "${SCRIPT_DIR}/cleanup_docker_cache.sh" \
+    DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT}" bash "${SCRIPT_DIR}/cleanup_docker.sh" \
       > "${OUT_DIR}/soft_repair_cleanup.log" 2>&1 || true
   else
     log "Docker API is not responsive; running force restart."

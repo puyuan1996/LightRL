@@ -1,4 +1,4 @@
-# LightRL training recipes
+# LightRL 配置与运行配方
 
 训练配置直接写在 `examples/training/` 的 recipe 脚本中。每个脚本包含模型、数据集、
 算法、GPU 拓扑和 rollout 配置，环境变量可覆盖默认值；不再经过 Python CLI、配置组合
@@ -25,6 +25,17 @@ examples/training/<recipe>.sh
 
 `configs/rollout/` 只保留传给 rollout 的模型模板配置。站点地址、凭据和调度参数应通过
 环境变量或被 Git 忽略的 `local/cluster/` 提供。
+
+离线评测采用同样的 Slime 编排层，但入口不同：通用 benchmark 使用
+`python3 -m tools.evaluation`，需要本地 Ray/worker 的完整配方位于
+`examples/evaluation/`。SETA fixed12 的 4-GPU 一键配方为
+`examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh`，它通过
+`SLIME_ENTRYPOINT=slime/eval_only.py` 运行评测，不执行 actor checkpoint 更新。
+
+部署相关变量按执行环境分层：公共 recipe 只读取 `WORKER_URLS`/
+`WORKER_URLS_FILE` 等运行时变量；站点 RJob/DinD 提交和生命周期脚本保存在
+被 Git 忽略的 `local/rjob/`，worker 运行时、资源和运维操作分别见
+`deploy/workers/`、`deploy/runtime/` 与 `deploy/ops/`。
 
 Python 侧的环境变量解析统一在 `agentic_rl/env.py`（`env_bool` /
 `env_int` / `env_float` / `env_flag` 等）；该模块的 `ENV_VARS` 表是

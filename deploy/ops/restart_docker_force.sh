@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # restart_docker_force.sh — 强制清理并重启 docker（systemd 优先，失败 fallback nohup）
 # 用法:
-#   sudo env DOCKER_DATA_ROOT=/data bash deploy/workers/restart_docker_force.sh
+#   sudo env DOCKER_DATA_ROOT=/data bash deploy/ops/restart_docker_force.sh
 #
 # Env:
 #   DOCKER_DATA_ROOT  Docker data root. DOCKER_ROOT is accepted as legacy alias.
@@ -17,7 +17,7 @@ log() { echo "[$(date '+%F %T')] $*"; }
 die() { log "[ERROR] $*"; exit 1; }
 
 if [ "$(id -u)" -ne 0 ]; then
-    die "Must run as root. Use: sudo env DOCKER_DATA_ROOT=/data bash deploy/workers/restart_docker_force.sh"
+    die "Must run as root. Use: sudo env DOCKER_DATA_ROOT=/data bash deploy/ops/restart_docker_force.sh"
 fi
 
 DATA_ROOT="${DOCKER_DATA_ROOT:-${DOCKER_ROOT:-/data}}"
@@ -286,4 +286,4 @@ docker info 2>&1 | grep -E "Containers:|Running:|Stopped:|Images:|Server Version
 echo
 df -h "${DATA_ROOT}" 2>&1 | grep -F "${DATA_ROOT}" || true
 echo
-log "Next: bash deploy/workers/run_pool_server_pu_v2.sh"
+log "Next: bash deploy/workers/run_pool_server.sh"

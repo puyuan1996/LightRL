@@ -15,12 +15,12 @@ AGENTIC_RL = ROOT / "agentic_rl"
 TERMINAL_ENV = AGENTIC_RL / "environments" / "terminal" / "runtime.py"
 POOL_SERVER = AGENTIC_RL / "platform" / "worker_pool.py"
 COMPOSE_UTILS = AGENTIC_RL / "environments" / "terminal" / "docker_compose.py"
-SETA_LAUNCHER = ROOT / "deploy" / "workers" / "run_pool_server_pu_v2.sh"
-SWE_LAUNCHER = ROOT / "deploy" / "workers" / "run_pool_server_swesmith_pu.sh"
+SETA_LAUNCHER = ROOT / "deploy" / "workers" / "run_pool_server.sh"
+SWE_LAUNCHER = ROOT / "deploy" / "workers" / "run_pool_server_swesmith.sh"
 TRAIN_LAUNCHER = AGENTIC_RL / "platform" / "slime_train.sh"
 DOWNLOADER = AGENTIC_RL / "data" / "download_swesmith.sh"
 SMOKE_CLIENT = ROOT / "tools" / "dev" / "smoke_swesmith_worker.py"
-WORKER_REQUIREMENTS = ROOT / "deploy" / "workers" / "requirements-swesmith-worker.txt"
+WORKER_REQUIREMENTS = ROOT / "deploy" / "runtime" / "requirements-swesmith-worker.txt"
 
 
 COMPOSE = """services:

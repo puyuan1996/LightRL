@@ -34,8 +34,9 @@ nohup.out
 # Local infrastructure and secrets
 /experiments/**/*job*/
 /experiments/**/*job*.sh
+# pu-dev/operator-only launchers and RJob control-plane helpers are intentionally
+# local and must not be uploaded as deployment code.
 /local/
-/deploy/*job*/
 # Worker lifecycle/repair scripts under deploy/workers are intentionally
 # tracked.  Site credentials must still stay outside the repository.
 /docs/manual_validation_*.md
@@ -69,7 +70,7 @@ swe.pem
 /agentic_rl/logs/
 /tmp_doc_*/
 /workspace/
-# Archived source kept under repository-level backup/ is intentionally tracked.
+# Archived deployment source under deploy/archive/ is intentionally tracked.
 /interview/
 /file
 /=*

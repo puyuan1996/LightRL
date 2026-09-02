@@ -85,7 +85,7 @@ if ! timeout 60 env \
   "${POOL_SERVER_PYTHON}" -c \
   'import importlib; module = importlib.import_module("agentic_rl.platform.worker_app"); assert module.app is not None'; then
   echo "[ERROR] pool_server Python dependency preflight failed for ${POOL_SERVER_PYTHON}." >&2
-  echo "        Install deploy/workers/requirements-swesmith-worker.txt in that environment." >&2
+  echo "        Install deploy/runtime/requirements-swesmith-worker.txt in that environment." >&2
   exit 2
 fi
 export POOL_SERVER_PYTHON
@@ -150,7 +150,7 @@ print(
 if strict and mismatches:
     raise SystemExit(
         "[ERROR] SWE-Verified worker dependencies do not match "
-        "deploy/workers/requirements-swesmith-worker.txt: "
+        "deploy/runtime/requirements-swesmith-worker.txt: "
         + "; ".join(mismatches)
     )
 PY
@@ -250,4 +250,4 @@ if [[ "${WORKER_PREFLIGHT_ONLY:-0}" == "1" ]]; then
   exit 0
 fi
 
-exec bash "${SCRIPT_DIR}/run_pool_server_pu_v2.sh" "$@"
+exec bash "${SCRIPT_DIR}/run_pool_server.sh" "$@"

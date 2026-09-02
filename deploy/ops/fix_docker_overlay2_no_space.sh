@@ -34,7 +34,7 @@ DOCKER_PURGE_DIRS="${DOCKER_PURGE_DIRS:-overlay2 containers image buildkit volum
 TRUNCATE_CONTAINER_LOGS="${TRUNCATE_CONTAINER_LOGS:-0}"
 LOG_TRUNCATE_THRESHOLD_MB="${LOG_TRUNCATE_THRESHOLD_MB:-1024}"
 LOCK_FILE="${LOCK_FILE:-/tmp/fix_docker_overlay2_no_space.lock}"
-POOL_RUN_SCRIPT="${POOL_RUN_SCRIPT:-deploy/workers/run_pool_server_pu_v2.sh}"
+POOL_RUN_SCRIPT="${POOL_RUN_SCRIPT:-deploy/workers/run_pool_server.sh}"
 REPO_DIR="${REPO_DIR:-/mnt/shared-storage-user/puyuan/code/LightRL}"
 PRUNE_ERRORS=0
 
@@ -344,8 +344,8 @@ purge_docker_root_when_empty_if_requested() {
 
     log "Starting Docker after offline cleanup."
     [ "${DRY_RUN}" = "1" ] && return 0
-    if [ -x "${REPO_DIR}/deploy/workers/restart_docker_force.sh" ]; then
-        env DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT}" bash "${REPO_DIR}/deploy/workers/restart_docker_force.sh" || true
+    if [ -x "${REPO_DIR}/deploy/ops/restart_docker_force.sh" ]; then
+        env DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT}" bash "${REPO_DIR}/deploy/ops/restart_docker_force.sh" || true
     else
         systemctl start docker || true
     fi
@@ -369,9 +369,9 @@ restart_docker_if_requested() {
     [ "${RESTART_DOCKER}" = "1" ] || return 0
     need_root_for_restart
 
-    if [ -x "${REPO_DIR}/deploy/workers/restart_docker_force.sh" ]; then
+    if [ -x "${REPO_DIR}/deploy/ops/restart_docker_force.sh" ]; then
         log "Restarting Docker via repo force-restart helper."
-        run env DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT}" bash "${REPO_DIR}/deploy/workers/restart_docker_force.sh"
+        run env DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT}" bash "${REPO_DIR}/deploy/ops/restart_docker_force.sh"
     else
         log "Restarting Docker via systemctl."
         run systemctl restart docker

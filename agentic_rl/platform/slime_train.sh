@@ -9,9 +9,9 @@
 #
 # Prerequisites (remote worker):
 #   1. Pool server(s) running on reachable host(s), default port 18081 for SETA:
-#        bash deploy/workers/run_pool_server_pu_v2.sh
+#        bash deploy/workers/run_pool_server.sh
 #      SWE-smith uses a separate worker, default port 18082:
-#        bash deploy/workers/run_pool_server_swesmith_pu.sh
+#        bash deploy/workers/run_pool_server_swesmith.sh
 #   2. WORKER_URLS exported for the selected dataset, e.g.
 #        export WORKER_URLS="http://<worker-ip>:18081"
 #        export WORKER_URLS="http://<worker-ip>:18082"

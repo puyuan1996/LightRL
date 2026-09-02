@@ -92,7 +92,7 @@ BACKGROUND=0 \
 ```bash
 export RUN_ID=lightrl-seta-fixed12-dind-$(date +%Y%m%d-%H%M%S)
 RJOB_GPU=4 RJOB_CPU=50 RJOB_MEMORY=800000 \
-tools/dev/smoke_rjob_private_dind.sh
+local/rjob/submit_private_dind.sh
 ```
 
 该命令会启动本 Pod 独立的 dockerd 和 SETA pool (`127.0.0.1:18081`)，然后

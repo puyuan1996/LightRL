@@ -83,4 +83,4 @@ echo "  docker_gc:  enabled=${WATCHDOG_DOCKER_STORAGE_GC} trigger=${DOCKER_GC_TR
 echo "  resetstorm: repair=${POOL_RESET_STORM_REPAIR} min_resetting=${POOL_RESET_STORM_MIN_RESETTING} ratio=${POOL_RESET_STORM_RATIO_PCT}% min_age=${POOL_RESET_STORM_MIN_AGE}s checks=${POOL_RESET_STORM_STUCK_CHECKS}"
 echo "========================================"
 
-exec bash deploy/workers/docker_watchdog_v2.sh
+exec bash deploy/workers/docker_watchdog.sh

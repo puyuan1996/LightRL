@@ -2,7 +2,7 @@
 # SWE-smith Docker worker launcher.
 #
 # Run on a CPU/docker worker that shares the LightRL filesystem with the GPU
-# trainer. It delegates to run_pool_server_pu_v2.sh but pins conservative
+# trainer. It delegates to run_pool_server.sh but pins conservative
 # defaults for SWE-smith image build/start latency.
 set -euo pipefail
 
@@ -213,7 +213,7 @@ print(
 if strict and mismatches:
     raise SystemExit(
         "[ERROR] SWE-smith worker dependencies do not match "
-        "deploy/workers/requirements-swesmith-worker.txt: "
+        "deploy/runtime/requirements-swesmith-worker.txt: "
         + "; ".join(mismatches)
     )
 PY
@@ -343,4 +343,4 @@ print(
 PY
 fi
 
-exec bash "${SCRIPT_DIR}/run_pool_server_pu_v2.sh" "$@"
+exec bash "${SCRIPT_DIR}/run_pool_server.sh" "$@"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_pool_server_pu_v2.sh — Hardened pool_server launcher for CPU/docker worker
+# run_pool_server.sh — Hardened pool_server launcher for CPU/docker worker
 #
 # Incorporates all lessons from issue #3:
 #   坑1: pool capacity must be >= rollout-batch-size × n-samples-per-prompt
@@ -11,7 +11,7 @@
 #   Extra: docker daemon health check before start
 #
 # Usage (on CPU/docker worker):
-#   bash deploy/workers/run_pool_server_pu_v2.sh
+#   bash deploy/workers/run_pool_server.sh
 #
 # Key env vars:
 #   WORKER_MAX_TASKS            (default 16)   — pool_server --max-tasks
@@ -271,7 +271,7 @@ rotate_file_in_place() {
 rotate_file_in_place "${CPU_POOL_LOG}" "${CPU_POOL_LOG_MAX_BYTES}" "${CPU_POOL_LOG_TAIL_BYTES}"
 exec > >(tee -a "${CPU_POOL_LOG}") 2>&1
 
-log "=== pool_server_pu_v2 starting ==="
+log "=== pool_server starting ==="
 log "  worker id: ${CPU_WORKER_ID}"
 log "  run id:    ${OPENCLAW_REMOTE_RUN_ID}"
 log "  log dir:   ${OPENCLAW_REMOTE_LOG_DIR}"
@@ -432,17 +432,17 @@ preflight_disk_guard() {
        || "${free_gb}" -lt "${WORKER_MIN_DOCKER_FREE_GB}" \
        || "${inode_pct}" -gt "${WORKER_MAX_DOCKER_INODE_PCT}" ]]; then
         log "  ⚠️  Docker data-root is above guard threshold."
-        if [[ "${PREFLIGHT_DISK_CLEANUP}" == "1" && -x "${SCRIPT_DIR}/cleanup_docker_cache.sh" ]]; then
+        if [[ "${PREFLIGHT_DISK_CLEANUP}" == "1" && -x "${SCRIPT_DIR}/../ops/cleanup_docker.sh" ]]; then
             log "  Running conservative cleanup before refusing start..."
             DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT}" RUN_HEAVY_DF=0 \
-              bash "${SCRIPT_DIR}/cleanup_docker_cache.sh" || true
+              bash "${SCRIPT_DIR}/../ops/cleanup_docker.sh" || true
             snap="$(docker_disk_snapshot || true)"
             inode_pct="$(docker_inode_snapshot || true)"
             used_pct="${snap%% *}"
             free_gb="${snap##* }"
             log "  after cleanup: used=${used_pct:-?}% free=${free_gb:-?}GB inode=${inode_pct:-?}%"
         fi
-        if [[ "${PREFLIGHT_DOCKER_STORAGE_GC}" == "1" && -f "${SCRIPT_DIR}/docker_storage_gc.py" ]]; then
+        if [[ "${PREFLIGHT_DOCKER_STORAGE_GC}" == "1" && -f "${SCRIPT_DIR}/../ops/docker_storage_gc.py" ]]; then
             log "  Running Docker storage LRU GC before refusing start..."
             DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT}" \
             DOCKER_GC_TRIGGER_USED_PCT="${DOCKER_GC_TRIGGER_USED_PCT}" \
@@ -452,7 +452,7 @@ preflight_disk_guard() {
             DOCKER_GC_PRUNE_VOLUMES="${DOCKER_GC_PRUNE_VOLUMES}" \
             DOCKER_GC_DRY_RUN="${DOCKER_GC_DRY_RUN}" \
             DOCKER_GC_DELETE_OLD_IMAGES="${DOCKER_GC_DELETE_OLD_IMAGES}" \
-              python3 "${SCRIPT_DIR}/docker_storage_gc.py" || true
+              python3 "${SCRIPT_DIR}/../ops/docker_storage_gc.py" || true
             snap="$(docker_disk_snapshot || true)"
             inode_pct="$(docker_inode_snapshot || true)"
             used_pct="${snap%% *}"
@@ -465,9 +465,9 @@ preflight_disk_guard() {
        || "${free_gb}" -lt "${WORKER_MIN_DOCKER_FREE_GB}" \
        || "${inode_pct}" -gt "${WORKER_MAX_DOCKER_INODE_PCT}" ]]; then
         log "  ❌ Refusing to start pool_server under Docker disk pressure."
-        log "     Preview: DOCKER_GC_DRY_RUN=1 python3 deploy/workers/docker_storage_gc.py"
-        log "     Run:     python3 deploy/workers/docker_storage_gc.py"
-        log "     Legacy:  AGGRESSIVE=1 PRUNE_VOLUMES=1 bash deploy/workers/fix_docker_overlay2_no_space.sh"
+        log "     Preview: DOCKER_GC_DRY_RUN=1 python3 deploy/ops/docker_storage_gc.py"
+        log "     Run:     python3 deploy/ops/docker_storage_gc.py"
+        log "     Legacy:  AGGRESSIVE=1 PRUNE_VOLUMES=1 bash deploy/ops/fix_docker_overlay2_no_space.sh"
         log "     If Docker objects are empty but /data is still full, use PURGE_DOCKER_ROOT_WHEN_EMPTY=1."
         exit 1
     fi
@@ -479,8 +479,8 @@ preflight_disk_guard() {
 log "Pre-flight [1/6]: Docker daemon health check"
 if ! timeout 10 docker info >/dev/null 2>&1; then
     log "  ❌ Docker daemon not responding!"
-    log "  Run repair: sudo bash deploy/workers/fix_dockerd_and_proxy.sh"
-    log "  Or force restart only: sudo bash deploy/workers/restart_docker_force.sh"
+    log "  Run repair: sudo bash deploy/ops/fix_dockerd_and_proxy.sh"
+    log "  Or force restart only: sudo bash deploy/ops/restart_docker_force.sh"
     exit 1
 fi
 log "  ✅ Docker daemon OK"

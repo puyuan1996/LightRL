@@ -6,7 +6,7 @@
   env 解析、训练三层入口)。
 - [configuration.md](configuration.md)——recipe 即配置；`agentic_rl/env.py`
   的 `ENV_VARS` 声明表；`environments/registry.py` 的 `EnvSpec` 表。
-- [refactor_review_20260731.md](refactor_review_20260731.md)——2026-07-31
+- [records/refactor/refactor_review_20260731.md](records/refactor/refactor_review_20260731.md)——2026-07-31
   包结构审查记录（分层边界的历史快照）。
 
 ## 算法
@@ -24,6 +24,8 @@
 - [harnesses/README.md](harnesses/README.md)——harness 选择与注册。
 - [evaluation/README.md](evaluation/README.md)——评测工具、SETA fixed12 协议与
   SWE-bench 产物导出。
+- [../deploy/README.md](../deploy/README.md)——worker 运行时、部署资源、运维工具与
+  本地 RJob 的职责边界。
 - [performance/seta_training_efficiency_zh.md](performance/seta_training_efficiency_zh.md)——
   SETA 训练耗时、同 Pod 私有 worker 的长窗口提速结果、GPU 等待瓶颈、
   slime trace 与高吞吐执行 profile。

@@ -2,7 +2,7 @@
 
 > 状态：v2 已实现（2026-07-14）
 > 权威实现：`slime/slime/world_model/`
-> 历史设计：[`latent_world_model_design_20260616_154623_HKT.md`](latent_world_model_design_20260616_154623_HKT.md)
+> 历史设计文档未随当前仓库发布；本文仅说明现有 WIP 实现与使用边界。
 
 ## 1. 当前实现解决什么问题
 

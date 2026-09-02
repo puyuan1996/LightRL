@@ -22,9 +22,9 @@ LightRL 是面向交互式环境中语言模型智能体的强化学习后训练
 
 | 维度 | 当前选项 | 代码入口 |
 | --- | --- | --- |
-| Harness | Camel-Agent、Claude Code CLI | `agentic_rl/harnesses/` |
-| Environment | SETA、Agent-SafetyBench、AgentHarm、tau2、SWE-smith / SWE-verified | `agentic_rl/environments/` |
-| Model | Qwen3-8B、Qwen3-30B-A3B、GLM-5.1 | `configs/rollout/` |
+| Harness | 训练：Camel-Agent、Claude Code CLI；评测：另支持 Terminus-2 | `agentic_rl/harnesses/`、`agentic_rl/harnesses/eval/` |
+| Environment | SETA、Agent-SafetyBench、AgentHarm、Tau2；SWE-smith / SWE-Verified 数据转换工具 | `agentic_rl/environments/`、`agentic_rl/data/` |
+| Model | 由 recipe 指定（稳定 recipe 当前覆盖 Qwen3-8B、GLM-5.1） | `configs/rollout/` |
 | Algorithm | GRPO / DAPO、DIVE-PO | Slime 后端与 `agentic_rl/algorithms/` |
 
 LightRL 内置 Slime 与 Megatron-LM 训练后端。终端环境由 Docker worker
@@ -51,8 +51,9 @@ LightRL 内置 Slime 与 Megatron-LM 训练后端。终端环境由 Docker worke
 
 - **配方驱动训练**——每个实验对应一个可审阅的 shell 脚本；启动前可用
   `--dry-run` 查看数据、模型、并行配置与完整后端命令。
-- **多类智能体环境**——覆盖 SETA、Agent-SafetyBench、AgentHarm、tau2、
-  SWE-smith / SWE-verified；终端任务通过 Docker worker 隔离执行。
+- **多类智能体环境**——通过 `EnvSpec` 注册表支持 SETA、Agent-SafetyBench、
+  AgentHarm 和 Tau2；SWE-smith / SWE-Verified 提供数据转换与终端 worker
+  工具。终端任务通过 Docker worker 隔离执行。
 - **明确的算法边界**——GRPO / DAPO 由内置 Slime 后端提供；LightRL 在
   `agentic_rl/algorithms/` 中维护 DIVE-PO 探索扩展和 PRM 奖励 agent。
 - **低成本扩展**——环境、harness 与奖励后处理均有集中注册入口，新增能力
@@ -109,7 +110,6 @@ LightRL/
 │   │   └── prm/             # PRM（process reward）奖励 agent
 │   ├── data/                # 数据转换、下载与训练数据准备
 │   ├── environments/        # EnvSpec 注册表、协议、runtime、奖励规则与 HTTP client
-│   ├── evaluation/          # SWE-bench 等官方格式导出与评测适配
 │   ├── harnesses/           # Camel-Agent / Claude Code harness 与统一工厂
 │   ├── misc/                # rollout 日志与 JSONL sink
 │   ├── platform/            # Slime 启动器、worker/router、路径与环境变量解析
@@ -119,8 +119,13 @@ LightRL/
 │   ├── training/            # 正式训练 recipe 与 world_model/WIP 入口
 │   └── validation/          # 不含站点拓扑的通用验证辅助文件
 ├── benchmarks/              # benchmark 数据与任务定义
-├── deploy/workers/          # Docker worker 启动、预热、清理与恢复脚本
+├── deploy/workers/          # Docker/SETA worker 运行时与 watchdog
+├── deploy/runtime/          # worker 代理、镜像预热与依赖资源
+├── deploy/ops/              # worker 诊断、修复与清理
+├── deploy/archive/          # 仅供历史兼容的旧入口（不用于新部署）
+├── local/rjob/              # 被 Git 忽略的站点 RJob 提交与生命周期脚本
 ├── tools/                   # 分析、评测和开发诊断工具
+│   └── evaluation/          # 通用评测编排与按 benchmark 归类的入口
 ├── tests/                   # pytest 单元与集成测试
 ├── slime/                   # 内置第三方 rollout/训练后端
 ├── Megatron-LM/             # 内置第三方模型训练后端
@@ -138,6 +143,7 @@ LightRL/
   `127.0.0.1`，跨主机部署应使用训练节点可达的地址。
 - 站点地址、凭据和调度参数应放入环境变量或被 Git 忽略的
   `local/cluster/` 文件，不要提交到仓库。
+- RJob 提交与生命周期脚本仅供本地使用，统一位于 `local/rjob/`。
 
 源码安装 Python 包：
 
@@ -155,11 +161,13 @@ python3 -c 'import agentic_rl'
 
 先在选定的 Docker 主机上启动 worker。该主机可以是独立 CPU 节点，也可以是
 当前 GPU 训练节点；完整启动参数、容量配置和运维脚本见
-[Docker worker 文档](deploy/workers/README.md)。已完成机器准备时，可从仓库
-根目录启动默认 pool server：
+[Docker worker 文档](deploy/workers/README.md)。worker 运维命令见
+[deploy/ops](deploy/ops/README.md)，运行时资源见
+[deploy/runtime](deploy/runtime/README.md)。已完成机器准备时，可从仓库根目录
+启动默认 pool server：
 
 ```bash
-bash deploy/workers/run_pool_server_pu_v2.sh
+bash deploy/workers/run_pool_server.sh
 ```
 
 然后在训练进程所在 shell 中配置服务地址并检查健康状态：
@@ -172,6 +180,23 @@ curl --noproxy '*' --fail http://<WORKER_HOST>:18081/healthz
 同机部署时 `<WORKER_HOST>` 可设为 `127.0.0.1`；跨主机部署时填写 worker
 的可达 IP 或主机名。多个 worker 使用逗号分隔的 `WORKER_URLS`，也可通过
 `WORKER_URLS_FILE` 提供地址列表。
+
+若要执行已维护的 Qwen3-8B + SETA fixed12 + Camel-Agent 4 GPU 评测，使用
+[一键评测配方](examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh)：
+
+```bash
+# 先检查解析后的配置、worker 地址和最终命令（不启动服务）
+bash examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh --dry-run
+
+# 确认清理本机 Ray/SGLang 进程后启动评测
+CONFIRM_LOCAL_CLEANUP=1 \
+  bash examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh
+```
+
+该配方要求 4 张 GPU、可达的 `WORKER_URLS`、Qwen3-8B checkpoint 以及已安装
+的项目运行时依赖（至少包括 PyYAML、Ray、CUDA/sglang）。SETA worker 的
+`/healthz` 检查通过后才会启动 `slime/eval_only.py`。站点专用的 RJob/DinD
+提交脚本位于被 Git 忽略的 `local/rjob/`，不应复制到公共 recipe。
 
 ### 2. 检查训练配方
 
@@ -218,8 +243,9 @@ WORKER_URLS=http://127.0.0.1:18081 \
   bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
-集群专用启动器和 smoke wrapper 保留在被忽略的本地配置中，因为其中包含
-站点拓扑和路径信息。
+通用的开发 smoke 与静态检查位于 `tools/dev/`；包含站点拓扑、凭据或调度
+参数的 RJob 提交脚本位于被 Git 忽略的 `local/rjob/`，以避免把集群细节带入
+公共 recipe。
 
 ## 配置与输出
 
@@ -241,10 +267,11 @@ WORKER_URLS=http://127.0.0.1:18081 \
 ```text
 runs/<RUN_ID>/
 ├── config/                # 解析后的配置快照与数据集清单
-├── environment_outputs/   # 环境侧 AgentRunner 输出
 ├── logs/                  # train.log、metrics.jsonl 与启动日志
 ├── trajectories/          # 单样本 traj.json 与旁路索引 index.jsonl
-└── metrics/               # W&B 与离线分析产物
+├── metrics/               # W&B 与离线分析产物
+├── environment_outputs/   # worker/AgentRunner 环境侧产物
+└── meta.json              # run 路径、版本与命令元数据
 ```
 
 `runs/latest` 指向最近一次运行。训练产物应进入 `runs/`，不应在仓库根目录
@@ -253,7 +280,7 @@ runs/<RUN_ID>/
 
 ## 验证状态
 
-最近一次有界验证（2026-08-07，4 GPU，P0–P2 重构后）结果如下：
+已记录的有界验证（2026-08-07，4 GPU，P0–P2 重构后）结果如下：
 
 - SETA + DAPO：3 个 rollout、6 个 actor train step，更新值有限且非零，
   验证标记为 `TRAINING_METRICS_OK`。
@@ -288,10 +315,13 @@ python3 -m compileall -q agentic_rl
 
 - [架构说明](docs/architecture.md)——包边界、训练链路、router 与注册表设计
 - [配置说明](docs/configuration.md)——recipe、环境变量与覆盖优先级
+- [部署总览](deploy/README.md)——worker、运行时资源、运维工具与本地 RJob 的边界
 - [DIVE-PO 奖励数学](docs/algorithms/dive_po_dual_stream.md)——双流优势与奖励后处理
 - [Harness 选择](docs/harnesses/README.md)——Camel-Agent / Claude Code 接入
-- [评测工具](docs/evaluation/README.md)——SWE-bench 等评测与格式导出
+- [评测工具](docs/evaluation/README.md)——通用评测编排、SETA fixed12 与格式导出
 - [Docker worker](deploy/workers/README.md)——启动、容量、预热、清理与恢复
+- [运维工具](deploy/ops/README.md)——诊断、修复、清理与 worker 准备
+- [运行时资源](deploy/runtime/README.md)——代理、镜像预热、依赖与 systemd 资源
 - [Checkpoint 与 W&B 存储](docs/operations/checkpoint-wandb.md)
 - [训练示例](examples/README.md)——稳定配方、参数与验证入口
 

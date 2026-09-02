@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# docker_watchdog_v2.sh — 加固版守护进程（针对 DinD/DooD + agentic-RL 场景）
+# docker_watchdog.sh — 加固版守护进程（针对 DinD/DooD + agentic-RL 场景）
 #
 # 设计目标：在 14 h 长跑中拦截 issue #3 §3/§4/§5 描述的环境层崩溃
 #   §3 docker bridge address-pool 耗尽
@@ -21,7 +21,7 @@
 # 用法（推荐 systemd 起，见 docker-watchdog.service）：
 #   systemctl enable --now docker-watchdog
 # 或临时：
-#   nohup bash docker_watchdog_v2.sh > /tmp/docker_watchdog.log 2>&1 &
+#   nohup bash docker_watchdog.sh > /tmp/docker_watchdog.log 2>&1 &
 
 set -uo pipefail
 
@@ -450,7 +450,7 @@ stop_pool_server_for_pressure() {
                 kill "${pid}" 2>/dev/null || true
                 killed=$((killed + 1))
                 ;;
-            *run_pool_server_pu_v2.sh*)
+            *run_pool_server.sh*)
                 if [ "${include_launcher}" = "1" ]; then
                     log "PRESSURE: stopping pool_server launcher pid=${pid} reason=${reason}"
                     kill "${pid}" 2>/dev/null || true
@@ -475,7 +475,7 @@ stop_pool_server_for_pressure() {
             *agentic_rl.platform.worker_cli*|*remote.pool_server*|*pool_server.py*)
                 pids="${pids} ${pid}"
                 ;;
-            *run_pool_server_pu_v2.sh*)
+            *run_pool_server.sh*)
                 if [ "${include_launcher}" = "1" ]; then
                     pids="${pids} ${pid}"
                 fi
@@ -1198,7 +1198,7 @@ disk_prune_light() {
 docker_storage_gc() {
     local reason="${1:-disk-pressure}"
     [ "${WATCHDOG_DOCKER_STORAGE_GC}" = "1" ] || return 0
-    [ -f "${SCRIPT_DIR}/docker_storage_gc.py" ] || {
+    [ -f "${SCRIPT_DIR}/../ops/docker_storage_gc.py" ] || {
         log "DISK: docker_storage_gc.py not found; skipping LRU image GC"
         return 0
     }
@@ -1213,7 +1213,7 @@ docker_storage_gc() {
         DOCKER_GC_BUILDER_CACHE_UNTIL="${DISK_BUILD_CACHE_UNTIL}" \
         DOCKER_GC_DRY_RUN="${DOCKER_GC_DRY_RUN}" \
         DOCKER_GC_DELETE_OLD_IMAGES="${DOCKER_GC_DELETE_OLD_IMAGES}" \
-        python3 "${SCRIPT_DIR}/docker_storage_gc.py" || \
+        python3 "${SCRIPT_DIR}/../ops/docker_storage_gc.py" || \
         log "WARN: Docker storage LRU GC timed out or failed"
 }
 
@@ -1817,7 +1817,7 @@ restart_docker() {
 
 # ── Main ─────────────────────────────────────────────────────────────
 log "========================================"
-log "Starting docker_watchdog_v2 PID=$$"
+log "Starting docker_watchdog PID=$$"
 log "  MAX_RUNNING=${MAX_RUNNING_CONTAINERS}  HARD_KILL=${HARD_KILL_THRESHOLD}"
 log "  health every ${HEALTH_CHECK_INTERVAL}s; cgroup every ${CGROUP_MONITOR_INTERVAL}s; proc every ${PROC_MONITOR_INTERVAL}s"
 log "  docker-cli every ${DOCKER_CLI_CHECK_INTERVAL}s timeout=${DOCKER_CLI_TIMEOUT}s fail_trigger=${MAX_CONSECUTIVE_DOCKER_CLI_FAILS}; proxy every ${PROXY_CHECK_INTERVAL}s"

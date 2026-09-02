@@ -23,9 +23,9 @@ axes, making recipes easy to inspect, reproduce, and extend:
 
 | Axis | Current options | Entry point |
 | --- | --- | --- |
-| Harness | Camel-Agent, Claude Code CLI | `agentic_rl/harnesses/` |
-| Environment | SETA, Agent-SafetyBench, AgentHarm, tau2, SWE-smith / SWE-verified | `agentic_rl/environments/` |
-| Model | Qwen3-8B, Qwen3-30B-A3B, GLM-5.1 | `configs/rollout/` |
+| Harness | Training: Camel-Agent, Claude Code CLI; evaluation also supports Terminus-2 | `agentic_rl/harnesses/`, `agentic_rl/harnesses/eval/` |
+| Environment | SETA, Agent-SafetyBench, AgentHarm, Tau2; SWE-smith / SWE-Verified conversion tools | `agentic_rl/environments/`, `agentic_rl/data/` |
+| Model | Recipe-defined (maintained recipes currently cover Qwen3-8B and GLM-5.1) | `configs/rollout/` |
 | Algorithm | GRPO / DAPO, DIVE-PO | Slime backend and `agentic_rl/algorithms/` |
 
 LightRL bundles the Slime and Megatron-LM training backends. Terminal
@@ -53,8 +53,10 @@ memory, Docker-network, and port capacity.
 
 - **Recipe-driven training** — every experiment is a reviewable shell script;
   `--dry-run` exposes the resolved data, model, parallelism, and backend command.
-- **Agentic environments** — covers SETA, Agent-SafetyBench, AgentHarm, tau2,
-  and SWE-smith / SWE-verified, with terminal tasks isolated in Docker workers.
+- **Agentic environments** — the `EnvSpec` registry supports SETA,
+  Agent-SafetyBench, AgentHarm, and Tau2; SWE-smith / SWE-Verified are covered
+  by dataset conversion and terminal-worker tooling. Terminal tasks run in
+  isolated Docker workers.
 - **Explicit algorithm boundaries** — GRPO / DAPO come from the bundled Slime
   backend; LightRL maintains DIVE-PO and the PRM reward agent under
   `agentic_rl/algorithms/`.
@@ -114,7 +116,6 @@ LightRL/
 │   │   └── prm/             # PRM (process reward) agent
 │   ├── data/                # conversion, download, and training-data preparation
 │   ├── environments/        # EnvSpec registry, protocols, runtimes, rewards, HTTP client
-│   ├── evaluation/          # SWE-bench export and evaluation adapters
 │   ├── harnesses/           # Camel-Agent / Claude Code harnesses and factory
 │   ├── misc/                # rollout logs and JSONL sink
 │   ├── platform/            # Slime launcher, worker/router, paths, env parsing
@@ -124,8 +125,13 @@ LightRL/
 │   ├── training/            # maintained recipes and world_model/WIP entry points
 │   └── validation/          # topology-free validation helpers
 ├── benchmarks/              # benchmark data and task definitions
-├── deploy/workers/          # Docker worker launch, prewarm, cleanup, recovery
+├── deploy/workers/          # Docker/SETA worker runtime and watchdogs
+├── deploy/runtime/          # Worker proxy, image-prep and dependency assets
+├── deploy/ops/              # Worker diagnostics, repair and cleanup
+├── deploy/archive/          # Historical compatibility-only entry points
+├── local/rjob/              # Git-ignored site-specific RJob scripts
 ├── tools/                   # analysis, evaluation, and developer diagnostics
+│   └── evaluation/          # reusable orchestration and benchmark entry points
 ├── tests/                   # pytest unit and integration tests
 ├── slime/                   # bundled third-party rollout/training backend
 ├── Megatron-LM/             # bundled third-party model-training backend
@@ -144,6 +150,7 @@ LightRL/
   use `127.0.0.1` for colocation or a training-reachable address across hosts.
 - Keep site addresses, credentials, and scheduling parameters in environment
   variables or git-ignored `local/cluster/` files.
+- RJob submission and lifecycle helpers are local-only under `local/rjob/`.
 
 Install the Python package from source:
 
@@ -162,12 +169,13 @@ Slime and Megatron-LM.
 
 Start the worker on the selected Docker host, which may be a dedicated CPU node
 or the current GPU training node. See the
-[Docker worker guide](deploy/workers/README.md) for capacity, prewarming, and
-operations. On an already prepared machine, start the default pool server from
-the repository root:
+[Docker worker guide](deploy/workers/README.md) for runtime usage. Worker setup
+and repair commands are in [deploy/ops](deploy/ops/README.md), while proxy and
+image-preparation assets are in [deploy/runtime](deploy/runtime/README.md). On
+an already prepared machine, start the default pool server from the repository root:
 
 ```bash
-bash deploy/workers/run_pool_server_pu_v2.sh
+bash deploy/workers/run_pool_server.sh
 ```
 
 Then configure and check the endpoint in the training shell:
@@ -180,6 +188,25 @@ curl --noproxy '*' --fail http://<WORKER_HOST>:18081/healthz
 Use `127.0.0.1` for `<WORKER_HOST>` when worker and training run on the same
 host. For remote deployment, use a reachable IP or hostname. Supply multiple
 workers as a comma-separated `WORKER_URLS`, or use `WORKER_URLS_FILE`.
+
+For the maintained Qwen3-8B + SETA fixed12 + Camel-Agent 4-GPU evaluation,
+use the [one-click recipe](examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh):
+
+```bash
+# Inspect the resolved configuration and command without starting services.
+bash examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh --dry-run
+
+# Start after confirming cleanup of local Ray/SGLang processes.
+CONFIRM_LOCAL_CLEANUP=1 \
+  bash examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh
+```
+
+The recipe requires 4 GPUs, a reachable `WORKER_URLS`, a Qwen3-8B checkpoint,
+and the project runtime dependencies (at minimum PyYAML, Ray, CUDA/sglang). It
+checks the SETA worker `/healthz` endpoint before launching
+`slime/eval_only.py`. Site-specific RJob/DinD submitters remain under the
+git-ignored `local/rjob/` directory and are intentionally not part of public
+recipes.
 
 ### 2. Inspect a recipe
 
@@ -226,8 +253,9 @@ WORKER_URLS=http://127.0.0.1:18081 \
   bash examples/training/train_qwen3_8b_seta_dapo.sh --dry-run
 ```
 
-Cluster-specific launchers and smoke wrappers stay in ignored local
-configuration because they contain site topology and paths.
+Generic development smoke checks live under `tools/dev/`. RJob submitters that
+contain site topology, credentials, or scheduler parameters live under the
+git-ignored `local/rjob/` directory, keeping public recipes portable.
 
 ## Configuration and outputs
 
@@ -252,10 +280,11 @@ Each run writes to `runs/<RUN_ID>/`:
 ```text
 runs/<RUN_ID>/
 ├── config/                # resolved config snapshot and dataset manifests
-├── environment_outputs/   # environment-side AgentRunner outputs
 ├── logs/                  # train.log, metrics.jsonl, and launcher logs
 ├── trajectories/          # per-sample traj.json and side-channel index.jsonl
-└── metrics/               # W&B and offline analysis artifacts
+├── metrics/               # W&B and offline analysis artifacts
+├── environment_outputs/   # worker/AgentRunner environment artifacts
+└── meta.json              # run paths, version, and command metadata
 ```
 
 `runs/latest` points to the most recent run. Runtime artifacts belong under
@@ -265,7 +294,7 @@ storage conventions.
 
 ## Validation status
 
-The latest bounded validation (2026-08-07, 4 GPUs, after the P0–P2 refactor)
+The recorded bounded validation (2026-08-07, 4 GPUs, after the P0–P2 refactor)
 reported:
 
 - SETA + DAPO: 3 rollouts, 6 actor training steps, finite non-zero updates, and
@@ -304,10 +333,13 @@ python3 -m compileall -q agentic_rl
 
 - [Architecture](docs/architecture.md) — boundaries, training path, router, registry
 - [Configuration](docs/configuration.md) — recipes, environment variables, precedence
+- [Deployment overview](deploy/README.md) — worker/runtime/ops boundaries and local RJob flow
 - [DIVE-PO reward math](docs/algorithms/dive_po_dual_stream.md) — dual-stream advantages
 - [Harness selection](docs/harnesses/README.md) — Camel-Agent / Claude Code integration
-- [Evaluation tools](docs/evaluation/README.md) — SWE-bench export and evaluation
+- [Evaluation tools](docs/evaluation/README.md) — orchestration, SETA fixed12, and exports
 - [Docker worker](deploy/workers/README.md) — launch, capacity, prewarm, cleanup, recovery
+- [Worker operations](deploy/ops/README.md) — diagnostics, repair, cleanup, and provisioning
+- [Runtime assets](deploy/runtime/README.md) — proxy, image preparation, dependencies, systemd
 - [Checkpoint and W&B storage](docs/operations/checkpoint-wandb.md)
 - [Training examples](examples/README.md) — maintained recipes and validation entry points
 

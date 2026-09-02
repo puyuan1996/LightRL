@@ -32,9 +32,15 @@ configs/rollout/         rollout 模型与交互配置模板
 agentic_rl/              LightRL 自有逻辑
 slime/                   Slime 训练后端
 Megatron-LM/             Megatron 模型训练后端
-deploy/                  worker、Docker 和 rjob 部署脚本
+deploy/workers/          worker 运行时、pool server 与 watchdog
+deploy/runtime/          代理、镜像预热、依赖与 systemd 资源
+deploy/ops/              worker 诊断、修复、清理与准备
+deploy/archive/          历史兼容入口（不用于新部署）
+local/rjob/              被 Git 忽略的站点 RJob 提交与生命周期脚本
 benchmarks/              任务数据、Docker 环境和评测资源
-tools/                   分析、验证和运维工具
+tools/                   分析、评测、验证和开发诊断工具
+  evaluation/            通用评测编排与 benchmark 入口
+  dev/                   不含站点拓扑的开发检查
 docs/                    架构、运行和实验文档
 runs/                    运行日志、轨迹和分析结果
 ```
@@ -62,17 +68,31 @@ env.py / types.py / http_client.py / http_server.py
                     ↓
         platform/ + trainer + scripts
 
-evaluation/ 只读取轨迹或结果产物，不被 rollout 反向调用。
+tools/evaluation/ 只读取轨迹或结果产物，不被 rollout 反向调用。
 ```
 
 - 根模块只定义不依赖业务包的数据类型、环境变量和 HTTP 小工具。
-- `data/` 供给数据；`environments/` 执行交互动力学；`evaluation/` 对已有结果打分或导出。
+- `data/` 供给数据；`environments/` 执行交互动力学；`tools/evaluation/` 对已有结果打分或导出。
 - `harnesses/protocol.py` 拥有 `TurnClient` 契约；各 harness 只面向该契约，不 import rollout 实现。
 - `rollout/backends/` 实现推理引擎并由本地工厂选择，采样循环不知道 SGLang 的构造细节。
 - `platform/` 是最高层服务与编排；任何下层包都不得 import `platform`。
 - 新增内部 import 前用 AST 依赖 DFS 检查；包 `__init__.py` 仅显式导出，重可选依赖采用惰性导入。
 
 上图的例外只有单向的 `environments → data.tau2_support`，用于共享 Tau2 数据集定义的任务文本规范化；`data` 不反向依赖环境。
+
+### 部署目录的职责边界
+
+部署脚本按“运行时 / 资源 / 运维 / 站点提交”分层，避免把集群拓扑混入通用
+worker 代码：
+
+- `deploy/workers/`：实际被 worker 容器或主机调用的运行时入口，包括
+  `start_rjob_dind_worker.sh`、pool server 和 watchdog。
+- `deploy/runtime/`：代理配置、镜像预热、依赖安装和 systemd 资源；只负责
+  准备运行时，不决定 RJob 调度。
+- `deploy/ops/`：诊断、修复、清理和新 worker 准备等人工运维动作。
+- `local/rjob/`：站点专用的 RJob/DinD 提交器和生命周期脚本，默认被 Git
+  忽略；公共 recipe 不应依赖其中的固定节点、路径或凭据。
+- `deploy/archive/`：历史入口的只读兼容存档，新部署不应从这里启动。
 
 ### 根部基础模块
 
@@ -116,6 +136,8 @@ GRPO/DAPO 的核心优化器由 Slime 提供；LightRL 主要负责其环境交�
 - `factory.py`：根据 `HARNESS_OPTION` 创建 agent。
 - `camel/`：CAMEL agent、prompt 和工具调用适配。
 - `claude_code/`：Claude Code agent、MCP server、prompt 和 Qwen gateway 适配。
+- `eval/`：离线评测适配器（Camel-Agent、Claude Code CLI、Terminus-2）；与训练
+  harness 注册表和运行状态隔离。
 - `_developer_prompt.py`：公共 developer prompt 生成逻辑。
 
 ### `rollout/`：核心交互与样本生成
@@ -145,9 +167,12 @@ GRPO/DAPO 的核心优化器由 Slime 提供；LightRL 主要负责其环境交�
   - `lib_args.sh`：拼装最终训练参数。
   - `lib_launch.sh`：启动 router、Ray、训练任务并监控收尾。
 
-### `evaluation/`：评测结果处理
+### `tools/evaluation/`：评测结果处理
 
-- `swebench/report.py`：整理 SWE-bench 标准结果。
+评测编排和 benchmark 入口集中在 `tools/evaluation/`：通用 CLI、配置与
+managed SGLang 生命周期位于目录根部，按 benchmark 的脚本位于
+`tools/evaluation/benchmarks/`。例如 `benchmarks/swebench/report.py` 负责
+整理 SWE-bench 标准结果；用户侧可执行配方位于 `examples/evaluation/`。
 
 ### `misc/`：日志与观测
 
@@ -169,7 +194,7 @@ Harness：camel-agent
 GPU：4（默认 2 actor + 2 rollout）
 Tensor Parallel：2
 探索：关闭
-环境：远程 Docker worker
+环境：Docker worker（可为远程或同机部署）
 ```
 
 运行前必须设置：
@@ -205,14 +230,22 @@ lib_bootstrap
   → lib_launch
 ```
 
-各阶段完成基础环境、路径、rollout 配置、数据准备、worker 检查和参数拼装，最后准备 `slime/train_async.py` 的完整命令。
+各阶段完成基础环境、路径、rollout 配置、数据准备、worker 检查和参数拼装。
+普通训练 recipe 最终准备 `slime/train_async.py` 的完整命令；评测 recipe
+则通过 `SLIME_ENTRYPOINT` 切换到 `slime/eval_only.py`。
 
 ### 5.3 Ray/Slime 层
 
-`lib_launch.sh` 启动 Ray head 和 placement group，然后提交：
+`lib_launch.sh` 启动 Ray head 和 placement group，然后默认提交：
 
 ```bash
 python3 -u slime/train_async.py ...
+```
+
+评测配方复用同一套编排和 rollout 组件，但将入口替换为：
+
+```bash
+python3 -u slime/eval_only.py ...
 ```
 
 关键自定义入口为：
@@ -289,9 +322,11 @@ runs/<RUN_ID>/
 ├── config/                  最终配置快照
 ├── logs/train.log           训练主日志
 ├── logs/metrics.jsonl       结构化 rollout/训练指标
+├── environment_outputs/     worker/AgentRunner 环境侧产物
 ├── trajectories/            轨迹和 reward breakdown
-├── reproducibility/         源码、环境和 worker 快照
-└── meta.json                run 路径与元数据
+├── metrics/                 W&B 与离线分析产物
+├── meta.json                run 路径与元数据
+└── ckpt -> <checkpoint-root>/<RUN_ID>（启用保存时创建）
 ```
 
 checkpoint 通常写入独立的 checkpoint 根目录，由 `--save` 和 `--save-interval` 控制保存策略；W&B 可以配置为 offline 模式，将本地记录写入对应 run 目录。

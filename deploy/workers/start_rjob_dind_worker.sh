@@ -349,7 +349,7 @@ export FINAL_DOCKER_CLEANUP="${FINAL_DOCKER_CLEANUP:-0}"
 # already isolated per RJob/run, so default cannot collide with another pool.
 export TERMINAL_RL_POOL_NAMESPACE="${TERMINAL_RL_POOL_NAMESPACE:-default}"
 
-nohup bash "${REPO_ROOT}/deploy/workers/run_pool_server_pu_v2.sh" \
+nohup bash "${REPO_ROOT}/deploy/workers/run_pool_server.sh" \
   >"${POOL_LOG}" 2>&1 &
 printf '%s\n' "$!" >"${POOL_PID}"
 

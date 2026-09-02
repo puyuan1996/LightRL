@@ -2,6 +2,19 @@
 
 Evaluation utilities are grouped under `tools/evaluation/`.
 
+推荐使用模块入口：
+
+```bash
+python3 -m tools.evaluation run --config <config.yaml> --dry-run
+python3 -m tools.evaluation smoke --config <config.yaml> --task <task>
+```
+
+`examples/evaluation/` 只保留面向用户的完整配方；例如 Qwen3-8B + SETA
+fixed12 + Camel-Agent 的 4-GPU 配方为
+`examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh`。通用 CLI 和
+benchmark 脚本不负责提交 RJob，站点相关提交器仅位于被 Git 忽略的
+`local/rjob/`。
+
 - Safety: input preparation, official evaluation orchestration, summaries,
   backend validation, and reward-scale validation.
 - SWE: official SWE-bench Verified harness execution.

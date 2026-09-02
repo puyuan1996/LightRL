@@ -1340,7 +1340,7 @@ def test_swesmith_reward_is_binary_while_existing_reward_stays_dense() -> None:
 
 def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
     remote_dir = MODULE_PATH.parents[2] / "deploy" / "workers"
-    launcher = (remote_dir / "run_pool_server_swesmith_pu.sh").read_text(
+    launcher = (remote_dir / "run_pool_server_swesmith.sh").read_text(
         encoding="utf-8"
     )
     pool_server = (
@@ -1376,7 +1376,7 @@ def test_worker_launcher_disables_host_wide_shim_cleanup() -> None:
 
 
 def test_worker_launcher_rejects_default_pool_namespace() -> None:
-    launcher = MODULE_PATH.parents[2] / "deploy" / "workers" / "run_pool_server_swesmith_pu.sh"
+    launcher = MODULE_PATH.parents[2] / "deploy" / "workers" / "run_pool_server_swesmith.sh"
     result = subprocess.run(
         ["bash", str(launcher)],
         env={**os.environ, "TERMINAL_RL_POOL_NAMESPACE": "default"},

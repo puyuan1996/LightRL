@@ -28,7 +28,7 @@
 #   Re-run this script if base images get re-pulled.
 #
 # Usage:
-#   sudo bash deploy/workers/prebuild_proxied_base_images.sh
+#   sudo bash deploy/runtime/prebuild_proxied_base_images.sh
 #
 # Env:
 #   PROXY_URL       default: pjlab proxy

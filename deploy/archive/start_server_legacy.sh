@@ -182,4 +182,4 @@ echo "  capacity_auto_repair: enabled=${WORKER_AUTO_REPAIR_ON_CAPACITY} close_mi
 echo "  build_dedup:          enabled=${WORKER_DOCKER_BUILD_DEDUP} skip_existing=${WORKER_DOCKER_BUILD_SKIP_EXISTING} failed_ttl=${WORKER_DOCKER_BUILD_FAILED_TTL}s blacklist_ttl=${WORKER_DOCKER_TASK_BLACKLIST_TTL}s precheck=${WORKER_DOCKERFILE_PRECHECK}"
 echo "========================================"
 
-exec bash deploy/workers/run_pool_server_pu_v2.sh
+exec bash deploy/workers/run_pool_server.sh

@@ -21,7 +21,7 @@ CONVERTER_PATH = (
 REPORT_PATH = AGENTIC_RL / "evaluation" / "swebench" / "report.py"
 SMOKE_PATH = ROOT / "tools" / "dev" / "smoke_swe_worker.py"
 SWE_UTILS_PATH = AGENTIC_RL / "environments" / "terminal" / "swe_utils.py"
-WORKER = ROOT / "deploy" / "workers" / "run_pool_server_sweverified_pu.sh"
+WORKER = ROOT / "deploy" / "workers" / "run_pool_server_sweverified.sh"
 OFFICIAL_HARNESS = (
     ROOT
     / "tools"
@@ -31,8 +31,8 @@ OFFICIAL_HARNESS = (
     / "run_swebench_verified_official_harness.sh"
 )
 TERMINAL_ENV = AGENTIC_RL / "environments" / "terminal" / "runtime.py"
-WATCHDOG = ROOT / "deploy" / "workers" / "docker_watchdog_v2.sh"
-POOL_LAUNCHER = ROOT / "deploy" / "workers" / "run_pool_server_pu_v2.sh"
+WATCHDOG = ROOT / "deploy" / "workers" / "docker_watchdog.sh"
+POOL_LAUNCHER = ROOT / "deploy" / "workers" / "run_pool_server.sh"
 
 
 def _load_module(name: str, path: Path):

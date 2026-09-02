@@ -6,7 +6,8 @@
 
 - 样本：`benchmarks/datasets/seta_env_convert/eval_fixed12.jsonl`
 - 评估配置：`configs/evaluation/seta_fixed12_score_v1.yaml`
-- 当前成对实验入口：`runs/refactor/launch_seta_fixed12_score_8g.sh`
+- 当前公共评测配方：`examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh`
+- 站点 RJob/DinD 入口（被 Git 忽略）：`local/rjob/run_seta_fixed12_eval_8g_dind.sh`
 - 当前训练集：`benchmarks/datasets/seta_env_convert/train_minus_eval12.filtered.jsonl`
 - fixed12 SHA256：`5bba3ce8a02e7f116692a254958c2d4e6540f29dcbfdceb12122864384385042`
 - 当前训练集 SHA256：`fe550642e1b4c2fed55ce048659d2a14f6929a721baa817629767cb4f5a13a52`

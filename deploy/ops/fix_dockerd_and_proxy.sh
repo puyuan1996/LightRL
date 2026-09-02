@@ -2,7 +2,7 @@
 # fix_dockerd_and_proxy.sh — One-shot CPU worker repair (watchdog-aware).
 #
 # Solves the chained failure mode observed on prod:
-#   1) `setup_new_worker.sh` interrupted at "Restarting docker daemon..."
+#   1) `provision_worker.sh` interrupted at "Restarting docker daemon..."
 #   2) `systemctl restart docker` no longer works because docker-watchdog
 #      restarts dockerd via direct `nohup`, leaving systemd's view inactive
 #   3) Stale state in /var/run/docker.{sock,pid} and /data/containers/
@@ -23,7 +23,7 @@
 #   Phase 7  restart docker-watchdog (if it was running)
 #
 # Usage (CPU worker, as root):
-#   sudo bash deploy/workers/fix_dockerd_and_proxy.sh
+#   sudo bash deploy/ops/fix_dockerd_and_proxy.sh
 #
 # Env vars (all optional):
 #   PROXY_URL         default: http://httpproxy-headless.kubebrain.svc.pjlab.local:3128
@@ -239,7 +239,7 @@ if [ "${WATCHDOG_PRESENT}" = "1" ]; then
   cat > /etc/systemd/system/docker-watchdog.service.d/http-proxy.conf <<EOF
 [Service]
 # Override docker-watchdog.service's empty proxy env so that the dockerd
-# it spawns via nohup (see restart_docker() in docker_watchdog_v2.sh)
+# it spawns via nohup (see restart_docker() in docker_watchdog.sh)
 # inherits HTTP_PROXY. Watchdog itself talks only to loopback, so its
 # own HTTP calls are still bypassed by NO_PROXY=* in the base unit.
 Environment="HTTP_PROXY=${PROXY_URL}"
@@ -353,7 +353,7 @@ fi
 # This mirrors exactly what seta_env/0_my/Dockerfile does manually,
 # but for ALL Dockerfiles at once and without modifying any of them.
 log "Phase 5.5: pre-build shadow base images with apt proxy"
-PREBUILD="$(dirname "$0")/prebuild_proxied_base_images.sh"
+PREBUILD="$(cd -- "$(dirname "$0")/../runtime" && pwd)/prebuild_proxied_base_images.sh"
 if [ -x "${PREBUILD}" ]; then
   PROXY_URL="${PROXY_URL}" NO_PROXY_LIST="${NO_PROXY_LIST}" \
     bash "${PREBUILD}" 2>&1 | sed 's/^/  /' || \
@@ -438,7 +438,7 @@ Next steps on this CPU worker:
   1) Source proxy env then start pool_server:
        set -a; . /etc/seta_build_proxy.env; set +a
        cd /mnt/shared-storage-user/puyuan/code/LightRL
-       bash deploy/workers/run_pool_server_pu_v2.sh
+       bash deploy/workers/run_pool_server.sh
 
   2) On GPU worker, set WORKER_URLS and start training:
        export WORKER_URLS="http://$(hostname -I | awk '{print $1}'):18081"

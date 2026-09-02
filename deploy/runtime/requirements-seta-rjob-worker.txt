@@ -1,6 +1,6 @@
 # Additional packages layered onto the shared lightrft_py312 environment for
 # an RJob-local SETA worker.  Keep this list aligned with the deep-import
-# preflight in run_pool_server_pu_v2.sh.
+# preflight in run_pool_server.sh.
 terminal-bench==0.2.18
 docker==7.1.0
 ruamel.yaml==0.18.16

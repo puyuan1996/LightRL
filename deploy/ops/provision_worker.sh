@@ -9,7 +9,7 @@
 #   - Can reach GPU worker on port 18081 (pool_server listen port)
 #
 # Usage:
-#   sudo env DOCKER_DATA_ROOT=/data bash deploy/workers/setup_new_worker.sh
+#   sudo env DOCKER_DATA_ROOT=/data bash deploy/ops/provision_worker.sh
 #
 # Environment variables (optional):
 #   PROXY_URL          - HTTP proxy for dockerd/pip/builds. Auto-detected on pjlab.
@@ -792,7 +792,7 @@ else
     timeout 60 docker compose -p test_build -f benchmarks/environments/seta_env/100/docker-compose.yaml down 2>/dev/null || true
   else
     tail -20 "${BUILD_LOG}"
-    echo "  [WARN] Build failed - run: sudo bash deploy/workers/fix_dockerd_and_proxy.sh"
+    echo "  [WARN] Build failed - run: sudo bash deploy/ops/fix_dockerd_and_proxy.sh"
   fi
   rm -f "${BUILD_LOG}"
 fi
@@ -813,7 +813,7 @@ echo " Compose V2: ${COMPOSE_VERSION_SUMMARY:-unknown}"
 echo ""
 echo " To start pool_server:"
 echo "   cd $REPO_ROOT"
-echo "   bash deploy/workers/run_pool_server_pu_v2.sh"
+echo "   bash deploy/workers/run_pool_server.sh"
 echo ""
 echo " Then on GPU worker, set:"
 echo "   export WORKER_URLS=\"http://${MY_IP}:18081\""
