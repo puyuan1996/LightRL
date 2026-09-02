@@ -123,7 +123,11 @@ LightRL/
 ├── deploy/runtime/          # worker 代理、镜像预热与依赖资源
 ├── deploy/ops/              # worker 诊断、修复与清理
 ├── deploy/archive/          # 仅供历史兼容的旧入口（不用于新部署）
-├── local/rjob/              # 被 Git 忽略的站点 RJob 提交与生命周期脚本
+├── local/                   # 被 Git 忽略的本地运维工作区（local/README.md）
+│   ├── rjob/                # RJob 提交与 DinD 评估
+│   ├── cluster/             # worker 地址与 watcher
+│   ├── ops/                 # 本地容器清理操作
+│   └── state/               # 自动生成的日志、锁与 PID
 ├── tools/                   # 分析、评测和开发诊断工具
 │   └── evaluation/          # 通用评测编排与按 benchmark 归类的入口
 ├── tests/                   # pytest 单元与集成测试
@@ -144,6 +148,8 @@ LightRL/
 - 站点地址、凭据和调度参数应放入环境变量或被 Git 忽略的
   `local/cluster/` 文件，不要提交到仓库。
 - RJob 提交与生命周期脚本仅供本地使用，统一位于 `local/rjob/`。
+- 本地目录职责和状态文件规则见本机被忽略的 `local/README.md`（不随公共
+  仓库发布）。
 
 源码安装 Python 包：
 

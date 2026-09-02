@@ -34,7 +34,8 @@ examples/training/<recipe>.sh
 
 部署相关变量按执行环境分层：公共 recipe 只读取 `WORKER_URLS`/
 `WORKER_URLS_FILE` 等运行时变量；站点 RJob/DinD 提交和生命周期脚本保存在
-被 Git 忽略的 `local/rjob/`，worker 运行时、资源和运维操作分别见
+被 Git 忽略的 `local/rjob/`（本地目录总览见 `local/README.md`），worker
+运行时、资源和运维操作分别见
 `deploy/workers/`、`deploy/runtime/` 与 `deploy/ops/`。
 
 Python 侧的环境变量解析统一在 `agentic_rl/env.py`（`env_bool` /

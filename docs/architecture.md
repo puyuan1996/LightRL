@@ -36,7 +36,7 @@ deploy/workers/          worker 运行时、pool server 与 watchdog
 deploy/runtime/          代理、镜像预热、依赖与 systemd 资源
 deploy/ops/              worker 诊断、修复、清理与准备
 deploy/archive/          历史兼容入口（不用于新部署）
-local/rjob/              被 Git 忽略的站点 RJob 提交与生命周期脚本
+local/                   被 Git 忽略的本地运维工作区（rjob/cluster/ops/state）
 benchmarks/              任务数据、Docker 环境和评测资源
 tools/                   分析、评测、验证和开发诊断工具
   evaluation/            通用评测编排与 benchmark 入口
@@ -90,8 +90,10 @@ worker 代码：
 - `deploy/runtime/`：代理配置、镜像预热、依赖安装和 systemd 资源；只负责
   准备运行时，不决定 RJob 调度。
 - `deploy/ops/`：诊断、修复、清理和新 worker 准备等人工运维动作。
-- `local/rjob/`：站点专用的 RJob/DinD 提交器和生命周期脚本，默认被 Git
-  忽略；公共 recipe 不应依赖其中的固定节点、路径或凭据。
+- `local/rjob/`：站点专用的 RJob/DinD 提交器和生命周期脚本；
+  `local/cluster/` 保存 worker 地址与 watcher，`local/ops/` 保存本地容器操作，
+  `local/state/` 保存自动生成的日志/锁/PID。整个 `local/` 默认被 Git 忽略，
+  公共 recipe 不应依赖其中的固定节点、路径或凭据。
 - `deploy/archive/`：历史入口的只读兼容存档，新部署不应从这里启动。
 
 ### 根部基础模块

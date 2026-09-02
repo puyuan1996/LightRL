@@ -129,7 +129,11 @@ LightRL/
 ├── deploy/runtime/          # Worker proxy, image-prep and dependency assets
 ├── deploy/ops/              # Worker diagnostics, repair and cleanup
 ├── deploy/archive/          # Historical compatibility-only entry points
-├── local/rjob/              # Git-ignored site-specific RJob scripts
+├── local/                   # Git-ignored operator workspace (local/README.md)
+│   ├── rjob/                # RJob submission and DinD evaluation
+│   ├── cluster/             # worker endpoints and watcher scripts
+│   ├── ops/                 # local container cleanup actions
+│   └── state/               # generated logs, locks and PIDs
 ├── tools/                   # analysis, evaluation, and developer diagnostics
 │   └── evaluation/          # reusable orchestration and benchmark entry points
 ├── tests/                   # pytest unit and integration tests
@@ -151,6 +155,9 @@ LightRL/
 - Keep site addresses, credentials, and scheduling parameters in environment
   variables or git-ignored `local/cluster/` files.
 - RJob submission and lifecycle helpers are local-only under `local/rjob/`.
+- The local workspace layout and state-handling rules are documented in the
+  ignored local file `local/README.md` when present; this file is not part of
+  the public repository.
 
 Install the Python package from source:
 
