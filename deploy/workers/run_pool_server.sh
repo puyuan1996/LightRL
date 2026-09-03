@@ -12,6 +12,9 @@
 #
 # Usage (on CPU/docker worker):
 #   bash deploy/workers/run_pool_server.sh
+#   bash deploy/workers/run_pool_server.sh --restart   # stop the listener on
+#       ENV_SERVER_PORT (default 18082 in this mode), then start; replaces the
+#       old restart_seta_docker_server.sh wrapper
 #
 # Key env vars:
 #   WORKER_MAX_TASKS            (default 16)   — pool_server --max-tasks
@@ -45,6 +48,29 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." &>/dev/null && pwd)"
+
+# Usage: run_pool_server.sh [--restart]
+#   --restart  Replace the local SETA pool server in one command: stop the
+#              listener on ENV_SERVER_PORT first (default port 18082 in this
+#              mode), then start normally. Host-wide docker prune stays out of
+#              scope; use deploy/ops/docker_storage_gc.py separately when
+#              storage reclamation is needed.
+RESTART_MODE=0
+for arg in "$@"; do
+    case "${arg}" in
+        --restart) RESTART_MODE=1 ;;
+        *)
+            echo "[ERROR] unknown argument: ${arg} (supported: --restart)" >&2
+            exit 2
+            ;;
+    esac
+done
+
+if [[ "${RESTART_MODE}" == "1" ]]; then
+    ENV_SERVER_PORT="${ENV_SERVER_PORT:-18082}"
+    STOP_EXISTING_SERVER=1
+    export ENV_SERVER_PORT STOP_EXISTING_SERVER
+fi
 
 log() { echo "[$(date +'%F %T')] $*"; }
 
@@ -841,9 +867,11 @@ if sys.version_info < (3, 12):
     raise SystemExit(1)
 
 # Import the actual worker entrypoint, not only top-level package specs.
-# terminal-bench imports Docker/YAML/harness modules transitively; a partial
-# installation can therefore pass find_spec() and still crash before uvicorn
-# starts (which previously wasted an allocated multi-GPU job in a restart loop).
+# The worker imports terminal_bench/camel.toolkits lazily at first task reset
+# (their package __init__ pulls the harness stack and is slow on shared
+# storage), so this deep import no longer executes them: a partial terminal
+# harness install now surfaces as a clear per-task reset error instead of a
+# pre-uvicorn crash loop, and this check stays fast.
 import agentic_rl.platform.worker_cli  # noqa: F401
 import camel  # noqa: F401
 PY

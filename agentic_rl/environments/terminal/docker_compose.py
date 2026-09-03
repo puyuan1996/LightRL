@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import logging
 import os
 import re
@@ -9,13 +10,34 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from terminal_bench.handlers.trial_handler import TrialHandler
-from terminal_bench.terminal.docker_compose_manager import DockerComposeManager
-from terminal_bench.terminal.terminal import Terminal
+if TYPE_CHECKING:
+    from terminal_bench.handlers.trial_handler import TrialHandler
+    from terminal_bench.terminal.docker_compose_manager import DockerComposeManager
+    from terminal_bench.terminal.terminal import Terminal
 
 from agentic_rl.environments.terminal.validation import dockerfile_precheck_error
+
+# Importing any terminal_bench submodule runs the package __init__, which pulls
+# in the full harness stack (litellm/openai/mcp/boto3/streamlit/sqlalchemy) and
+# takes tens of seconds on shared storage. These names are only used inside
+# functions, so resolve them lazily to keep worker startup and preflight import
+# checks fast.
+_LAZY_IMPORT_MODULES = {
+    "TrialHandler": "terminal_bench.handlers.trial_handler",
+    "DockerComposeManager": "terminal_bench.terminal.docker_compose_manager",
+    "Terminal": "terminal_bench.terminal.terminal",
+}
+
+
+def __getattr__(name: str) -> Any:
+    module_name = _LAZY_IMPORT_MODULES.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(importlib.import_module(module_name), name)
+    globals()[name] = value
+    return value
 
 logger = logging.getLogger(__name__)
 

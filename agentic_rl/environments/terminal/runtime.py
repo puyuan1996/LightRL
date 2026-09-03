@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import fcntl
+import importlib
 import json
 import logging
 import os
@@ -15,15 +16,40 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from camel.toolkits import FunctionTool, TerminalToolkit
+if TYPE_CHECKING:
+    from camel.toolkits import FunctionTool, TerminalToolkit
+    from terminal_bench.handlers.trial_handler import TrialHandler
+    from terminal_bench.parsers.base_parser import UnitTestStatus
+    from terminal_bench.parsers.parser_factory import ParserFactory
+    from terminal_bench.terminal.docker_compose_manager import DockerComposeManager
+    from terminal_bench.terminal.terminal import Terminal
 
-from terminal_bench.handlers.trial_handler import TrialHandler
-from terminal_bench.parsers.base_parser import UnitTestStatus
-from terminal_bench.parsers.parser_factory import ParserFactory
-from terminal_bench.terminal.docker_compose_manager import DockerComposeManager
-from terminal_bench.terminal.terminal import Terminal
+# Heavy third-party packages (camel.toolkits pulls in openai/litellm; importing
+# any terminal_bench submodule runs an __init__ that pulls in the harness stack:
+# litellm/openai/mcp/boto3/streamlit/sqlalchemy — tens of seconds on shared
+# storage). They are only needed when a terminal task actually resets/evaluates,
+# so resolve them lazily to keep pool-server startup and preflight import checks
+# fast.
+_LAZY_IMPORT_MODULES = {
+    "FunctionTool": "camel.toolkits",
+    "TerminalToolkit": "camel.toolkits",
+    "TrialHandler": "terminal_bench.handlers.trial_handler",
+    "UnitTestStatus": "terminal_bench.parsers.base_parser",
+    "ParserFactory": "terminal_bench.parsers.parser_factory",
+    "DockerComposeManager": "terminal_bench.terminal.docker_compose_manager",
+    "Terminal": "terminal_bench.terminal.terminal",
+}
+
+
+def __getattr__(name: str) -> Any:
+    module_name = _LAZY_IMPORT_MODULES.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(importlib.import_module(module_name), name)
+    globals()[name] = value
+    return value
 
 from agentic_rl.types import RunContext, TaskSpec, TaskTimeouts
 
