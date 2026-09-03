@@ -17,6 +17,7 @@ logger = logging.getLogger("lightrl.env.worker.admission")
 _DOCKER_CLI_FAIL_STREAK = 0
 _DOCKER_DEGRADED_UNTIL = 0.0
 _DOCKER_DEGRADED_REASON = ""
+_DISK_PRESSURE_WARN_LAST = 0.0
 
 
 def _parse_timeout_overrides(
@@ -461,7 +462,7 @@ def assert_worker_has_capacity_for_docker(
 
     if disk_guard_enabled:
         min_free_gb = _env_float("WORKER_MIN_DOCKER_FREE_GB", 50.0)
-        max_used_pct = _env_float("WORKER_MAX_DOCKER_USED_PCT", 85.0)
+        max_used_pct = _env_float("WORKER_MAX_DOCKER_USED_PCT", 95.0)
         max_inode_pct = _env_float("WORKER_MAX_DOCKER_INODE_PCT", 80.0)
 
         try:
@@ -479,23 +480,37 @@ def assert_worker_has_capacity_for_docker(
             or stats["inode_used_pct"] > max_inode_pct
         )
         if over_capacity:
-            raise ResourcePressureError(
-                "WORKER_DOCKER_DISK_PRESSURE",
-                (
-                    "Worker Docker data-root is under disk pressure: "
-                    f"path={stats['path']} free={stats['free_gb']:.1f}GB "
-                    f"used={stats['used_pct']:.1f}% inode={stats['inode_used_pct']:.1f}% "
-                    f"thresholds free>={min_free_gb:.1f}GB used<={max_used_pct:.1f}% "
-                    f"inode<={max_inode_pct:.1f}%"
-                ),
-                {
-                    **stats,
-                    "phase": phase,
-                    "min_free_gb": min_free_gb,
-                    "max_used_pct": max_used_pct,
-                    "max_inode_pct": max_inode_pct,
-                },
+            message = (
+                "Worker Docker data-root is under disk pressure: "
+                f"path={stats['path']} free={stats['free_gb']:.1f}GB "
+                f"used={stats['used_pct']:.1f}% inode={stats['inode_used_pct']:.1f}% "
+                f"thresholds free>={min_free_gb:.1f}GB used<={max_used_pct:.1f}% "
+                f"inode<={max_inode_pct:.1f}%"
             )
+            details = {
+                **stats,
+                "phase": phase,
+                "min_free_gb": min_free_gb,
+                "max_used_pct": max_used_pct,
+                "max_inode_pct": max_inode_pct,
+            }
+            if _env_bool("WORKER_DISK_GUARD_STRICT", False):
+                raise ResourcePressureError(
+                    "WORKER_DOCKER_DISK_PRESSURE", message, details
+                )
+
+            # The HTTP pool can still serve health/status and perform cleanup
+            # while image builds are unavailable.  Keep warning mode usable on
+            # small local Docker partitions, but rate-limit the warning so a
+            # frequently polled /healthz endpoint does not flood the log.
+            global _DISK_PRESSURE_WARN_LAST
+            now = time.time()
+            if now - _DISK_PRESSURE_WARN_LAST >= 60.0:
+                logger.warning(
+                    "%s; continuing because WORKER_DISK_GUARD_STRICT=0",
+                    message,
+                )
+                _DISK_PRESSURE_WARN_LAST = now
 
     if os.getenv("WORKER_PRESSURE_GUARD_ENABLED", "1") == "0":
         return

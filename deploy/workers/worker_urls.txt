@@ -1,0 +1,3 @@
+# SETA Docker worker endpoints. One URL per line or comma-separated.
+# The fixed12 evaluation router reloads this file every 5 seconds.
+http://100.98.250.90:18082

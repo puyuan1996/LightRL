@@ -62,6 +62,12 @@ export WORKER_URLS="http://<this-cpu-worker-ip>:18081"
 bash examples/training/train_qwen3_8b_seta_dive_po.sh
 ```
 
+For the fixed12 evaluation, edit `deploy/workers/worker_urls.txt` instead of
+exporting a permanent URL.  Its local router reloads the file every five
+seconds.  New leases use the updated worker; existing leases remain pinned to
+the worker that created their Docker session.  Multiple URLs may be written
+one per line or comma-separated.
+
 ---
 
 ## Optional environment variables (read by `agentic_rl/platform/worker_app.py`)

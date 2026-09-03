@@ -19,13 +19,17 @@
 #   WORKER_SERIAL_TASK_IDS      (default 892,1133) — per-task serialization
 #   WORKER_MAX_CONCURRENT_CLOSES (default 16)  — pool_server --max-concurrent-closes
 #   ENV_SERVER_PORT             (default 18081)
+#   STOP_EXISTING_SERVER        (default 0) — stop an older pool server bound
+#                                           to ENV_SERVER_PORT before starting
 #   SKIP_PREFLIGHT_CLEANUP      (default 0)    — set 1 to skip orphan cleanup
 #   PROXY_ENV_FILE              (default /etc/seta_build_proxy.env)
 #   SKIP_PROXY_ENV              (default 0)    — set 1 to avoid sourcing proxy env
 #   DOCKER_DATA_ROOT            (default /data) — Docker data root to guard
-#   WORKER_MIN_DOCKER_FREE_GB   (default 50) — refuse start/admission below this
-#   WORKER_MAX_DOCKER_USED_PCT  (default 85) — refuse start/admission above this
-#   WORKER_MAX_DOCKER_INODE_PCT (default 80) — refuse start/admission above this
+#   WORKER_MIN_DOCKER_FREE_GB   (default 50) — startup warning threshold
+#   WORKER_MAX_DOCKER_USED_PCT  (default 95) — startup warning threshold
+#   WORKER_MAX_DOCKER_INODE_PCT (default 80) — startup warning threshold
+#   WORKER_DISK_GUARD_STRICT    (default 0) — set 1 to abort startup when the
+#                                             disk thresholds are still exceeded
 #   WORKER_MAX_CONCURRENT_BUILDS (default 2) — cap concurrent docker compose builds
 #   WORKER_MAX_CONCURRENT_RESETS (default 16) — cap reset admission before image prep
 #   WORKER_DOCKER_BUILD_QUEUE_TIMEOUT (default 90) — fail queued image prep before reset storm
@@ -33,9 +37,9 @@
 #   CONTAINER_PIDS_LIMIT        (default 512) — docker update --pids-limit per task container
 #
 # Logs written by default:
-#   runs/<run>/remote_logs/<worker>/<server-run>/cpu_pool.log
-#   runs/<run>/remote_logs/<worker>/<server-run>/cpu_err.log
-# If RUN_DIR/RUN_ID is not provided, they fall back to runs/remote_logs/.
+#   deploy/workers/logs/<worker>/<server-run>/cpu_pool.log
+#   deploy/workers/logs/<worker>/<server-run>/cpu_err.log
+# If RUN_DIR/RUN_ID is not provided, they fall back to deploy/workers/logs/.
 
 set -euo pipefail
 
@@ -113,6 +117,8 @@ WORKER_RESET_BACKLOG_RETRY_AFTER="${WORKER_RESET_BACKLOG_RETRY_AFTER:-10}"
 WORKER_RESET_CANCEL_JOIN_TIMEOUT="${WORKER_RESET_CANCEL_JOIN_TIMEOUT:-15}"
 WORKER_SHUTDOWN_RESET_JOIN_TIMEOUT="${WORKER_SHUTDOWN_RESET_JOIN_TIMEOUT:-20}"
 ENV_SERVER_PORT="${ENV_SERVER_PORT:-18081}"
+STOP_EXISTING_SERVER="${STOP_EXISTING_SERVER:-0}"
+STOP_EXISTING_TIMEOUT="${STOP_EXISTING_TIMEOUT:-30}"
 SKIP_PREFLIGHT_CLEANUP="${SKIP_PREFLIGHT_CLEANUP:-0}"
 PREFLIGHT_KILL_ORPHAN_RUNNING="${PREFLIGHT_KILL_ORPHAN_RUNNING:-1}"
 FINAL_DOCKER_CLEANUP="${FINAL_DOCKER_CLEANUP:-1}"
@@ -124,11 +130,13 @@ SKIP_PROXY_ENV="${SKIP_PROXY_ENV:-0}"
 DOCKER_DATA_ROOT="$(detect_docker_data_root)"
 DOCKER_ROOT="${DOCKER_DATA_ROOT}"
 WORKER_DISK_GUARD_ENABLED="${WORKER_DISK_GUARD_ENABLED:-1}"
+WORKER_DISK_GUARD_STRICT="${WORKER_DISK_GUARD_STRICT:-0}"
 WORKER_MIN_DOCKER_FREE_GB="${WORKER_MIN_DOCKER_FREE_GB:-50}"
 WORKER_MAX_DOCKER_USED_PCT="${WORKER_MAX_DOCKER_USED_PCT:-95}"
 WORKER_MAX_DOCKER_INODE_PCT="${WORKER_MAX_DOCKER_INODE_PCT:-80}"
 # Host-wide prune/GC cannot distinguish another pool on the same Docker host.
-# Capacity guards fail closed by default; an operator may opt into global GC.
+# Cleanup stays opt-in; the startup disk check warns by default and can be made
+# fail-closed with WORKER_DISK_GUARD_STRICT=1.
 PREFLIGHT_DISK_CLEANUP="${PREFLIGHT_DISK_CLEANUP:-0}"
 PREFLIGHT_DOCKER_STORAGE_GC="${PREFLIGHT_DOCKER_STORAGE_GC:-0}"
 DOCKER_GC_TRIGGER_USED_PCT="${DOCKER_GC_TRIGGER_USED_PCT:-${WORKER_MAX_DOCKER_USED_PCT}}"
@@ -212,6 +220,10 @@ WORKER_DOCKERFILE_PRECHECK="${WORKER_DOCKERFILE_PRECHECK:-1}"
 WORKER_TASK_IMAGE_RETRY_AFTER="${WORKER_TASK_IMAGE_RETRY_AFTER:-300}"
 CONTAINER_PIDS_LIMIT="${CONTAINER_PIDS_LIMIT:-512}"
 CONTAINER_MEMORY_LIMIT="${CONTAINER_MEMORY_LIMIT:-16g}"
+if [[ "${WORKER_DISK_GUARD_STRICT}" != "0" && "${WORKER_DISK_GUARD_STRICT}" != "1" ]]; then
+    echo "[ERROR] WORKER_DISK_GUARD_STRICT must be 0 or 1." >&2
+    exit 1
+fi
 if [[ ! "${CONTAINER_PIDS_LIMIT}" =~ ^[0-9]+$ ]]; then
     echo "[ERROR] CONTAINER_PIDS_LIMIT must be a non-negative integer." >&2
     exit 1
@@ -238,7 +250,7 @@ if [[ -n "${RUN_DIR:-}" ]]; then
 elif [[ -n "${RUN_ID:-}" ]]; then
     DEFAULT_REMOTE_LOG_ROOT="${RUNS_ROOT}/${RUN_ID}/remote_logs"
 else
-    DEFAULT_REMOTE_LOG_ROOT="${RUNS_ROOT}/remote_logs"
+    DEFAULT_REMOTE_LOG_ROOT="${REPO_ROOT}/deploy/workers/logs"
 fi
 REMOTE_LOG_ROOT="${REMOTE_LOG_ROOT:-${DEFAULT_REMOTE_LOG_ROOT}}"
 CPU_WORKER_ID="${CPU_WORKER_ID:-$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo unknown-worker)}"
@@ -287,7 +299,7 @@ log "  close_timeout queue=${WORKER_CLOSE_QUEUE_TIMEOUT}s session=${WORKER_CLOSE
 log "  port=${ENV_SERVER_PORT}  skip_cleanup=${SKIP_PREFLIGHT_CLEANUP}"
 log "  preflight_kill_orphan_running=${PREFLIGHT_KILL_ORPHAN_RUNNING} final_docker_cleanup=${FINAL_DOCKER_CLEANUP}"
 log "  potential_capacity=$((WORKER_MAX_TASKS * WORKER_MAX_RUNS_PER_TASK)) leases effective_max_total=${WORKER_MAX_TOTAL_RUNS}"
-log "  docker_data_root=${DOCKER_DATA_ROOT} disk_guard=${WORKER_DISK_GUARD_ENABLED}"
+log "  docker_data_root=${DOCKER_DATA_ROOT} disk_guard=${WORKER_DISK_GUARD_ENABLED} strict=${WORKER_DISK_GUARD_STRICT}"
 log "  pressure_guard=${WORKER_PRESSURE_GUARD_ENABLED} pids_pause=${WORKER_PIDS_PAUSE_ALLOCATE_PCT}% pids_reset=${WORKER_PIDS_REJECT_RESET_PCT}% pids_free_allocate=${WORKER_PIDS_MIN_FREE_ALLOCATE} pids_free_reset=${WORKER_PIDS_MIN_FREE_RESET}"
 log "  pressure_guard shim_pause=${WORKER_SHIM_PAUSE_ALLOCATE} shim_reset=${WORKER_SHIM_REJECT_RESET} pending_pause=${WORKER_PENDING_CLOSES_PAUSE_ALLOCATE} pending_reset=${WORKER_PENDING_CLOSES_REJECT_RESET}"
 log "  container_limits pids=${CONTAINER_PIDS_LIMIT} memory=${CONTAINER_MEMORY_LIMIT}"
@@ -464,12 +476,22 @@ preflight_disk_guard() {
     if [[ "${used_pct}" -gt "${WORKER_MAX_DOCKER_USED_PCT}" \
        || "${free_gb}" -lt "${WORKER_MIN_DOCKER_FREE_GB}" \
        || "${inode_pct}" -gt "${WORKER_MAX_DOCKER_INODE_PCT}" ]]; then
-        log "  ❌ Refusing to start pool_server under Docker disk pressure."
-        log "     Preview: DOCKER_GC_DRY_RUN=1 python3 deploy/ops/docker_storage_gc.py"
-        log "     Run:     python3 deploy/ops/docker_storage_gc.py"
-        log "     Legacy:  AGGRESSIVE=1 PRUNE_VOLUMES=1 bash deploy/ops/fix_docker_overlay2_no_space.sh"
-        log "     If Docker objects are empty but /data is still full, use PURGE_DOCKER_ROOT_WHEN_EMPTY=1."
-        exit 1
+        if [[ "${WORKER_DISK_GUARD_STRICT}" == "1" ]]; then
+            log "  ❌ Refusing to start pool_server under Docker disk pressure (strict mode)."
+            log "     Preview: DOCKER_GC_DRY_RUN=1 python3 deploy/ops/docker_storage_gc.py"
+            log "     Run:     python3 deploy/ops/docker_storage_gc.py"
+            log "     Legacy:  AGGRESSIVE=1 PRUNE_VOLUMES=1 bash deploy/ops/fix_docker_overlay2_no_space.sh"
+            log "     If Docker objects are empty but /data is still full, use PURGE_DOCKER_ROOT_WHEN_EMPTY=1."
+            exit 1
+        fi
+        # Starting the HTTP pool does not itself allocate Docker layers.  Keep
+        # the service available on small/full local partitions and let each
+        # task report a useful Docker error if an image build cannot proceed.
+        # Operators that require fail-closed admission can set STRICT=1.
+        log "  ⚠️  Docker data-root remains above guard threshold; continuing in warning mode."
+        log "     Docker image builds may fail until storage is reclaimed."
+        log "     Set WORKER_DISK_GUARD_STRICT=1 to refuse startup instead."
+        return 0
     fi
 
     log "  ✅ Docker data-root capacity OK"
@@ -485,13 +507,67 @@ if ! timeout 10 docker info >/dev/null 2>&1; then
 fi
 log "  ✅ Docker daemon OK"
 
+stop_existing_server() {
+    local -a listener_pids=() owners=()
+    local pid parent cmd owner deadline
+    mapfile -t listener_pids < <(
+        ss -ltnpH "( sport = :${ENV_SERVER_PORT} )" 2>/dev/null \
+          | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u
+    )
+    ((${#listener_pids[@]})) || return 0
+
+    # The listening Python process is supervised by run_pool_server.sh.  Stop
+    # that shell (and let its trap clean the child) rather than killing only
+    # Python, which would otherwise be immediately restarted by the supervisor.
+    for pid in "${listener_pids[@]}"; do
+        owner="${pid}"
+        while parent="$(ps -o ppid= -p "${owner}" 2>/dev/null | tr -d ' ')"; do
+            [[ -n "${parent}" && "${parent}" != "0" ]] || break
+            cmd="$(ps -o args= -p "${parent}" 2>/dev/null || true)"
+            if [[ "${cmd}" == *run_pool_server.sh* ]]; then
+                owner="${parent}"
+            else
+                break
+            fi
+        done
+        owners+=("${owner}")
+    done
+
+    mapfile -t owners < <(printf '%s\n' "${owners[@]}" | sort -u)
+    log "  stopping existing pool server on port ${ENV_SERVER_PORT}: PIDs ${owners[*]}"
+    for pid in "${owners[@]}"; do
+        kill -TERM "${pid}" 2>/dev/null || true
+    done
+    deadline=$(( $(date +%s) + STOP_EXISTING_TIMEOUT ))
+    while (( $(date +%s) < deadline )); do
+        if ! ss -ltnH "( sport = :${ENV_SERVER_PORT} )" 2>/dev/null | grep -q ":${ENV_SERVER_PORT}"; then
+            log "  ✅ old pool server stopped"
+            return 0
+        fi
+        sleep 1
+    done
+    log "  ⚠️  old pool server did not stop within ${STOP_EXISTING_TIMEOUT}s; sending KILL"
+    for pid in "${owners[@]}"; do
+        kill -KILL "${pid}" 2>/dev/null || true
+    done
+    sleep 1
+    ss -ltnH "( sport = :${ENV_SERVER_PORT} )" 2>/dev/null \
+      | grep -q ":${ENV_SERVER_PORT}" \
+      && { log "  ❌ port ${ENV_SERVER_PORT} remains occupied"; return 1; }
+}
+
 log "Pre-flight [2/6]: Docker data-root disk/inode guard"
 preflight_disk_guard
 
 if command -v ss >/dev/null 2>&1 && ss -tln "( sport = :${ENV_SERVER_PORT} )" | grep -q ":${ENV_SERVER_PORT}"; then
-    log "  ❌ Port ${ENV_SERVER_PORT} is already in use"
-    log "     Inspect: ss -tlnp '( sport = :${ENV_SERVER_PORT} )'"
-    exit 1
+    if [[ "${STOP_EXISTING_SERVER}" == "1" ]]; then
+        stop_existing_server || exit 1
+    else
+        log "  ❌ Port ${ENV_SERVER_PORT} is already in use"
+        log "     Inspect: ss -tlnp '( sport = :${ENV_SERVER_PORT} )'"
+        log "     To replace it safely, set STOP_EXISTING_SERVER=1"
+        exit 1
+    fi
 fi
 
 # ── Pre-flight: nofile ulimit check (坑4) ────────────────────────────────────
@@ -668,6 +744,7 @@ export COMPOSE_OVERRIDE_PATH="${COMPOSE_OVERRIDE_PATH:-}"
 export PYTHONUNBUFFERED=1
 export DOCKER_DATA_ROOT
 export WORKER_DISK_GUARD_ENABLED
+export WORKER_DISK_GUARD_STRICT
 export WORKER_MIN_DOCKER_FREE_GB
 export WORKER_MAX_DOCKER_USED_PCT
 export WORKER_MAX_DOCKER_INODE_PCT
@@ -772,7 +849,8 @@ import camel  # noqa: F401
 PY
 }
 
-SHARED_CONDA_POOL_SERVER_VENV="${SHARED_CONDA_POOL_SERVER_VENV:-$(cd "${REPO_ROOT}/.." && pwd)/conda_envs/openclaw-worker-py312}"
+SHARED_CONDA_POOL_SERVER_VENV="${SHARED_CONDA_POOL_SERVER_VENV:-$(cd "${REPO_ROOT}/../.." && pwd)/.cache/lightrl-seta-worker-py312}"
+LEGACY_SHARED_CONDA_POOL_SERVER_VENV="${LEGACY_SHARED_CONDA_POOL_SERVER_VENV:-$(cd "${REPO_ROOT}/.." && pwd)/conda_envs/openclaw-worker-py312}"
 POOL_SERVER_PYTHON="${POOL_SERVER_PYTHON:-}"
 if [[ -n "${POOL_SERVER_PYTHON}" ]]; then
     if ! pool_server_python_ok "${POOL_SERVER_PYTHON}"; then
@@ -783,6 +861,7 @@ else
     python_candidates=(
         "${POOL_SERVER_VENV:+${POOL_SERVER_VENV}/bin/python}"
         "${SHARED_CONDA_POOL_SERVER_VENV}/bin/python"
+        "${LEGACY_SHARED_CONDA_POOL_SERVER_VENV}/bin/python"
         "${REPO_ROOT}/.venv/bin/python"
         "$(command -v python3 || command -v python)"
     )
