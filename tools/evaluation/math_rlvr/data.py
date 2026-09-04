@@ -102,15 +102,49 @@ def _read_huggingface(source: str, *, split: str, config: str | None) -> list[Ma
     return [normalize_row(dict(row), source=f"hf:{source}@{split}", index=i) for i, row in enumerate(dataset)]
 
 
+def _question_text(prompt: Any) -> str:
+    """Return the problem text used as the stable de-duplication key.
+
+    DAPO-Math contains the same problem with small changes to its rollout
+    instructions (for example, an optional ``Answer:`` reminder).  Those
+    instructions are a format concern, not part of the mathematical problem,
+    so retaining them would leave duplicate questions in the training set.
+    Other datasets are left byte-for-byte intact apart from outer whitespace.
+    """
+
+    if isinstance(prompt, list):
+        parts = [
+            str(message.get("content", ""))
+            for message in prompt
+            if isinstance(message, dict) and message.get("content") not in (None, "")
+        ]
+        text = "\n\n".join(parts)
+    else:
+        text = str(prompt)
+    text = text.strip()
+    if text.startswith("Solve the following math problem step by step."):
+        _, separator, body = text.partition("\n\n")
+        if separator:
+            text = body.strip()
+    reminder = '\n\nRemember to put your answer on its own line after "Answer:"'
+    if reminder in text:
+        text = text.split(reminder, 1)[0].rstrip()
+    return text
+
+
+def _prompt_key(prompt: Any) -> str:
+    return hashlib.sha256(
+        _question_text(prompt).encode("utf-8")
+    ).hexdigest()
+
+
 def deduplicate_rows(rows: Iterable[MathExample]) -> list[MathExample]:
     """Stable de-duplication by normalized question, retaining first label."""
 
     unique: list[MathExample] = []
     seen: set[str] = set()
     for row in rows:
-        prompt_key = hashlib.sha256(
-            json.dumps(row.prompt, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        ).hexdigest()
+        prompt_key = _prompt_key(row.prompt)
         if prompt_key in seen:
             continue
         seen.add(prompt_key)
