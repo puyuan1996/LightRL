@@ -91,6 +91,17 @@ def _strip_markup(value: str) -> str:
     return value
 
 
+def _candidate_key(value: str) -> str:
+    """Collapse wrapper markup so a natural-language mention of ``boxed`` is
+    not reported as a conflict with the boxed candidate it contains."""
+
+    previous = None
+    while previous != value:
+        previous = value
+        value = re.sub(r"\\(?:boxed|fbox)\s*\{([^{}]*)\}", r"\1", value)
+    return re.sub(r"\s+", "", value).lower().strip(".,;:。；")
+
+
 def extract_answers(text: str) -> ExtractionResult:
     """Extract all supported answer forms and choose a canonical candidate.
 
@@ -117,7 +128,7 @@ def extract_answers(text: str) -> ExtractionResult:
 
     # Compare format candidates after lightweight whitespace/markup cleanup;
     # semantic equivalence is intentionally left to verifier.py.
-    distinct = {re.sub(r"\s+", "", c.value).lower() for c in complete}
+    distinct = {_candidate_key(c.value) for c in complete}
     conflict = len(distinct) > 1
     return ExtractionResult(canonical, tuple(candidates), conflict)
 
