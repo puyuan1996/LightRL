@@ -91,7 +91,7 @@ action 融合契约。
 按 tb2.1 轨迹排序，再加入 `--supplement-input` 指定的 SETA/training 数据；不会
 把 archive 目录隐式混入。loader 按 trajectory 去重，支持 `max_trajectories`、
 `max_transitions`、最小 turn 数、tool-feedback 过滤和终端样本保留，且输出
-`data_manifest.json`（源文件 digest、transition/task/terminal 统计）。
+`data_manifest.json`（源文件路径、transition/task/terminal 统计）。
 
 阶段一关闭 replay，按 trajectory 分组后固定 train/validation split。阶段二创建
 固定容量 FIFO `TrajectoryReplayBuffer`，每 epoch 按配置比例随机抽样，成功和失败
