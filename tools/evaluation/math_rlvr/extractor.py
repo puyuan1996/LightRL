@@ -98,6 +98,8 @@ def _candidate_key(value: str) -> str:
     previous = None
     while previous != value:
         previous = value
+        if value.startswith(("\\boxed{", "\\fbox{")) and value.endswith("}"):
+            value = value[value.find("{") + 1 : -1]
         value = re.sub(r"\\(?:boxed|fbox)\s*\{([^{}]*)\}", r"\1", value)
     return re.sub(r"\s+", "", value).lower().strip(".,;:。；")
 
