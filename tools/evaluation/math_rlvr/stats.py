@@ -26,6 +26,13 @@ def paired_deltas(baseline: dict[str, Any], candidate: dict[str, Any], *, key: s
     return [right[sample_id] - left[sample_id] for sample_id in shared]
 
 
+def paired_delta(baseline: dict[str, Any], candidate: dict[str, Any], *, key: str = "lenient_correct") -> float:
+    """Mean paired delta convenience API."""
+
+    values = paired_deltas(baseline, candidate, key=key)
+    return sum(values) / len(values)
+
+
 def bootstrap_ci(values: Iterable[float], *, seed: int = 0, repetitions: int = 2000, alpha: float = 0.05) -> tuple[float, float]:
     values = list(values)
     if not values:
@@ -61,4 +68,4 @@ def compare_files(baseline: str | Path, candidate: str | Path, *, key: str = "le
     return result
 
 
-__all__ = ["bootstrap_ci", "compare_files", "compare_payloads", "paired_deltas"]
+__all__ = ["bootstrap_ci", "compare_files", "compare_payloads", "paired_delta", "paired_deltas"]
