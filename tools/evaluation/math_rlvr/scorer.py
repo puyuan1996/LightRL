@@ -80,7 +80,12 @@ def score_group(records: list[dict[str, Any]], *, reward_key: str = "configured_
     return {"size": len(records), "variance": variance, "zero_variance": collapsed}
 
 
-def avg_pass_at_k(per_problem: Iterable[dict[str, Any]], *, key: str, keep: Callable[[dict[str, Any]], bool] | None = None) -> tuple[float, float]:
+def avg_pass_at_k(
+    per_problem: Iterable[dict[str, Any]],
+    *,
+    key: str,
+    keep: Callable[[dict[str, Any]], bool] | None = None,
+) -> tuple[float, float]:
     problems = list(per_problem)
     keep = keep or (lambda _: True)
     groups = [sample for problem in problems for sample in problem.get("samples", [])]

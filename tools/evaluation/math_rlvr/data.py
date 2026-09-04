@@ -57,7 +57,12 @@ def normalize_row(row: dict[str, Any], *, source: str, index: int) -> MathExampl
     ).hexdigest()[:16]
     metadata = dict(row.get("metadata") or {})
     for key_name, value in row.items():
-        if key_name not in {"id", "problem_id", "uid", "prompt", "messages", "conversations", "question", "problem", "task", "input", "label", "answer", "ground_truth", "ground_truth_answer", "target", "solution", "reward_model", "metadata"}:
+        if key_name not in {
+            "id", "problem_id", "uid", "prompt", "messages", "conversations",
+            "question", "problem", "task", "input", "label", "answer",
+            "ground_truth", "ground_truth_answer", "target", "solution",
+            "reward_model", "metadata",
+        }:
             metadata.setdefault(key_name, value)
     return MathExample(str(key), prompt, str(label), source, metadata)
 
@@ -171,7 +176,10 @@ def write_manifest(rows: Iterable[MathExample], path: str | os.PathLike[str], *,
         "deduplicated": deduplicated,
         "ids": [row.id for row in materialized],
         "rows_sha256": hashlib.sha256(
-            "".join(json.dumps(row.as_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n" for row in materialized).encode("utf-8")
+            "".join(
+                json.dumps(row.as_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+                for row in materialized
+            ).encode("utf-8")
         ).hexdigest(),
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()

@@ -34,7 +34,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def _request(session: Any, url: str, model: str, messages: list[dict[str, str]], args: argparse.Namespace, sem: asyncio.Semaphore) -> dict[str, Any]:
+async def _request(
+    session: Any,
+    url: str,
+    model: str,
+    messages: list[dict[str, str]],
+    args: argparse.Namespace,
+    sem: asyncio.Semaphore,
+) -> dict[str, Any]:
     payload = {
         "model": model,
         "messages": messages,
@@ -108,7 +115,17 @@ async def evaluate(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, 
             )
             samples.append({"sample_index": sample_index, **raw, **scored})
         group = score_group(samples)
-        problems.append({"id": row.id, "prompt": row.prompt, "label": row.label, "source": row.source, "samples": samples, **group, "zero_variance_group": group["zero_variance"]})
+        problems.append(
+            {
+                "id": row.id,
+                "prompt": row.prompt,
+                "label": row.label,
+                "source": row.source,
+                "samples": samples,
+                **group,
+                "zero_variance_group": group["zero_variance"],
+            }
+        )
 
     detail = {
         "schema_version": 2,
@@ -129,7 +146,15 @@ async def evaluate(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, 
     return detail, detail["summary"]
 
 
-def write_outputs(detail: dict[str, Any], summary: dict[str, Any], *, output_dir: str | Path, dataset: str, tag: str, n: int) -> tuple[Path, Path]:
+def write_outputs(
+    detail: dict[str, Any],
+    summary: dict[str, Any],
+    *,
+    output_dir: str | Path,
+    dataset: str,
+    tag: str,
+    n: int,
+) -> tuple[Path, Path]:
     target_dir = Path(output_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     stem = Path(dataset).stem.replace("_", "-")

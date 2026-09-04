@@ -65,7 +65,13 @@ def score_sample_from_record(record: dict[str, Any], label: object, *, config: S
     )
 
 
-def rescore_file(path: str | Path, *, output: str | Path | None = None, reward_type: str | None = None, response_cap: int | None = None) -> Path:
+def rescore_file(
+    path: str | Path,
+    *,
+    output: str | Path | None = None,
+    reward_type: str | None = None,
+    response_cap: int | None = None,
+) -> Path:
     source = Path(path)
     payload = json.loads(source.read_text(encoding="utf-8"))
     result = rescore_detail(payload, reward_type=reward_type, response_cap=response_cap)
