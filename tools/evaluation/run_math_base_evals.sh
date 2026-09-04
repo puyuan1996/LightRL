@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Math eval sweep against an already-running sglang server (see launch_sglang_math.sh).
+#
+# Sequential on purpose: one dataset at a time keeps the server's scheduler
+# saturated without queueing tens of thousands of requests at once.
+#
+# Required:
+#   MODEL           the served model name, passed straight to eval_math.py
+#
+# Optional:
+#   TAG            label in the output filenames. Defaults to T<temp>, and to
+#                  T<temp>_p<top_p> when top_p is numerically not 1.0, so a top_p-only
+#                  ablation cannot overwrite the default run
+#   PORT=30000      sglang port
+#   CONCURRENCY=128
+#   MAX_TOKENS=32768   see docs/evaluation/math_rlvr.md on why 8192 is too small
+#   TEMPERATURE=1.0 TOP_P=1.0
+#                   1.0/1.0 matches slime's in-training eval. Qwen3's own
+#                   recommendation for thinking mode is 0.6/0.95; see the
+#                   temperature section of the document before switching
+#   MATH_DATA_ROOT  default <repo>/benchmarks/math
+#   PYTHON          interpreter to use (default: python)
+#   DATASETS        space-separated subset of: aime-2025 aime-2024 amc23 math-500
+set -uo pipefail
+
+: "${MODEL:?MODEL is required (served model name)}"
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+REPO="$(cd -- "${SCRIPT_DIR}/../.." &>/dev/null && pwd)"
+export MATH_DATA_ROOT="${MATH_DATA_ROOT:-${REPO}/benchmarks/math}"
+
+PYTHON="${PYTHON:-python}"
+PORT="${PORT:-30000}"
+CONCURRENCY="${CONCURRENCY:-128}"
+MAX_TOKENS="${MAX_TOKENS:-32768}"
+TEMPERATURE="${TEMPERATURE:-1.0}"
+TOP_P="${TOP_P:-1.0}"
+# Numeric compare, not string: TOP_P=1 and TOP_P=1.00 are the default too, and
+# tagging them as an ablation would cost a full sweep and then leave
+# math_paired_stats.py with no file to find.
+if awk -v v="${TOP_P}" 'BEGIN { exit !(v == 1.0) }'; then
+  # math_paired_stats.py looks results up by tag, and its published baseline is
+  # "T1.0"; keep the default name stable.
+  TAG="${TAG:-T${TEMPERATURE}}"
+else
+  # A top_p-only ablation would otherwise overwrite the default run's files.
+  TAG="${TAG:-T${TEMPERATURE}_p${TOP_P}}"
+fi
+DATASETS="${DATASETS:-aime-2025 aime-2024 amc23 math-500}"
+
+mkdir -p "${MATH_DATA_ROOT}/logs" "${MATH_DATA_ROOT}/eval_results"
+
+run() {  # name, data, n
+  local name="$1" data="$2" n="$3" temp="${TEMPERATURE}" topp="${TOP_P}" tag="${TAG}"
+  echo "=== [$(date +%H:%M:%S)] START ${name} n=${n} T=${temp} top_p=${topp} tag=${tag} ==="
+  timeout 14400 "${PYTHON}" "${SCRIPT_DIR}/eval_math.py" \
+    --data "${data}" --n "${n}" --model "${MODEL}" --port "${PORT}" \
+    --temperature "${temp}" --top-p "${topp}" --max-tokens "${MAX_TOKENS}" \
+    --tag "${tag}" --concurrency "${CONCURRENCY}" 2>&1 | tail -45
+  echo "=== [$(date +%H:%M:%S)] DONE ${name} (exit=$?) ==="
+}
+
+for ds in ${DATASETS}; do
+  case "${ds}" in
+    # k=16 on the small competition sets.
+    aime-2025) run "AIME2025" aime-2025/aime-2025.jsonl 16 ;;
+    aime-2024) run "AIME2024" aime-2024/aime-2024.jsonl 16 ;;
+    amc23)     run "AMC23"    amc23/amc23.jsonl         16 ;;
+    # k=4 on MATH-500: 500 problems, so k=16 would cost more than it informs.
+    # Note rm_type=dapo cannot score ~30% of this set (non-integer answers);
+    # eval_math.py reports that as strict_scoring_error_rate rather than crashing.
+    math-500)  run "MATH-500" math-500/math-500.jsonl    4 ;;
+    *) echo "[WARN] unknown dataset '${ds}', skipping" >&2 ;;
+  esac
+done
+echo "=== [$(date +%H:%M:%S)] ALL EVALS COMPLETE ==="
