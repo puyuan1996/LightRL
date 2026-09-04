@@ -10,9 +10,13 @@ RJOB_ARGS=(submit --name "${RJOB_NAME}")
 if [[ -n "${RJOB_GPU:-}" ]]; then RJOB_ARGS+=(--gpu "${RJOB_GPU}"); fi
 if [[ -n "${RJOB_CPU:-}" ]]; then RJOB_ARGS+=(--cpu "${RJOB_CPU}"); fi
 if [[ -n "${RJOB_MEMORY:-}" ]]; then RJOB_ARGS+=(--memory "${RJOB_MEMORY}"); fi
+EVAL_ENV=(env MODEL_PATH="${MODEL_PATH}" MODEL="${MODEL}")
+for _name in MATH_DATA_ROOT DATASETS OUTPUT_DIR N MAX_TOKENS TEMPERATURE TOP_P CONCURRENCY REWARD_TYPE RUN_DIR; do
+  if [[ -n "${!_name:-}" ]]; then EVAL_ENV+=("${_name}=${!_name}"); fi
+done
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
-  printf '[dry-run]'; printf ' %q' "${RJOB_BIN}" "${RJOB_ARGS[@]}" -- env MODEL_PATH="${MODEL_PATH}" MODEL="${MODEL}" bash "${ROOT}/tools/evaluation/rjob/run_math_rlvr_eval.sh"
+  printf '[dry-run]'; printf ' %q' "${RJOB_BIN}" "${RJOB_ARGS[@]}" -- "${EVAL_ENV[@]}" bash "${ROOT}/tools/evaluation/rjob/run_math_rlvr_eval.sh"
   printf '\n'
   exit 0
 fi
-exec "${RJOB_BIN}" "${RJOB_ARGS[@]}" -- env MODEL_PATH="${MODEL_PATH}" MODEL="${MODEL}" bash "${ROOT}/tools/evaluation/rjob/run_math_rlvr_eval.sh"
+exec "${RJOB_BIN}" "${RJOB_ARGS[@]}" -- "${EVAL_ENV[@]}" bash "${ROOT}/tools/evaluation/rjob/run_math_rlvr_eval.sh"
