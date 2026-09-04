@@ -166,7 +166,34 @@ class PolicyHiddenEncoder(nn.Module):
 
     def _target_ids(self, text: str) -> list[int]:
         prefix = "<environment_observation>\n"
-        ids = list(self.tokenizer.encode(prefix + text, add_special_tokens=True))
+        # Terminal observations can contain megabytes of logs.  Bound the
+        # character payload before tokenization (then enforce the exact token
+        # limit as well) so HuggingFace does not materialize 100k-token rows
+        # merely to discard all but the final feedback window.
+        text = str(text)
+        char_limit = max(1024, self.max_feedback_tokens * 12)
+        if len(text) > char_limit:
+            text = text[-char_limit:]
+        try:
+            original_truncation_side = getattr(self.tokenizer, "truncation_side", None)
+            if original_truncation_side is not None:
+                self.tokenizer.truncation_side = "left"
+            try:
+                ids = list(
+                    self.tokenizer.encode(
+                        prefix + text,
+                        add_special_tokens=True,
+                        truncation=True,
+                        max_length=self.max_feedback_tokens,
+                    )
+                )
+            finally:
+                if original_truncation_side is not None:
+                    self.tokenizer.truncation_side = original_truncation_side
+        except TypeError:
+            # Small test/fallback tokenizers may not expose HF truncation
+            # kwargs; the character cap still bounds their work.
+            ids = list(self.tokenizer.encode(prefix + text, add_special_tokens=True))
         if not ids:
             eos = self.tokenizer.eos_token_id
             ids = [int(eos if eos is not None else 0)]
