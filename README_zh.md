@@ -59,7 +59,8 @@ LightRL 内置 Slime 与 Megatron-LM 训练后端。终端环境由 Docker worke
 - **低成本扩展**——环境、harness 与奖励后处理均有集中注册入口，新增能力
   无需在训练链路中散落修改条件分支。
 - **完整可观测性**——逐轮对话轨迹、JSONL 指标、W&B 曲线、配置快照与数据
-  清单统一写入 `runs/<RUN_ID>/`。
+  清单统一写入分类目录 `runs/training/<RUN_ID>/`（评测和测试分别使用
+  `runs/evaluation/`、`runs/testing/`）。
 - **有界端到端验证**——4 GPU 小样本检查覆盖 rollout、奖励成形与 actor
   更新，无需完整训练即可验证部署链路。
 
@@ -228,7 +229,7 @@ bash examples/training/train_qwen3_8b_seta_dapo.sh
 ```
 
 可用 `RUN_ID` 覆盖运行名；设置 `BACKGROUND=1` 时，启动器日志写入
-`runs/<RUN_ID>/launcher.log`。GLM-5.1 配方还需要可用的 `HF_CKPT`、
+`runs/training/<RUN_ID>/launcher.log`。GLM-5.1 配方还需要可用的 `HF_CKPT`、
 `REF_LOAD` 与兼容的 `MODEL_ARGS_FILE`。更多入口与参数见
 [训练示例](examples/README.md)。
 
@@ -259,10 +260,11 @@ WORKER_URLS=http://127.0.0.1:18081 \
 
 ### 输出目录
 
-每次运行写入 `runs/<RUN_ID>/`：
+每次运行写入对应分类目录（训练 `training`、评测 `evaluation`、测试
+`testing`；debug 在 `testing/debug`）：
 
 ```text
-runs/<RUN_ID>/
+runs/<category>/<RUN_ID>/
 ├── config/                # 解析后的配置快照与数据集清单
 ├── logs/                  # train.log、metrics.jsonl 与启动日志
 ├── trajectories/          # 单样本 traj.json 与旁路索引 index.jsonl

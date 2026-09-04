@@ -158,8 +158,10 @@ ENV_VARS: dict[str, str] = {
     "SWEBENCH_RESULTS_DIR": "设置后 eval 时导出 SWE-bench 官方格式产物",
     "SWEBENCH_EVAL_DATA_PATH": "SWE-bench 实例 ID 数据集路径(导出 coverage 用)",
     # ---- run paths(paths.py 注入) ----
+    "RUNS_ROOT": "运行目录根路径(默认仓库 runs/)",
+    "RUN_CATEGORY": "运行分类(training|evaluation|testing；debug 自动归入 testing/debug)",
     "RUN_ID": "本次训练 run 标识",
-    "RUN_DIR": "runs/<RUN_ID> 根目录",
+    "RUN_DIR": "runs/<category>/<RUN_ID> 根目录（训练 training、评测 evaluation、测试 testing；debug 在 testing/debug）",
     "RUN_LOG_DIR": "日志目录",
     "TBENCH_OUTPUT_ROOT": "环境侧产物输出根目录",
 }

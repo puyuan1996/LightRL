@@ -43,13 +43,23 @@ _LAZY_IMPORT_MODULES = {
 }
 
 
-def __getattr__(name: str) -> Any:
-    module_name = _LAZY_IMPORT_MODULES.get(name)
-    if module_name is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    value = getattr(importlib.import_module(module_name), name)
+def _lazy_import(name: str) -> Any:
+    """Resolve a lazily imported name for in-function use.
+
+    The module-level __getattr__ (PEP 562) only intercepts attribute access on
+    the module object; a bare global reference inside a function raises
+    NameError instead.  Call sites inside functions must resolve lazy names
+    through this helper (assigning a same-named local keeps the diff minimal).
+    """
+    value = getattr(importlib.import_module(_LAZY_IMPORT_MODULES[name]), name)
     globals()[name] = value
     return value
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _LAZY_IMPORT_MODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return _lazy_import(name)
 
 from agentic_rl.types import RunContext, TaskSpec, TaskTimeouts
 
@@ -127,6 +137,7 @@ def _docker_cleanup_command_timeout(
 def _terminal_test_reward(
     parser_results: dict[str, UnitTestStatus], data_source: str
 ) -> tuple[float, int]:
+    UnitTestStatus = _lazy_import("UnitTestStatus")  # noqa: F811 (lazy global)
     passed = sum(
         1 for status in parser_results.values() if status == UnitTestStatus.PASSED
     )
@@ -2095,6 +2106,13 @@ class TerminalEnv:
                 )
 
         def _sync_reset() -> tuple[str, list[dict[str, Any]]]:
+            # Bare references do not trigger the module-level lazy __getattr__;
+            # resolve through the helper (same-named locals shadow the globals).
+            TrialHandler = _lazy_import("TrialHandler")  # noqa: F811
+            ParserFactory = _lazy_import("ParserFactory")  # noqa: F811
+            Terminal = _lazy_import("Terminal")  # noqa: F811
+            TerminalToolkit = _lazy_import("TerminalToolkit")  # noqa: F811
+            FunctionTool = _lazy_import("FunctionTool")  # noqa: F811
             _raise_if_cancelled("before_docker_cleanup")
             # P0 FIX: Force recreate container to avoid Docker daemon API slowdown
             # Root cause: containers.get() HTTP call hangs 360s when container runs >1h
@@ -2477,6 +2495,7 @@ class TerminalEnv:
             )
 
         def _sync_eval() -> float:
+            DockerComposeManager = _lazy_import("DockerComposeManager")  # noqa: F811
             task_name = (
                 self._task_spec.task_name if self._task_spec is not None else "unknown"
             )

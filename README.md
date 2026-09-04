@@ -63,7 +63,8 @@ memory, Docker-network, and port capacity.
 - **Low-cost extension** — environments, harnesses, and reward post-processors
   have centralized registration points instead of scattered conditionals.
 - **Operational observability** — turn-level trajectories, JSONL metrics, W&B
-  curves, config snapshots, and dataset manifests share `runs/<RUN_ID>/`.
+  curves, config snapshots, and dataset manifests share a categorized run
+  directory (`runs/training/`, `runs/evaluation/`, or `runs/testing/`).
 - **Bounded end-to-end checks** — 4-GPU smoke recipes cover rollout, reward
   shaping, and actor updates without requiring a full training run.
 
@@ -247,7 +248,7 @@ bash examples/training/train_qwen3_8b_seta_dapo.sh
 ```
 
 Override the run name with `RUN_ID`. With `BACKGROUND=1`, launcher logs are
-written to `runs/<RUN_ID>/launcher.log`. The GLM-5.1 recipe additionally needs
+written to `runs/training/<RUN_ID>/launcher.log`. The GLM-5.1 recipe additionally needs
 valid `HF_CKPT`, `REF_LOAD`, and compatible `MODEL_ARGS_FILE` values. See
 [training examples](examples/README.md) for the maintained entry points.
 
@@ -282,10 +283,11 @@ of public recipes. Provide them through environment variables or git-ignored
 
 ### Output layout
 
-Each run writes to `runs/<RUN_ID>/`:
+Each run writes to its lifecycle directory (`training`, `evaluation`, or
+`testing`; debug runs use `testing/debug`):
 
 ```text
-runs/<RUN_ID>/
+runs/<category>/<RUN_ID>/
 ├── config/                # resolved config snapshot and dataset manifests
 ├── logs/                  # train.log, metrics.jsonl, and launcher logs
 ├── trajectories/          # per-sample traj.json and side-channel index.jsonl

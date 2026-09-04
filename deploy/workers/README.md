@@ -7,10 +7,10 @@ runtime, watchdog, and private-DinD scripts are tracked here; provisioning and
 recovery actions live in `../ops/`, while credential-bearing environment files
 are still created only on workers.
 
-This directory contains reusable worker-side runtime only. RJob submission,
-queueing, replacement, and cluster-control scripts live under
-`local/rjob/` because they are operator-side pu-dev helpers and are not
-uploaded as deployment code.
+This directory contains reusable worker-side runtime only. RJob submission
+and the private-DinD RJob entrypoint (`start_rjob_dind_worker.sh`) live under
+`local/rjob/` because RJob is this site's cluster form and those are
+operator-side pu-dev helpers, not deployment payloads.
 
 ---
 
@@ -20,7 +20,7 @@ uploaded as deployment code.
 
 | Script | When to use |
 |---|---|
-| `start_rjob_dind_worker.sh` | Starts the private RJob dockerd and optional SETA pool. |
+| `local/rjob/start_rjob_dind_worker.sh` | Starts the private RJob dockerd and optional SETA pool (operator-side, lives with the submission scripts). |
 | `docker_watchdog.sh` / `start_watchdog.sh` | Monitors dockerd and pool lifecycle. |
 
 ### Steady-state (every training run)

@@ -5,7 +5,7 @@
 #   3. external serving:api_base 指向 relay 暴露的模型端点,本机不起 SGLang。
 harness: terminus-2
 job_name: site-profile-eval
-output_dir: /path/to/site/eval-runs/site-profile-eval
+output_dir: ${EVAL_OUTPUT_DIR:-./runs/evaluation}/site-profile-eval
 
 dataset:
   path: /path/to/site/datasets/terminal-bench/tasks

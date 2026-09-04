@@ -8,7 +8,7 @@ and writes:
   <run_dir>/metrics/analysis/case_analysis.md
 
 Usage:
-  python tools/analysis/analyze_trajectories.py --run-dir runs/<run_id>
+    python tools/analysis/analyze_trajectories.py --run-dir runs/<category>/<run_id>
 
 Optional:
   --traj-dir DIR     Override location of trajectory directories
@@ -565,7 +565,7 @@ def analyze(
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--run-dir", required=True, type=Path,
-                   help="Run root, e.g. runs/<run_id>")
+                   help="Run root, e.g. runs/training/<run_id>")
     p.add_argument("--traj-dir", type=Path, default=None,
                    help="Override trajectory dir (default: <run_dir>/trajectories)")
     p.add_argument("--out-dir", type=Path, default=None,

@@ -135,6 +135,7 @@ fi
 cat > "${RUN_CONFIG_OUTPUT}" <<CFGEOF
 {
   "run_name": "${RUN_NAME}",
+  "run_category": "${RUN_CATEGORY}",
   "timestamp": "${RUN_TIMESTAMP}",
   "run_dataset_tag": "${RUN_DATASET_TAG}",
   "run_algo_tag": "${RUN_ALGO_TAG}",
@@ -511,6 +512,7 @@ RUNTIME_ENV_JSON="{
     \"SLIME_USE_FAULT_TOLERANCE\": \"${SLIME_USE_FAULT_TOLERANCE:-0}\",
     \"SLIME_SAVE_DEBUG_ROLLOUT_DATA\": \"${SLIME_SAVE_DEBUG_ROLLOUT_DATA:-}\",
     \"MASTER_ADDR\": \"${MASTER_ADDR}\",
+    \"SLIME_HOST_IP\": \"${SLIME_HOST_IP:-}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",
     \"USE_REMOTE_ENV\": \"${USE_REMOTE_ENV}\",
     \"ENV_SERVER_URL\": \"${ENV_SERVER_URL}\",
@@ -567,6 +569,7 @@ RUNTIME_ENV_JSON="{
     \"TRAJECTORY_SAVE_LOG_DECISIONS\": \"${TRAJECTORY_SAVE_LOG_DECISIONS}\",
     \"MIX_MODE\": \"${MIX_MODE}\",
     \"RUN_DIR\": \"${RUN_DIR}\",
+    \"RUN_CATEGORY\": \"${RUN_CATEGORY}\",
     \"RUN_ID\": \"${RUN_ID}\",
     \"RUN_NAME\": \"${RUN_NAME}\",
     \"TBENCH_OUTPUT_ROOT\": \"${TBENCH_OUTPUT_ROOT}\",

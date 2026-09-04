@@ -1746,7 +1746,13 @@ def parse_args(add_custom_arguments=None):
 
         args = megatron_parse_args(extra_args_provider=add_slime_arguments)
         if args.hf_checkpoint and not args.debug_rollout_only:
-            hf_config = AutoConfig.from_pretrained(args.hf_checkpoint, trust_remote_code=True)
+            try:
+                hf_config = AutoConfig.from_pretrained(args.hf_checkpoint, trust_remote_code=True)
+            except ValueError:
+                # The pinned transformers may not know very new model types
+                # (e.g. glm_moe_dsa).  Fall back to the raw config.json so the
+                # scalar consistency checks in hf_validate_args still run.
+                hf_config = _load_raw_hf_config(args.hf_checkpoint)
             hf_validate_args(args, hf_config)
 
         args.rank = 0
@@ -2105,6 +2111,24 @@ def slime_validate_args(args):
         assert args.megatron_to_hf_mode == "bridge", "--use-megatron-lora requires --megatron-to-hf-mode bridge"
         if getattr(args, "lora_target_modules", None) is None:
             raise ValueError("--use-megatron-lora requires --lora-target-modules")
+
+
+def _load_raw_hf_config(hf_checkpoint):
+    """Return the raw config.json as an attribute namespace.
+
+    Used when the pinned transformers does not recognize a very new
+    ``model_type`` (e.g. ``glm_moe_dsa``).  Only scalar fields are consumed by
+    ``hf_validate_args``; a ``text_config`` sub-dict is surfaced as an object
+    attribute to mimic the multimodal config shape.
+    """
+    import types
+
+    with open(os.path.join(hf_checkpoint, "config.json"), encoding="utf-8") as f:
+        data = json.load(f)
+    cfg = types.SimpleNamespace(**data)
+    if isinstance(data.get("text_config"), dict):
+        cfg.text_config = types.SimpleNamespace(**data["text_config"])
+    return cfg
 
 
 def hf_validate_args(args, hf_config):

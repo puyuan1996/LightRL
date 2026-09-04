@@ -8,6 +8,9 @@ Usage examples (paths are placeholders):
     python3 -m tools.evaluation batch --config tools/evaluation/configs/batch.example.yaml
     python3 -m tools.evaluation report --results '<runs>/*/eval_result.json' --output <out>/compare
 
+When a config omits ``output_dir``, results are written to
+``runs/evaluation/<job_name>/`` (or ``$RUNS_ROOT/evaluation/``).
+
 The direct script path is retained for existing automation.
 """
 

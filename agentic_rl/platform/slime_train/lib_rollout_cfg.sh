@@ -136,7 +136,8 @@ fi
 RUN_LOG="${RUN_LOG_DIR}/train.log"
 
 # ── Auto-mirror logs inside the unified run directory ──
-# Canonical logs and compatibility shortcuts all live under runs/<run>/.
+# Canonical logs and compatibility shortcuts live under the categorized
+# RUN_DIR (runs/training, runs/evaluation, or runs/testing).
 # runs/latest is the only repository-level pointer to the current run.
 TMP_DOC_ROOT="${RUN_LOG_DIR}/mirror"
 TMP_DOC_LATEST="${TMP_DOC_ROOT}"

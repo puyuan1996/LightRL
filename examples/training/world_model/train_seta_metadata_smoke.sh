@@ -4,11 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 cd "${REPO_ROOT}"
+RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
 WM_SMOKE_PHASE="${WM_SMOKE_PHASE:-metadata}"
 WM_SMOKE_ALGO="${WM_SMOKE_ALGO:-dapo}"
-WM_SMOKE_OUT_ROOT="${WM_SMOKE_OUT_ROOT:-${REPO_ROOT}/runs/world_model_smoke/${STAMP}_${WM_SMOKE_ALGO}}"
+WM_SMOKE_OUT_ROOT="${WM_SMOKE_OUT_ROOT:-${RUNS_ROOT}/testing/world_model_smoke/${STAMP}_${WM_SMOKE_ALGO}}"
 WM_SMOKE_METADATA_DIR="${WM_SMOKE_METADATA_DIR:-${WM_SMOKE_OUT_ROOT}/metadata}"
 WM_SMOKE_RUN_ID="${WM_SMOKE_RUN_ID:-wm_metadata_${WM_SMOKE_ALGO}_${STAMP}}"
 WM_TRAIN_SCRIPT="${WM_TRAIN_SCRIPT:-examples/training/train_qwen3_8b_seta_dive_po.sh}"
@@ -56,7 +57,8 @@ WORLD_MODEL_ARGS=(
 EXTRA_ALGO_ARGS="${EXTRA_ALGO_ARGS:-} ${WORLD_MODEL_ARGS[*]}" \
 DATASET="${DATASET:-seta}" \
 ALGO="${ALGO:-${WM_SMOKE_ALGO}}" \
-RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}" \
+RUNS_ROOT="${RUNS_ROOT}" \
+RUN_CATEGORY="${RUN_CATEGORY:-testing}" \
 RUN_ID="${RUN_ID:-${WM_SMOKE_RUN_ID}}" \
 MAX_CKPT_KEEP="${MAX_CKPT_KEEP:-0}" \
 SAVE_CKPT="${SAVE_CKPT:-}" \

@@ -292,7 +292,8 @@ export ROUTER_FORWARD_RETRY_BACKOFF="${ROUTER_FORWARD_RETRY_BACKOFF:-1.0}"
 export ROUTER_PRESSURE_COOLDOWN="${ROUTER_PRESSURE_COOLDOWN:-60}"
 
 # ── Trajectory export (parallels swe-rl export/swe_rollouts) ─────────────────
-# Trajectory export is now ON by default (writes to runs/{run_id}/trajectories/).
+# Trajectory export is now ON by default (writes to the categorized
+# RUN_DIR/trajectories/).
 # Set TERMINAL_SAVE_TRAJ_DIR="" to disable.
 export TERMINAL_SAVE_TRAJ_DIR="${TERMINAL_SAVE_TRAJ_DIR}"
 export TRAJECTORY_SAVE_INTERVAL="${TRAJECTORY_SAVE_INTERVAL}"

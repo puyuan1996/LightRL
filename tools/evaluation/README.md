@@ -19,7 +19,8 @@ python3 -m tools.evaluation --help
 - **工具层** `tools/evaluation/`(本目录):YAML 配置、managed SGLang 生命周期、
   单模型 runner、多 ckpt 批量、对比报告,入口是 `eval_cli.py`。
 
-所有示例路径均为占位符;一次性路径、节点名、代理地址等一律进配置或
+评测默认产物写入仓库 `runs/evaluation/<job_name>/`；设置 `RUNS_ROOT` 或
+配置中的 `output_dir` 可覆盖。一次性路径、节点名、代理地址等一律进配置或
 `site/` profile,不进代码。
 
 ## 快速开始(单 ckpt 单 harness)
@@ -66,8 +67,8 @@ benchmark-specific 文件。
 
 ## 评估一个 ckpt
 
-1. 选一个示例配置(`configs/` 下按 harness 分),复制后改三处:
-   `dataset.path`、`serving.model_path` / `serving.model_name`、`output_dir`。
+1. 选一个示例配置(`configs/` 下按 harness 分),复制后改数据集和模型字段。
+   不填写 `output_dir` 时自动使用 `runs/evaluation/<job_name>/`。
 2. `serving.mode: managed` 时工具层自动起本地 SGLang 并轮询
    `/v1/models` 就绪;`external` 时使用已有端点(填 `api_base`)。
 3. 跑 `eval_cli.py run --config <cfg>`。产物:
@@ -125,7 +126,7 @@ errored / top exceptions)到终端,并写 `compare.md` 与 `compare.csv`。
 | --- | --- | --- |
 | `harness` | `terminus-2` / `claude-code` / `camel-agent` | `terminus-2` |
 | `job_name` | 评测 job 名(Harbor job 目录名) | 必填 |
-| `output_dir` | Harbor `jobs_dir`;归一化结果也写在这里 | 必填 |
+| `output_dir` | Harbor `jobs_dir`;归一化结果也写在这里 | `runs/evaluation/<job_name>` |
 | `dataset.path` | 数据集路径(Harbor tasks 目录或 prompt jsonl) | 必填 |
 | `dataset.task_names` | 只跑指定题目;`null` 跑全量 | `null` |
 | `run.n_attempts` | Harbor `n_attempts` | 1 |

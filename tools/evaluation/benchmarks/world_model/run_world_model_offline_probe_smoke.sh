@@ -4,11 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 cd "${REPO_ROOT}"
+RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 WM_RECORDS="${WM_RECORDS:-}"
-WM_OUT_DIR="${WM_OUT_DIR:-${REPO_ROOT}/runs/world_model_probe_smoke/$(date +%Y%m%d_%H%M%S)}"
+WM_OUT_DIR="${WM_OUT_DIR:-${RUNS_ROOT}/evaluation/world_model_probe_smoke/$(date +%Y%m%d_%H%M%S)}"
 WM_ENCODER="${WM_ENCODER:-hash}"
 WM_ALLOW_HF="${WM_ALLOW_HF:-0}"
 WM_HASH_HIDDEN_DIM="${WM_HASH_HIDDEN_DIM:-128}"
@@ -26,7 +27,7 @@ WM_HF_POOLING="${WM_HF_POOLING:-mean}"
 mkdir -p "${WM_OUT_DIR}"
 
 if [[ -z "${WM_RECORDS}" ]]; then
-  WM_RECORDS="$(find "${REPO_ROOT}/runs/world_model_smoke" -path "*/metadata/records.jsonl" -type f 2>/dev/null | sort | tail -1 || true)"
+  WM_RECORDS="$(find "${RUNS_ROOT}/testing/world_model_smoke" -path "*/metadata/records.jsonl" -type f 2>/dev/null | sort | tail -1 || true)"
 fi
 
 if [[ ! -s "${WM_RECORDS}" ]]; then

@@ -14,7 +14,8 @@
 └── wandb/<run-id>/
 ```
 
-训练结构化指标和控制台镜像仍在 `runs/<run-id>/logs/`。因此 checkpoint 介质暂时
+训练结构化指标和控制台镜像仍在 `runs/training/<run-id>/logs/`（评测对应
+`runs/evaluation/`，测试对应 `runs/testing/`）。因此 checkpoint 介质暂时
 不可写或空间不足时，训练可以继续，并保留完整训练日志。可用 `CKPT_ROOT`、
 `WANDB_DIR` 或 `LIGHTRL_PERSIST_ROOT` 覆盖默认值。
 
@@ -53,7 +54,7 @@ export MAX_CKPT_KEEP=1
 ## 排障
 
 ```bash
-grep -E 'CHECKPOINT_(SAVE|CLEANUP)' runs/<run-id>/logs/train.log
+grep -E 'CHECKPOINT_(SAVE|CLEANUP)' runs/training/<run-id>/logs/train.log
 cat <checkpoint-dir>/latest_checkpointed_iteration.txt
 du -sh <checkpoint-dir>/iter_*
 df -h <checkpoint-dir>

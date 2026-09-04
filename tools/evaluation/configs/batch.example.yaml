@@ -4,7 +4,7 @@
 defaults:
   harness: terminus-2
   job_name: batch-eval
-  output_dir: ${EVAL_OUTPUT_DIR:-/path/to/eval-runs}/batch   # 每个 model 落在其 <name>/ 子目录
+  output_dir: ${EVAL_OUTPUT_DIR:-./runs/evaluation}/batch   # 每个 model 落在其 <name>/ 子目录
   dataset:
     path: /path/to/terminal-bench/tasks
   run:

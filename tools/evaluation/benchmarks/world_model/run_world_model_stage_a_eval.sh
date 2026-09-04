@@ -4,17 +4,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 cd "${REPO_ROOT}"
+RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 export PYTHONPATH="${REPO_ROOT}/slime:${PYTHONPATH:-}"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-WM_OUT_DIR="${WM_OUT_DIR:-${REPO_ROOT}/runs/world_model_stage_a_eval/${STAMP}}"
+WM_OUT_DIR="${WM_OUT_DIR:-${RUNS_ROOT}/evaluation/world_model_stage_a_eval/${STAMP}}"
 WM_DEFAULT_RECORDS="${WM_DEFAULT_RECORDS:-}"
 WM_USE_DEFAULT_RECORDS="${WM_USE_DEFAULT_RECORDS:-0}"
 WM_SOURCE_RECORDS="${WM_SOURCE_RECORDS:-}"
-WM_INPUT_GLOB="${WM_INPUT_GLOB:-${REPO_ROOT}/runs/world_model_smoke/*/metadata/rollout_*.pt}"
+WM_INPUT_GLOB="${WM_INPUT_GLOB:-${RUNS_ROOT}/testing/world_model_smoke/*/metadata/rollout_*.pt}"
 WM_FILTERS="${WM_FILTERS:-full,clean,tool_only}"
 WM_REQUIRED_FILTERS="${WM_REQUIRED_FILTERS:-full,clean}"
 WM_BAD_EVAL_REASONS="${WM_BAD_EVAL_REASONS:-eval_timeout,eval_parse_failed}"

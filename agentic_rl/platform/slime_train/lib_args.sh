@@ -119,10 +119,10 @@ fi
 PERF_ARGS=(
   --tensor-model-parallel-size "${TP_SIZE}"
   --sequence-parallel
-  --pipeline-model-parallel-size 1
-  --context-parallel-size 1
-  --expert-model-parallel-size 1
-  --expert-tensor-parallel-size 1
+  --pipeline-model-parallel-size "${PP_SIZE:-1}"
+  --context-parallel-size "${CP_SIZE:-1}"
+  --expert-model-parallel-size "${EP_SIZE:-1}"
+  --expert-tensor-parallel-size "${ETP_SIZE:-1}"
   --recompute-granularity full
   --recompute-method uniform
   --recompute-num-layers 1
@@ -294,7 +294,7 @@ else
 fi
 
 TRAIN_ARGS=(
-  --actor-num-nodes 1
+  --actor-num-nodes "${ACTOR_NUM_NODES:-1}"
   --num-gpus-per-node "${NUM_GPUS}"
   --actor-num-gpus-per-node "${ACTOR_GPUS}"
   --num-gpus-per-node "${NUM_GPUS}"

@@ -35,6 +35,18 @@ def repo_root() -> Path:
     return _REPO_ROOT
 
 
+def default_run_dir(category: str, run_id: str) -> Path:
+    """Return a categorized repository-local run directory.
+
+    ``RUNS_ROOT`` lets cluster jobs keep the same layout on shared storage;
+    otherwise the repository's ``runs/`` directory is used.
+    """
+    from agentic_rl.platform.paths import resolve_run_dir
+
+    runs_root = os.getenv("RUNS_ROOT", str(_REPO_ROOT / "runs"))
+    return resolve_run_dir(run_id, runs_root, category=category)
+
+
 def ensure_repo_on_path() -> None:
     """Make ``agentic_rl`` importable when running as a loose script."""
     import sys
@@ -116,12 +128,16 @@ def build_specs(config: dict) -> tuple[Any, Any]:
     run_cfg = dict(config.get("run") or {})
     dataset_cfg = dict(config.get("dataset") or {})
     task_names = dataset_cfg.get("task_names")
+    job_name = str(config["job_name"])
+    output_dir = config.get("output_dir")
+    if output_dir is None or not str(output_dir).strip():
+        output_dir = str(default_run_dir("evaluation", job_name))
     spec = EvalRunSpec(
         harness=str(config.get("harness", "terminus-2")),
-        job_name=str(config["job_name"]),
+        job_name=job_name,
         dataset_path=str(dataset_cfg["path"]),
         task_names=[str(t) for t in task_names] if task_names else None,
-        output_dir=str(config.get("output_dir", "")),
+        output_dir=str(output_dir),
         n_attempts=int(run_cfg.get("n_attempts", 1)),
         concurrency=int(run_cfg.get("concurrency", 4)),
         max_retries=int(run_cfg.get("max_retries", 1)),

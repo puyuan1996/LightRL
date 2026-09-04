@@ -3,7 +3,7 @@
 # 启动脚本(GPU 分配、容器、环境变量),本工具层只负责拼参、启动与结果回收。
 harness: camel-agent
 job_name: my-model-seta-eval
-output_dir: /path/to/eval-runs/my-model-seta-eval   # 归一化 eval_result.json 写在这里
+output_dir: ${EVAL_OUTPUT_DIR:-./runs/evaluation}/my-model-seta-eval   # 归一化 eval_result.json 写在这里
 
 dataset:
   path: /path/to/prompt-data.jsonl    # slime --prompt-data

@@ -157,7 +157,20 @@ export WANDB_MODE="${WANDB_MODE:-offline}"
 export RUN_TIMESTAMP="${RUN_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
 export RUN_ID="${RUN_ID:-qwen3-8b-seta-fixed12-camel-4gpu-${RUN_TIMESTAMP}}"
 export RUN_NAME="${RUN_NAME:-${RUN_ID}}"
-export RUN_DIR="${RUN_DIR:-${REPO_ROOT}/runs/${RUN_ID}}"
+export RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
+export RUN_CATEGORY="${RUN_CATEGORY:-evaluation}"
+if [[ "${DEBUG_MODE:-0}" == "1" ]]; then
+  export RUN_CATEGORY="testing/debug"
+fi
+case "${RUN_CATEGORY}" in
+  training|evaluation|testing|testing/debug) ;;
+  train) export RUN_CATEGORY="training" ;;
+  eval|evaluate) export RUN_CATEGORY="evaluation" ;;
+  test) export RUN_CATEGORY="testing" ;;
+  debug) export RUN_CATEGORY="testing/debug" ;;
+  *) printf '[seta-fixed12] ERROR: unknown RUN_CATEGORY=%s\n' "${RUN_CATEGORY}" >&2; exit 2 ;;
+esac
+export RUN_DIR="${RUN_DIR:-${RUNS_ROOT}/${RUN_CATEGORY}/${RUN_ID}}"
 export LOG_FILE="${LOG_FILE:-${RUN_DIR}/launcher.log}"
 export BACKGROUND
 export DRY_RUN

@@ -31,13 +31,23 @@ _LAZY_IMPORT_MODULES = {
 }
 
 
-def __getattr__(name: str) -> Any:
-    module_name = _LAZY_IMPORT_MODULES.get(name)
-    if module_name is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    value = getattr(importlib.import_module(module_name), name)
+def _lazy_import(name: str) -> Any:
+    """Resolve a lazily imported name for in-function use.
+
+    The module-level __getattr__ (PEP 562) only intercepts attribute access on
+    the module object; a bare global reference inside a function raises
+    NameError instead.  Call sites inside functions must resolve lazy names
+    through this helper (assigning a same-named local keeps the diff minimal).
+    """
+    value = getattr(importlib.import_module(_LAZY_IMPORT_MODULES[name]), name)
     globals()[name] = value
     return value
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _LAZY_IMPORT_MODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return _lazy_import(name)
 
 logger = logging.getLogger(__name__)
 
@@ -441,6 +451,10 @@ def build_docker_image(
 
     task_path = Path(dataset_dir) / str(task.get("task_path", ""))
     task_name = _safe_project_component(str(task.get("task_name") or task_path.name))
+    # Bare references do not trigger the module-level lazy __getattr__; resolve
+    # through the helper (same-named locals shadow the globals).
+    TrialHandler = _lazy_import("TrialHandler")  # noqa: F811
+    DockerComposeManager = _lazy_import("DockerComposeManager")  # noqa: F811
     trial_handler = TrialHandler(
         trial_name=f"build_run_{task_name}",
         input_path=task_path,

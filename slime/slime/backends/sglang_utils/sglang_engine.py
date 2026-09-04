@@ -523,6 +523,12 @@ def _compute_server_args(
     node_rank = rank % nnodes
     base = base_gpu_id if base_gpu_id is not None else get_base_gpu_id(args, rank)
     base = _to_local_gpu_id(base)
+    if nnodes > 1:
+        # Each part of a multi-node engine owns its node's local GPU range:
+        # sglang maps tp_rank to node-local ordinals via tp_size_per_node, so a
+        # global bundle offset would double-count and exceed the local device
+        # count (observed as CUDA "invalid device ordinal").
+        base = 0
     kwargs = {
         "model_path": model_path,
         "trust_remote_code": True,

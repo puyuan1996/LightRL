@@ -20,5 +20,5 @@ bash deploy/workers/run_pool_server.sh
 ```
 
 For a private DinD RJob, use the operator-side launcher in
-`local/rjob/submit_private_dind.sh`; the resulting Pod calls
-`deploy/workers/start_rjob_dind_worker.sh`.
+`local/rjob/start_fixed12_dind.sh`; the resulting Pod calls
+`local/rjob/start_rjob_dind_worker.sh`.

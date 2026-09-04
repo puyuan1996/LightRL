@@ -2,9 +2,9 @@
 # Run case-study analysis for one terminal-rl run.
 #
 # Usage:
-#   bash tools/analysis/run_case_study.sh runs/<run_id>
+#   bash tools/analysis/run_case_study.sh runs/training/<run_id>
 #   CASE_STUDY_CONFIG=/path/to/case_study_samples.yaml \
-#     bash tools/analysis/run_case_study.sh runs/<run_id>
+#     bash tools/analysis/run_case_study.sh runs/training/<run_id>
 #
 # Outputs are written to:
 #   <run_dir>/case_study/case_study_report.md

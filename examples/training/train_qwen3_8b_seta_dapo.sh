@@ -30,7 +30,21 @@ export EXPLORATION_PROFILE="${EXPLORATION_PROFILE:-off}"
 export RUN_TIMESTAMP="${RUN_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
 export RUN_ID="${RUN_ID:-seta-dapo-4g-${RUN_TIMESTAMP}}"
 export RUN_NAME="${RUN_NAME:-${RUN_ID}}"
-RUN_DIR="${RUN_DIR:-${REPO_ROOT}/runs/${RUN_ID}}"
+export RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
+export RUN_CATEGORY="${RUN_CATEGORY:-training}"
+if [[ "${DEBUG_MODE:-0}" == "1" ]]; then
+  export RUN_CATEGORY="testing/debug"
+fi
+case "${RUN_CATEGORY}" in
+  training|evaluation|testing|testing/debug) ;;
+  train) export RUN_CATEGORY="training" ;;
+  eval|evaluate) export RUN_CATEGORY="evaluation" ;;
+  test) export RUN_CATEGORY="testing" ;;
+  debug) export RUN_CATEGORY="testing/debug" ;;
+  *) printf '[seta-dapo] ERROR: unknown RUN_CATEGORY=%s\n' "${RUN_CATEGORY}" >&2; exit 2 ;;
+esac
+RUN_DIR="${RUN_DIR:-${RUNS_ROOT}/${RUN_CATEGORY}/${RUN_ID}}"
+export RUN_DIR
 LOG_FILE="${LOG_FILE:-${RUN_DIR}/launcher.log}"
 BACKGROUND="${BACKGROUND:-0}"
 DRY_RUN="${DRY_RUN:-0}"

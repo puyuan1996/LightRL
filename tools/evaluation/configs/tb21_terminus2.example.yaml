@@ -2,7 +2,7 @@
 # 所有路径均为占位符,使用前请替换;${VAR} 会做环境变量展开。
 harness: terminus-2
 job_name: my-model-tb-eval
-output_dir: ${EVAL_OUTPUT_DIR:-/path/to/eval-runs}/my-model-tb-eval  # Harbor jobs_dir
+output_dir: ${EVAL_OUTPUT_DIR:-./runs/evaluation}/my-model-tb-eval  # Harbor jobs_dir
 
 dataset:
   path: /path/to/terminal-bench/tasks   # Harbor dataset 目录(含 task 子目录)

@@ -3,9 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 
-WM_TRAJECTORIES="${WM_TRAJECTORIES:-${REPO_ROOT}/runs/terminal-rl_qwen3-8b_8gpu_seta_dapo_nodynamic_exploration_simhash_life_fp_ucb_v0710_k6_quality_balanced1000_epturn0_none_dualadv_think_2026-07-08_185609/trajectories}"
-WM_OUTPUT_DIR="${WM_OUTPUT_DIR:-${REPO_ROOT}/runs/world_model_seta_latent/$(date +%Y%m%d_%H%M%S)}"
+WM_TRAJECTORIES="${WM_TRAJECTORIES:-${RUNS_ROOT}/training/terminal-rl_qwen3-8b_8gpu_seta_dapo_nodynamic_exploration_simhash_life_fp_ucb_v0710_k6_quality_balanced1000_epturn0_none_dualadv_think_2026-07-08_185609/trajectories}"
+WM_OUTPUT_DIR="${WM_OUTPUT_DIR:-${RUNS_ROOT}/training/world_model_seta_latent/$(date +%Y%m%d_%H%M%S)}"
 WM_ENCODER="${WM_ENCODER:-hash}"
 WM_HF_MODEL="${WM_HF_MODEL:-${REPO_ROOT}/models/Qwen3-8B}"
 WM_MAX_TRAJECTORIES="${WM_MAX_TRAJECTORIES:-4}"

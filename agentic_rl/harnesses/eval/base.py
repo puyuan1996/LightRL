@@ -47,7 +47,7 @@ class EvalRunSpec:
     job_name: str
     dataset_path: str
     task_names: list[str] | None = None  # None -> whole dataset
-    output_dir: str = ""  # harness jobs dir; per-job artifacts live below it
+    output_dir: str = ""  # resolved by the evaluator to runs/evaluation/<job> when omitted
     n_attempts: int = 1
     concurrency: int = 4
     max_retries: int = 1

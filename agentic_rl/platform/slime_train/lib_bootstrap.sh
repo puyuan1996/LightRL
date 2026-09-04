@@ -40,7 +40,10 @@ ROLLOUT_GPUS="${ROLLOUT_GPUS:-${HALF_GPUS}}"
 ROLLOUT_NUM_GPUS_PER_ENGINE="${ROLLOUT_NUM_GPUS_PER_ENGINE:-${HALF_GPUS}}"
 TP_SIZE="${TP_SIZE:-${ACTOR_GPUS}}"
 
-if (( ACTOR_GPUS + ROLLOUT_GPUS > NUM_GPUS )); then
+# Per-node budget check.  With ACTOR_NUM_NODES>1 the actor spans several nodes
+# (TP across nodes) and ROLLOUT_GPUS counts the cluster-wide engine GPUs, so
+# the single-node sum check does not apply; colocate further overlaps the two.
+if [[ "${ACTOR_NUM_NODES:-1}" -le 1 ]] && (( ACTOR_GPUS + ROLLOUT_GPUS > NUM_GPUS )); then
   echo "ACTOR_GPUS(${ACTOR_GPUS}) + ROLLOUT_GPUS(${ROLLOUT_GPUS}) > NUM_GPUS(${NUM_GPUS})"
   exit 1
 fi

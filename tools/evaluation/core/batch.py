@@ -17,8 +17,9 @@ Batch config schema::
       output: /path/to/compare   # writes compare.md / compare.csv
 
 Each model gets its own ``output_dir`` (``<defaults.output_dir>/<name>``) so
-per-run ``eval_result.json`` files never collide. Failures are recorded and
-the batch continues with the next model.
+per-run ``eval_result.json`` files never collide. If ``defaults.output_dir`` is
+omitted, the batch defaults to ``runs/evaluation/<job_name>/``. Failures are
+recorded and the batch continues with the next model.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from pathlib import Path
 
 from agentic_rl.harnesses.eval.base import EvalResult
 
-from .config import build_specs, deep_merge
+from .config import build_specs, default_run_dir, deep_merge
 from .runner import run_eval
 from .serving import DEFAULT_COMMAND_TEMPLATE
 
@@ -62,8 +63,13 @@ def run_batch(
         model_serving["model_path"] = str(model.get("model_path", model_serving.get("model_path", "")))
         model_serving["model_name"] = str(model.get("model_name", name))
         model_cfg["serving"] = model_serving
-        model_cfg["job_name"] = f"{model_cfg.get('job_name', 'eval')}-{name}"
-        base_output = str(defaults.get("output_dir") or model_cfg.get("output_dir") or ".")
+        batch_job_name = str(model_cfg.get("job_name") or defaults.get("job_name") or "eval")
+        model_cfg["job_name"] = f"{batch_job_name}-{name}"
+        base_output = str(
+            defaults.get("output_dir")
+            or model_cfg.get("output_dir")
+            or default_run_dir("evaluation", batch_job_name)
+        )
         model_cfg["output_dir"] = str(Path(base_output) / name)
 
         log(f"=== model {name} ===")
@@ -100,7 +106,10 @@ def run_batch(
 def results_from_output_dirs(config: dict) -> list[dict]:
     """Load per-model ``eval_result.json`` files produced by a batch run."""
     defaults = dict(config.get("defaults") or {})
-    base_output = Path(str(defaults.get("output_dir") or "."))
+    batch_job_name = str(defaults.get("job_name") or "eval")
+    base_output = Path(
+        str(defaults.get("output_dir") or default_run_dir("evaluation", batch_job_name))
+    )
     loaded = []
     for model in config.get("models") or []:
         path = base_output / str(model["name"]) / "eval_result.json"

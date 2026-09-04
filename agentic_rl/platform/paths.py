@@ -1,4 +1,15 @@
-"""Centralized path management for a single training run.
+"""Centralized path management for a single run.
+
+Runs are grouped by lifecycle under ``runs/``:
+
+* ``training/<run-id>`` for model training;
+* ``evaluation/<run-id>`` for benchmark/evaluation jobs;
+* ``testing/<run-id>`` for smoke/validation jobs;
+* ``testing/debug/<run-id>`` for debug jobs.
+
+Set ``RUN_CATEGORY`` to override the default (``training``). An explicit
+``RUN_DIR`` always wins, which keeps resume commands and external integrations
+backwards compatible.
 
 Usage in shell script:
     RUN_ID=$(python3 -m agentic_rl.platform.paths init --runs-root ./runs --ckpt-root /mnt/.../ckpt)
@@ -23,11 +34,63 @@ from typing import Any
 DEFAULT_PERSIST_ROOT = os.getenv("LIGHTRL_PERSIST_ROOT", "runs/.persistent")
 DEFAULT_CKPT_ROOT = f"{DEFAULT_PERSIST_ROOT}/checkpoints"
 
+RUN_CATEGORIES = ("training", "evaluation", "testing", "testing/debug")
+_CATEGORY_ALIASES = {
+    "train": "training",
+    "training": "training",
+    "eval": "evaluation",
+    "evaluate": "evaluation",
+    "evaluation": "evaluation",
+    "test": "testing",
+    "testing": "testing",
+    "debug": "testing/debug",
+    "testing/debug": "testing/debug",
+}
+
+
+def normalize_run_category(category: str | None = None, *, debug: bool = False) -> str:
+    """Return a safe canonical run category.
+
+    ``debug=True`` intentionally routes to ``testing/debug`` so the repository
+    no longer needs a top-level ``runs/debug`` directory.
+    """
+    raw = str(category or os.getenv("RUN_CATEGORY", "training")).strip().strip("/").lower()
+    canonical = _CATEGORY_ALIASES.get(raw)
+    if canonical is None:
+        choices = ", ".join(RUN_CATEGORIES)
+        raise ValueError(f"unknown run category {category!r}; expected one of: {choices}")
+    return "testing/debug" if debug else canonical
+
+
+def resolve_run_dir(
+    run_id: str,
+    runs_root: str | Path = "runs",
+    *,
+    category: str | None = None,
+    debug: bool = False,
+) -> Path:
+    """Resolve the canonical directory for ``run_id``."""
+    return Path(runs_root) / normalize_run_category(category, debug=debug) / run_id
+
 
 class RunPaths:
-    def __init__(self, run_id: str, runs_root: Path, ckpt_root: Path):
+    def __init__(
+        self,
+        run_id: str,
+        runs_root: Path,
+        ckpt_root: Path,
+        *,
+        category: str | None = None,
+        run_dir: Path | None = None,
+    ):
         self.run_id = run_id
-        self.run_dir = runs_root / run_id
+        # ``run_dir`` is used by ``from_env`` and is deliberately authoritative
+        # for resumed/externally managed runs. New runs use the categorized
+        # layout by default.
+        self.category = normalize_run_category(category) if run_dir is None else (category or "")
+        self.run_dir = Path(run_dir) if run_dir is not None else resolve_run_dir(
+            run_id, runs_root, category=self.category
+        )
         self.config_dir = self.run_dir / "config"
         self.logs_dir = self.run_dir / "logs"
         self.trajectories_dir = self.run_dir / "trajectories"
@@ -47,8 +110,11 @@ class RunPaths:
         run_dir = Path(run_dir)
         run_id = run_dir.name
         runs_root = run_dir.parent
-        ckpt_root = Path(os.getenv("CKPT_ROOT", DEFAULT_CKPT_ROOT))
-        return cls(run_id, runs_root, ckpt_root)
+        default_ckpt_root = (
+            Path(os.getenv("RUNS_ROOT", "runs")) / ".persistent" / "checkpoints"
+        )
+        ckpt_root = Path(os.getenv("CKPT_ROOT", str(default_ckpt_root)))
+        return cls(run_id, runs_root, ckpt_root, run_dir=run_dir)
 
     def create_all(self) -> None:
         for d in [
@@ -68,6 +134,7 @@ class RunPaths:
     def write_meta(self, extra: dict[str, Any] | None = None) -> Path:
         meta = {
             "run_id": self.run_id,
+            "category": self.category or None,
             "start_time": datetime.now(timezone.utc).isoformat(),
             "hostname": os.uname().nodename,
             "git_commit": _git_commit(),
@@ -104,6 +171,7 @@ class RunPaths:
         return {
             "RUN_ID": self.run_id,
             "RUN_DIR": str(self.run_dir),
+            "RUN_CATEGORY": self.category,
             "RUN_LOG_DIR": str(self.logs_dir),
             "TERMINAL_SAVE_TRAJ_DIR": str(self.trajectories_dir),
             "WANDB_DIR": str(self.wandb_dir),
@@ -146,18 +214,48 @@ if __name__ == "__main__":
     sub = parser.add_subparsers(dest="cmd")
 
     init_p = sub.add_parser("init")
-    init_p.add_argument("--runs-root", default="./runs")
-
-    init_p.add_argument("--ckpt-root", default=DEFAULT_CKPT_ROOT)
+    init_p.add_argument("--runs-root", default=os.getenv("RUNS_ROOT", "./runs"))
+    init_p.add_argument(
+        "--ckpt-root",
+        default="",
+        help="checkpoint root (default: <runs-root>/.persistent/checkpoints)",
+    )
 
     init_p.add_argument("--model", default="qwen3-8b")
     init_p.add_argument("--method", default="grpo")
     init_p.add_argument("--run-id", default="")
+    init_p.add_argument(
+        "--run-dir",
+        default="",
+        help="explicit run directory; overrides the categorized default",
+    )
+    init_p.add_argument(
+        "--category",
+        "--run-category",
+        dest="category",
+        default=None,
+        choices=tuple(_CATEGORY_ALIASES),
+        help="lifecycle directory under runs/ (default: RUN_CATEGORY or training)",
+    )
+    init_p.add_argument(
+        "--debug",
+        action="store_true",
+        help="route the run to testing/debug/<run-id>",
+    )
 
     args = parser.parse_args()
     if args.cmd == "init":
         run_id = args.run_id or generate_run_id(args.model, args.method)
-        rp = RunPaths(run_id, Path(args.runs_root), Path(args.ckpt_root))
+        category = args.category or os.getenv("RUN_CATEGORY", "training")
+        runs_root = Path(args.runs_root)
+        ckpt_root = Path(args.ckpt_root or (runs_root / ".persistent" / "checkpoints"))
+        rp = RunPaths(
+            run_id,
+            runs_root,
+            ckpt_root,
+            category=normalize_run_category(category, debug=args.debug),
+            run_dir=Path(args.run_dir) if args.run_dir else None,
+        )
         rp.create_all()
         rp.write_meta()
         rp.print_summary()

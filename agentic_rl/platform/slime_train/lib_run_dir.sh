@@ -82,15 +82,32 @@ else
 fi
 
 # ── Unified run directory (see STORAGE.md) ───────────────────────────────
-# All outputs for this run go under runs/{RUN_ID}/ with structured subdirs.
+# New runs are grouped by lifecycle: training, evaluation, or testing. Debug
+# mode is a testing variant and therefore lives under testing/debug. An
+# explicitly supplied RUN_DIR remains authoritative for resume/compatibility.
 RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 LIGHTRL_PERSIST_ROOT="${LIGHTRL_PERSIST_ROOT:-${RUNS_ROOT}/.persistent}"
 CKPT_ROOT="${CKPT_ROOT:-${LIGHTRL_PERSIST_ROOT}/checkpoints}"
 RUN_ID="${RUN_ID:-${RUN_NAME}}"
-RUN_DIR="${RUNS_ROOT}/${RUN_ID}"
+RUN_CATEGORY="${RUN_CATEGORY:-training}"
+if [[ "${DEBUG_MODE}" == "1" ]]; then
+  RUN_CATEGORY="testing/debug"
+fi
+case "${RUN_CATEGORY}" in
+  training|evaluation|testing|testing/debug) ;;
+  train) RUN_CATEGORY="training" ;;
+  eval|evaluate) RUN_CATEGORY="evaluation" ;;
+  test) RUN_CATEGORY="testing" ;;
+  debug) RUN_CATEGORY="testing/debug" ;;
+  *)
+    echo "[ERROR] Unknown RUN_CATEGORY=${RUN_CATEGORY}. Use: training|evaluation|testing|testing/debug" >&2
+    exit 1
+    ;;
+esac
+RUN_DIR="${RUN_DIR:-${RUNS_ROOT}/${RUN_CATEGORY}/${RUN_ID}}"
 TBENCH_OUTPUT_ROOT="${TBENCH_OUTPUT_ROOT:-${RUN_DIR}/environment_outputs}"
 WANDB_DIR="${WANDB_DIR:-${LIGHTRL_PERSIST_ROOT}/wandb/${RUN_ID}}"
-export RUNS_ROOT RUN_ID RUN_DIR TBENCH_OUTPUT_ROOT CKPT_ROOT WANDB_DIR
+export RUNS_ROOT RUN_ID RUN_DIR RUN_CATEGORY TBENCH_OUTPUT_ROOT CKPT_ROOT WANDB_DIR
 
 # Create directory structure via run_paths.py
 # A dry-run must be executable on a login/debug node where the production
@@ -125,7 +142,9 @@ else
   MAX_CKPT_KEEP="${MAX_CKPT_KEEP}" python3 -m agentic_rl.platform.paths init \
     --runs-root "${RUNS_ROOT}" \
     --ckpt-root "${RUN_PATHS_CKPT_ROOT}" \
-    --run-id "${RUN_ID}" > /dev/null
+    --run-id "${RUN_ID}" \
+    --category "${RUN_CATEGORY}" \
+    --run-dir "${RUN_DIR}" > /dev/null
 fi
 
 # Derive all paths from RUN_DIR

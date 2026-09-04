@@ -14,9 +14,9 @@ tools/
 这里的脚本通常处理已有运行结果或协助开发，不是正式训练配方。典型用法：
 
 ```bash
-python3 tools/analysis/analyze_trajectories.py --run-dir runs/<RUN_ID>
-python3 tools/analysis/plot_training_metrics.py --run-dir runs/<RUN_ID>
-bash tools/analysis/run_case_study.sh runs/<RUN_ID>
+python3 tools/analysis/analyze_trajectories.py --run-dir runs/training/<RUN_ID>
+python3 tools/analysis/plot_training_metrics.py --run-dir runs/training/<RUN_ID>
+bash tools/analysis/run_case_study.sh runs/training/<RUN_ID>
 ```
 
 评测入口及参数见 [`docs/evaluation/README.md`](../docs/evaluation/README.md)；

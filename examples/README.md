@@ -58,7 +58,8 @@ WORKER_URLS=http://<CPU_WORKER_IP>:18081 \
 
 脚本启动前会检查 worker 健康状态和 4 张可见 GPU，并以前台方式运行。
 必须显式设置 `WORKER_URLS`；可用 `RUN_ID` 覆盖运行名；`BACKGROUND=1` 时日志写入
-`runs/<RUN_ID>/launcher.log`。
+`runs/training/<RUN_ID>/launcher.log`（评测脚本对应 `runs/evaluation/`，测试对应
+`runs/testing/`）。
 
 ## 验证入口
 

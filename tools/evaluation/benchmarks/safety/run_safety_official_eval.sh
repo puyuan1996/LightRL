@@ -11,6 +11,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../../.." && pwd)}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 
 ASB_ROOT="${ASB_ROOT:-${AGENT_SAFETYBENCH_ROOT:-}}"
 if [[ -z "${ASB_ROOT}" ]]; then
@@ -28,7 +29,7 @@ ASB_ROOT="${ASB_ROOT:-${REPO_ROOT}/../Agent-SafetyBench}"
 RUN_ASB_SHIELD="${RUN_ASB_SHIELD:-1}"
 ALLOW_PARTIAL_ASB_SHIELD="${ALLOW_PARTIAL_ASB_SHIELD:-0}"
 ASB_SHIELD_DRY_RUN="${ASB_SHIELD_DRY_RUN:-0}"
-SUMMARY_OUT="${SUMMARY_OUT:-${REPO_ROOT}/runs/official_safety_eval/summary_$(date +%Y%m%d_%H%M%S).md}"
+SUMMARY_OUT="${SUMMARY_OUT:-${RUNS_ROOT}/evaluation/official_safety_eval/summary_$(date +%Y%m%d_%H%M%S).md}"
 
 BATCH_SIZE="${BATCH_SIZE:-4}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
@@ -55,7 +56,7 @@ Options:
 Example:
   BATCH_SIZE=4 CUDA_VISIBLE_DEVICES=0 \
   bash tools/evaluation/benchmarks/safety/run_safety_official_eval.sh \
-    init=runs/eval/eval_qwen3-8b_init_mock_2026-06-09_022431
+    init=runs/evaluation/eval_qwen3-8b_init_mock_2026-06-09_022431
 EOF
 }
 
@@ -249,8 +250,8 @@ PY
 run_asb_shield_eval() {
   local run_dir="$1"
   local target_name="$2"
-  local out_dir="${OUT_DIR:-${REPO_ROOT}/runs/official_asb_shield_inputs/${target_name}}"
-  local log_dir="${ASB_SHIELD_LOG_DIR:-${REPO_ROOT}/runs/official_asb_shield_logs/${target_name}}"
+  local out_dir="${OUT_DIR:-${RUNS_ROOT}/evaluation/official_asb_shield_inputs/${target_name}}"
+  local log_dir="${ASB_SHIELD_LOG_DIR:-${RUNS_ROOT}/evaluation/official_asb_shield_logs/${target_name}}"
   local log_file="${ASB_SHIELD_LOG_FILE:-${log_dir}/run_$(date +%Y%m%d_%H%M%S).log}"
   mkdir -p "${log_dir}"
 

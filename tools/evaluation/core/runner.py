@@ -43,6 +43,14 @@ def run_eval(
 ) -> EvalResult | None:
     """Run one evaluation; returns the collected result (None on dry-run)."""
     log = log or (lambda msg: print(msg, flush=True))
+    if not str(spec.output_dir).strip():
+        # Keep direct ``run_eval(EvalRunSpec(...))`` callers on the same
+        # categorized layout as the CLI/config path.
+        from .config import default_run_dir
+
+        spec = dataclasses.replace(
+            spec, output_dir=str(default_run_dir("evaluation", spec.job_name))
+        )
     harness = create_eval_harness(spec.harness)
     output_dir = Path(spec.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

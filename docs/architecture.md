@@ -42,7 +42,7 @@ tools/                   分析、评测、验证和开发诊断工具
   evaluation/            通用评测编排与 benchmark 入口
   dev/                   不含站点拓扑的开发检查
 docs/                    架构、运行和实验文档
-runs/                    运行日志、轨迹和分析结果
+runs/                    运行日志、轨迹和分析结果（training/evaluation/testing）
 ```
 
 训练入口保持三层结构：
@@ -86,13 +86,13 @@ tools/evaluation/ 只读取轨迹或结果产物，不被 rollout 反向调用�
 worker 代码：
 
 - `deploy/workers/`：实际被 worker 容器或主机调用的运行时入口，包括
-  `start_rjob_dind_worker.sh`、pool server 和 watchdog。
+  pool server 和 watchdog。
 - `deploy/runtime/`：代理配置、镜像预热、依赖安装和 systemd 资源；只负责
   准备运行时，不决定 RJob 调度。
 - `deploy/ops/`：诊断、修复、清理和新 worker 准备等人工运维动作。
-- `local/rjob/`：站点专用的 RJob/DinD 提交器和生命周期脚本；
-  `local/cluster/` 保存 worker 地址与 watcher，`local/ops/` 保存本地容器操作，
-  `local/state/` 保存自动生成的日志/锁/PID。整个 `local/` 默认被 Git 忽略，
+- `local/rjob/`：站点专用的 RJob/DinD 提交器、私有 DinD 容器入口
+  `start_rjob_dind_worker.sh` 和生命周期脚本；`local/state/` 保存自动生成
+  的日志/锁/PID。整个 `local/` 默认被 Git 忽略，
   公共 recipe 不应依赖其中的固定节点、路径或凭据。
 - `deploy/archive/`：历史入口的只读兼容存档，新部署不应从这里启动。
 
@@ -320,7 +320,7 @@ DAPO optimizer
 一次 run 通常包含：
 
 ```text
-runs/<RUN_ID>/
+runs/<category>/<RUN_ID>/
 ├── config/                  最终配置快照
 ├── logs/train.log           训练主日志
 ├── logs/metrics.jsonl       结构化 rollout/训练指标
@@ -337,8 +337,8 @@ checkpoint 通常写入独立的 checkpoint 根目录，由 `--save` 和 `--save
 
 建议按以下顺序定位问题：
 
-1. 查看 `runs/<RUN_ID>/logs/train.log`，确认参数、Ray 和训练状态。
-2. 查看 `runs/<RUN_ID>/config/run_config.json`，确认最终生效配置。
+1. 查看 `runs/<category>/<RUN_ID>/logs/train.log`，确认参数、Ray 和训练状态。
+2. 查看 `runs/<category>/<RUN_ID>/config/run_config.json`，确认最终生效配置。
 3. 查看 worker 的 `healthz/status`，确认 Docker worker 是否可用。
 4. 查看 `remote_logs/` 或 worker pool 日志，定位 reset、exec、close 和 Docker 错误。
 5. 查看 `logs/metrics.jsonl` 和 `trajectories/`，区分模型失败、任务失败和基础设施失败。

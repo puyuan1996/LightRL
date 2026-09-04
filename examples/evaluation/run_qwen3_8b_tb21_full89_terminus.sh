@@ -28,6 +28,7 @@ Important overrides:
   GPU_IDS             managed SGLang GPU IDs (default 0,1,2,3)
   SGLANG_PORT         managed SGLang port (default 30000)
   TB21_CONCURRENCY    Harbor concurrency (default 2; increase after storage validation)
+  TB21_TASK_NAMES     comma-separated subset of task names (default: all 89)
   TB21_OUTPUT_DIR     output directory (default runs/evaluation/<job>)
 
 The default managed mode starts SGLang on all four GPUs and then runs all 89
@@ -130,7 +131,8 @@ TB21_MAX_OUTPUT_TOKENS="${TB21_MAX_OUTPUT_TOKENS:-8192}"
 POLL_INTERVAL="${POLL_INTERVAL:-30}"
 RUN_TIMESTAMP="${RUN_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
 JOB_NAME="${JOB_NAME:-qwen3-8b-tb21-full89-terminus-${RUN_TIMESTAMP}}"
-OUTPUT_DIR="${TB21_OUTPUT_DIR:-${REPO_ROOT}/runs/evaluation/${JOB_NAME}}"
+RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
+OUTPUT_DIR="${TB21_OUTPUT_DIR:-${RUNS_ROOT}/evaluation/${JOB_NAME}}"
 CONFIG_PATH="${OUTPUT_DIR}/${JOB_NAME}.yaml"
 mkdir -p "${OUTPUT_DIR}"
 
@@ -141,6 +143,7 @@ export PATH="$(dirname -- "${EVAL_PYTHON}"):${PATH}"
 export CONFIG_PATH OUTPUT_DIR JOB_NAME TB21_TASKS_DIR HF_MODEL_PATH HARBOR_BIN
 export GPU_IDS MODEL_NAME SGLANG_MODE SGLANG_PORT TP_SIZE SGLANG_MEM_FRACTION MODEL_API_BASE
 export TB21_CONCURRENCY TB21_MAX_RETRIES TB21_TIMEOUT_MULTIPLIER TB21_MAX_INPUT_TOKENS TB21_MAX_OUTPUT_TOKENS
+export TB21_TASK_NAMES="${TB21_TASK_NAMES:-}"
 
 "${EVAL_PYTHON}" - "${CONFIG_PATH}" <<'PY'
 import json
@@ -166,7 +169,12 @@ config = {
     "harness": "terminus-2",
     "job_name": os.environ["JOB_NAME"],
     "output_dir": os.environ["OUTPUT_DIR"],
-    "dataset": {"path": os.environ["TB21_TASKS_DIR"], "task_names": None},
+    "dataset": {
+        "path": os.environ["TB21_TASKS_DIR"],
+        "task_names": [
+            t.strip() for t in os.environ.get("TB21_TASK_NAMES", "").split(",") if t.strip()
+        ] or None,
+    },
     "run": {
         "n_attempts": 1,
         "concurrency": int(os.environ["TB21_CONCURRENCY"]),
@@ -185,6 +193,10 @@ config = {
         "mem_fraction": float(os.environ["SGLANG_MEM_FRACTION"]),
         "api_base": os.environ["MODEL_API_BASE"],
         "health_timeout_s": 900,
+        # The sglang warmup flow double-binds the server port in this image
+        # (main uvicorn wins, warmup loses EADDRINUSE and the whole launch is
+        # discarded); the slime training path already sets skip_server_warmup.
+        "extra_args": os.environ.get("SGLANG_EXTRA_ARGS", "--skip-server-warmup").split(),
     },
     "environment": task_env,
     "extra": {

@@ -91,8 +91,8 @@ BACKGROUND=0 \
 
 ```bash
 export RUN_ID=lightrl-seta-fixed12-dind-$(date +%Y%m%d-%H%M%S)
-RJOB_GPU=4 RJOB_CPU=50 RJOB_MEMORY=800000 \
-local/rjob/submit_private_dind.sh
+RJOB_NAME="${RUN_ID}" RJOB_GPU=4 RJOB_CPU=50 RJOB_MEMORY=800000 \
+bash local/rjob/start_fixed12_dind.sh
 ```
 
 该命令会启动本 Pod 独立的 dockerd 和 SETA pool (`127.0.0.1:18081`)，然后
@@ -121,9 +121,9 @@ BACKGROUND=0 \
 模型默认从 `/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B` 和
 `/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B_torch_dist` 读取；可通过
 `HF_CKPT`、`REF_LOAD`、`WORKER_URLS`、`RUN_ID` 覆盖。默认后台运行，日志在
-`runs/<RUN_ID>/launcher.log`，评测汇总在
-`runs/<RUN_ID>/evaluations/seta/step_0000/summary.json`，逐题轨迹在
-`runs/<RUN_ID>/trajectories/`。脚本不会自动启动或重启共享 node53
+`runs/evaluation/<RUN_ID>/launcher.log`，评测汇总在
+`runs/evaluation/<RUN_ID>/evaluations/seta/step_0000/summary.json`，逐题轨迹在
+`runs/evaluation/<RUN_ID>/trajectories/`。脚本不会自动启动或重启共享 node53
 worker；worker 生命周期请按
 [`rjob/seta-worker.md`](../../docs/records/operations/rjob/seta-worker.md)
 管理。若 worker 已由其他方式启动，可用 `SKIP_WORKER_HEALTHCHECK=1` 跳过本地

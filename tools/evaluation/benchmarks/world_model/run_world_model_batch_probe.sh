@@ -4,11 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 cd "${REPO_ROOT}"
+RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/runs}"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
-WM_OUT_DIR="${WM_OUT_DIR:-${REPO_ROOT}/runs/world_model_probe_batch/$(date +%Y%m%d_%H%M%S)}"
-WM_INPUT_GLOB="${WM_INPUT_GLOB:-${REPO_ROOT}/runs/world_model_smoke/*/metadata/rollout_*.pt}"
+WM_OUT_DIR="${WM_OUT_DIR:-${RUNS_ROOT}/evaluation/world_model_probe_batch/$(date +%Y%m%d_%H%M%S)}"
+WM_INPUT_GLOB="${WM_INPUT_GLOB:-${RUNS_ROOT}/testing/world_model_smoke/*/metadata/rollout_*.pt}"
 WM_INPUTS="${WM_INPUTS:-}"
 WM_RECORDS="${WM_RECORDS:-}"
 WM_CONTEXT_MAX_CHARS="${WM_CONTEXT_MAX_CHARS:-4096}"
