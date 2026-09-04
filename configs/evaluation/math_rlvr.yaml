@@ -1,0 +1,19 @@
+# Reference configuration for the shell entrypoints. Values may be exported as
+# environment variables; paths are intentionally site-specific.
+data_root: ${MATH_DATA_ROOT:-benchmarks/math}
+datasets:
+  - aime-2025
+  - aime-2024
+  - amc23
+  - math-500
+training:
+  dataset: ${TRAIN_DATASET:-aime-2025}
+  reward_type: ${REWARD_TYPE:-math}
+  response_cap: ${RESPONSE_CAP:-32768}
+  rollout_batch_size: ${ROLLOUT_BATCH_SIZE:-30}
+  in_training_eval: ${EVAL_DATASETS:-aime-2025,aime-2024}
+evaluation:
+  n: ${N:-16}
+  temperature: ${TEMPERATURE:-1.0}
+  top_p: ${TOP_P:-1.0}
+  max_tokens: ${MAX_TOKENS:-32768}

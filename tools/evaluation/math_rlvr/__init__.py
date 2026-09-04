@@ -1,0 +1,28 @@
+"""Composable math RLVR data, verification, scoring and statistics helpers.
+
+The package deliberately has no model-serving dependency.  ``eval_math.py``
+uses it for local scoring, while the training custom RM imports the exact same
+``Verifier`` implementation.
+"""
+
+from .data import MathExample, deduplicate_rows, load_dataset, write_manifest
+from .extractor import AnswerCandidate, ExtractionResult, extract_answers
+from .scorer import ScoreConfig, score_group, score_sample, summarize
+from .verifier import VerificationResult, Verifier, verifier_digest
+
+__all__ = [
+    "AnswerCandidate",
+    "ExtractionResult",
+    "MathExample",
+    "ScoreConfig",
+    "VerificationResult",
+    "Verifier",
+    "deduplicate_rows",
+    "extract_answers",
+    "load_dataset",
+    "score_group",
+    "score_sample",
+    "summarize",
+    "verifier_digest",
+    "write_manifest",
+]
