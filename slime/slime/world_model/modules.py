@@ -83,14 +83,21 @@ class StableProjector(nn.Module):
 
 
 class ActionConditionedPredictor(nn.Module):
-    """Legacy concat-MLP predictor kept for checkpoint compatibility/ablation."""
+    """Lightweight action-conditioned MLP without token or feature concat.
+
+    The action is converted to FiLM/AdaLN parameters and only modulates the
+    state stream.  Keeping this small predictor as an ablation avoids making
+    the ``mlp`` option a loophole around the same action-conditioning contract
+    used by the transformer predictor.
+    """
 
     def __init__(self, latent_dim: int, hidden_dim: int | None = None) -> None:
         super().__init__()
         hidden_dim = hidden_dim or latent_dim * 4
+        self.state_norm = nn.LayerNorm(latent_dim, elementwise_affine=False)
+        self.action_to_adaln = nn.Sequential(nn.SiLU(), nn.Linear(latent_dim, latent_dim * 2))
         self.net = nn.Sequential(
-            nn.LayerNorm(latent_dim * 2),
-            nn.Linear(latent_dim * 2, hidden_dim),
+            nn.Linear(latent_dim, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
@@ -99,7 +106,8 @@ class ActionConditionedPredictor(nn.Module):
         )
 
     def forward(self, state_latent: torch.Tensor, action_latent: torch.Tensor) -> torch.Tensor:
-        pred = self.net(torch.cat([state_latent, action_latent], dim=-1))
+        shift, scale = self.action_to_adaln(action_latent).chunk(2, dim=-1)
+        pred = self.net(_modulate(self.state_norm(state_latent), shift, scale))
         return F.normalize(pred, dim=-1)
 
 

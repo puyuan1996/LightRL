@@ -1,6 +1,6 @@
 # OpenClaw Terminal Latent World Model v2
 
-当前实现把 SETA turn 轨迹映射为 policy-hidden-conditioned latent transition，并用 action-conditioned AdaLN Transformer 预测环境反馈 latent。完整设计与命令见 [`agentic_rl/docs/latent_world_model_guide_zh.md`](../../../agentic_rl/docs/latent_world_model_guide_zh.md)。
+当前实现把 SETA/tb2.1 turn 轨迹映射为 policy-hidden-conditioned latent transition，并用 action-conditioned AdaLN Transformer 预测环境反馈 latent。完整设计与命令见 [`docs/algorithms/lwm_offline_verify_design_zh.md`](../../../docs/algorithms/lwm_offline_verify_design_zh.md)。
 
 ## 主路径
 
@@ -13,17 +13,20 @@ traj.json / records.jsonl / replay.pt
   -> predicted feedback latent
 ```
 
-`modules.py` 中 action 不进入 self-attention token 序列，只产生每层 AdaLN shift/scale/residual gate。旧 concat-MLP 仅作为 `predictor_type=mlp` ablation。
+`modules.py` 中 action 不进入 self-attention token 序列，也不与 state 做特征拼接；默认
+AdaLN Transformer（以及 `predictor_type=mlp` 的轻量 FiLM/AdaLN 对照）只把 action
+映射为 shift/scale/residual gate。
 
 ## 模块
 
 | 文件 | 作用 |
 | --- | --- |
-| `seta_dataset.py` | 读取 SETA `traj.json`、records JSONL、replay `.pt` |
+| `seta_dataset.py` | 统一读取 tb2.1 ATIF `trajectory.json`、SETA `traj.json`、records JSONL、replay `.pt` |
 | `hidden_encoder.py` | 同一 causal forward 提取 prompt-end state 与 action-span hidden |
 | `modules.py` | shared latent、AdaLN predictor、SIGReg、contrast/value loss |
 | `replay_buffer.py` | 可选 DAPO world-model trajectory replay |
 | `train_latent.py` | 端到端训练、预测、checkpoint |
+| `mpc.py` / `plan_mpc.py` | 同一 state 上的候选 action latent one-step MPC |
 | `metadata.py` | rollout 侧轻量 transition metadata |
 
 旧的 `build_dataset.py -> cache_text_hidden.py -> train_probe.py -> evaluate_probe.py` 路径继续保留，用于 v1 artifact 和 Stage-A ablation。

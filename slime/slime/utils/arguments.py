@@ -1022,6 +1022,56 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                     "we will use this function to calculate the loss. "
                 ),
             )
+            # Optional LEWM/JЕPA auxiliary path.  All defaults are inert so
+            # vanilla GRPO/DAPO keeps the exact existing objective.
+            parser.add_argument(
+                "--world-model-enable",
+                action="store_true",
+                default=False,
+                help="Collect world-model metadata and allow its explicit auxiliary hook.",
+            )
+            parser.add_argument(
+                "--world-model-loss-coef",
+                type=float,
+                default=0.0,
+                help="Additive LEWM loss coefficient; zero leaves policy loss unchanged.",
+            )
+            parser.add_argument(
+                "--world-model-mode",
+                choices=["offline", "shadow", "online"],
+                default="shadow",
+                help="Metadata/loss mode; online still requires precomputed latent tensors in the batch.",
+            )
+            parser.add_argument(
+                "--world-model-backprop-to-llm",
+                action="store_true",
+                default=False,
+                help="Record explicit policy-backbone gradient opt-in for auxiliary adapters.",
+            )
+            parser.add_argument(
+                "--world-model-use-dapo-replay-buffer",
+                action="store_true",
+                default=False,
+                help="Collect isolated world-model transition replay during rollout.",
+            )
+            parser.add_argument(
+                "--world-model-replay-buffer-size",
+                type=int,
+                default=2048,
+                help="Maximum isolated world-model replay transitions.",
+            )
+            parser.add_argument(
+                "--world-model-loss-hook-path",
+                type=str,
+                default=None,
+                help="Optional module:function hook receiving (args, batch, logits).",
+            )
+            parser.add_argument(
+                "--world-model-metadata-max-chars",
+                type=int,
+                default=4096,
+                help="Maximum chars retained per offline transition metadata field.",
+            )
             parser.add_argument(
                 "--kl-loss-type",
                 type=str,

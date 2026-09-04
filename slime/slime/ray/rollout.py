@@ -31,6 +31,7 @@ from slime.utils.misc import Box, group_by, load_function
 from slime.utils.rollout_skip import make_skip_train_result
 from slime.utils.seqlen_balancing import get_seqlen_balanced_partitions
 from slime.utils.types import Sample
+from slime.world_model.replay_buffer import TrajectoryReplayBuffer, world_model_records_from_samples
 
 from ..utils.metric_utils import has_repetition
 from .utils import NOSET_VISIBLE_DEVICES_ENV_VARS_LIST, Lock
@@ -153,6 +154,12 @@ class RolloutManager:
         self.nodes_per_engine = max(1, args.rollout_num_gpus_per_engine // args.num_gpus_per_node)
         self.rollout_engine_lock = Lock.options(num_cpus=0, num_gpus=0).remote()
         self.rollout_id = -1
+        self.world_model_replay: TrajectoryReplayBuffer | None = None
+        if bool(getattr(self.args, "world_model_use_dapo_replay_buffer", False)):
+            self.world_model_replay = TrajectoryReplayBuffer(
+                int(getattr(self.args, "world_model_replay_buffer_size", 2048)),
+                seed=int(getattr(self.args, "seed", 42)),
+            )
 
         self._metric_checker = MetricChecker.maybe_create(args)
         self._health_monitor = None
@@ -214,6 +221,7 @@ class RolloutManager:
         if self.args.ci_test and self.args.use_fault_tolerance and rollout_id >= 2:
             self._try_ci_fault_injection()
         data, metrics = self._get_rollout_data(rollout_id=rollout_id)
+        self._collect_world_model_replay(data, rollout_id)
         self._save_debug_rollout_data(data, rollout_id=rollout_id, evaluation=False)
         _log_rollout_data(rollout_id, self.args, data, metrics, time.time() - start_time)
         data = self._convert_samples_to_train_data(data)
@@ -266,9 +274,27 @@ class RolloutManager:
 
     def save(self, rollout_id):
         self.data_source.save(rollout_id)
+        if self.world_model_replay is not None and self.args.save:
+            self.world_model_replay.save(Path(self.args.save) / "rollout" / "world_model_replay.pt")
 
     def load(self, rollout_id=None):
         self.data_source.load(rollout_id)
+        if self.world_model_replay is not None and self.args.load:
+            path = Path(self.args.load) / "rollout" / "world_model_replay.pt"
+            if path.is_file():
+                self.world_model_replay = TrajectoryReplayBuffer.load(path)
+
+    def _collect_world_model_replay(self, samples, rollout_id: int) -> None:
+        if self.world_model_replay is None:
+            return
+        records = world_model_records_from_samples(samples)
+        if not records:
+            return
+        self.world_model_replay.push(records, current_step=int(rollout_id))
+        if self.args.save:
+            path = Path(self.args.save) / "rollout" / f"world_model_replay_{rollout_id}.pt"
+            self.world_model_replay.save(path)
+            logger.info("world-model replay: added=%d size=%d path=%s", len(records), len(self.world_model_replay), path)
 
     def offload(self):
         self.health_monitoring_pause()
@@ -794,6 +820,11 @@ class RolloutManager:
 
         if samples[0].train_metadata is not None:
             train_data["metadata"] = [sample.train_metadata for sample in samples]
+        if getattr(self.args, "world_model_enable", False):
+            train_data["wm_metadata"] = [
+                (sample.metadata or {}).get("world_model") if isinstance(sample.metadata, dict) else None
+                for sample in samples
+            ]
 
         has_any_mm = any(s.multimodal_train_inputs is not None for s in samples)
         if has_any_mm:
@@ -876,6 +907,7 @@ class RolloutManager:
                 "step_wise_step_token_spans",
                 "step_wise_step_indices",
                 "group_indices",
+                "wm_metadata",
             ]:
                 if key not in data:
                     continue

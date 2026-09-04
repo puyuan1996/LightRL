@@ -24,6 +24,7 @@ from slime.utils.ppo_utils import (
     get_reinforce_plus_plus_returns,
 )
 from slime.utils.types import RolloutBatch
+from slime.world_model.loss_hook import apply_world_model_loss
 
 from .cp_utils import (
     all_gather_with_cp,
@@ -801,6 +802,19 @@ def policy_loss_function(
 
     if args.use_opsm:
         reported_loss["opsm_clipfrac"] = opsm_clipfrac
+
+    # LEWM is deliberately an additive, explicit hook.  With the default
+    # disabled/zero-coefficient configuration this is a no-op, so the native
+    # GRPO/DAPO logits -> policy-loss path remains independent.
+    loss, world_model_metrics = apply_world_model_loss(
+        args=args,
+        batch=batch,
+        logits=logits,
+        loss=loss,
+        reported_loss={},
+    )
+    reported_loss.update(world_model_metrics)
+    reported_loss["loss"] = loss.clone().detach()
 
     return loss, reported_loss
 

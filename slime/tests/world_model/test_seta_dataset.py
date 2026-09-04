@@ -1,6 +1,11 @@
 import json
 
-from slime.world_model.seta_dataset import load_terminal_transitions, transitions_from_seta_trajectory
+from slime.world_model.seta_dataset import (
+    build_data_manifest,
+    load_terminal_transitions,
+    transitions_from_seta_trajectory,
+    transitions_from_tb21_trajectory,
+)
 
 
 def _trajectory():
@@ -55,3 +60,81 @@ def test_load_terminal_transitions_reads_trajectory_directory(tmp_path):
 
     assert len(transitions) == 1
     assert transitions[0].trajectory_id == "trajectory-1"
+
+
+def test_tb21_atif_adapter_emits_agent_transitions_and_terminal_reward(tmp_path):
+    trial = tmp_path / "task__trial"
+    (trial / "verifier").mkdir(parents=True)
+    (trial / "verifier" / "reward.txt").write_text("1\n", encoding="utf-8")
+    payload = {
+        "schema_version": "ATIF-v1.7",
+        "session_id": "tb21-session",
+        "steps": [
+            {"step_id": 1, "source": "user", "message": "inspect"},
+            {
+                "step_id": 2,
+                "source": "agent",
+                "message": '{"commands": [{"keystrokes": "pwd\\n"}]}',
+                "observation": {"results": [{"content": "/tmp"}]},
+            },
+            {
+                "step_id": 3,
+                "source": "agent",
+                "message": '{"commands": [{"keystrokes": "exit\\n"}]}',
+                "observation": {"results": [{"content": "done"}]},
+            },
+        ],
+    }
+    path = trial / "trajectory.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    transitions = transitions_from_tb21_trajectory(payload, source_path=str(path))
+
+    assert len(transitions) == 2
+    assert transitions[0].data_source == "tb21"
+    assert transitions[0].has_next is True
+    assert transitions[1].done is True
+    assert transitions[0].context_messages[0]["role"] == "user"
+    assert transitions[0].reward is None
+    assert transitions[1].reward == 1.0
+    assert "tmp" in transitions[0].feedback_text
+    manifest = build_data_manifest(transitions, requested_source="tb21")
+    assert manifest["trajectory_count"] == 1
+    assert manifest["terminal_transition_count"] == 1
+
+
+def test_loader_prioritizes_tb21_and_reads_multiple_records_from_jsonl(tmp_path):
+    tb_trial = tmp_path / "tb" / "task"
+    (tb_trial / "verifier").mkdir(parents=True)
+    (tb_trial / "verifier" / "reward.txt").write_text("0.5\n", encoding="utf-8")
+    payload = {
+        "session_id": "tb-session",
+        "steps": [
+            {"source": "user", "message": "u"},
+            {"source": "agent", "message": "a", "observation": "o"},
+        ],
+    }
+    (tb_trial / "trajectory.json").write_text(json.dumps(payload), encoding="utf-8")
+    records = tmp_path / "records.jsonl"
+    records.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "trajectory_id": f"r-{idx}",
+                    "turn_idx": 0,
+                    "context_text": "ctx",
+                    "action_text": "act",
+                    "feedback_text": "fb",
+                }
+            )
+            for idx in range(2)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    loaded = load_terminal_transitions(
+        tmp_path,
+        max_trajectories=3,
+        data_source="auto",
+    )
+    assert loaded[0].data_source == "tb21"
+    assert {row.trajectory_id for row in loaded} == {"tb-session", "r-0", "r-1"}

@@ -18,6 +18,8 @@
   DIVE-PO 论文草稿。
 - [algorithms/lwm_guide_zh.md](algorithms/lwm_guide_zh.md)——LWM(WIP，
   实现位于 Slime 侧)。
+- [algorithms/lwm_offline_verify_design_zh.md](algorithms/lwm_offline_verify_design_zh.md)——
+  tb2.1 优先的离线验证设计、三阶段协议与 ECHO/Qwen-AgentWorld 对照。
 
 ## 使用
 

@@ -1,8 +1,9 @@
 # Terminal-RL Latent World Model 实现与使用
 
-> 状态：v2 已实现（2026-07-14）
+> 状态：v2 已实现；tb2.1 离线验证分支规范见
+> [`lwm_offline_verify_design_zh.md`](lwm_offline_verify_design_zh.md)
 > 权威实现：`slime/slime/world_model/`
-> 历史设计文档未随当前仓库发布；本文仅说明现有 WIP 实现与使用边界。
+> 本文保留 API 说明；实验结果见 [`lwm_offline_verify_report_zh.md`](lwm_offline_verify_report_zh.md)。
 
 ## 1. 当前实现解决什么问题
 
@@ -42,7 +43,8 @@ o_{t+1}: <tool_result name=bash>\n/tmp\n</tool_result>
 h_{t+1}: [system, user, assistant/tool-call, tool-result]
 ```
 
-适配器支持 SETA 原始 `*/traj.json`、world-model records JSONL 和 DAPO world-model replay `.pt`。
+适配器支持 tb2.1 ATIF `*/agent/trajectory.json`、SETA 原始 `*/traj.json`、world-model
+records JSONL 和 DAPO world-model replay `.pt`；`data-source=auto` 按该顺序优先发现。
 
 ## 3. hidden 与 latent 如何得到
 
@@ -81,7 +83,7 @@ e_action ─> SiLU + Linear ─> shift / scale / residual gates（每层）
 - 不与 state 做 `torch.cat([state, action], dim=-1)`；
 - 只生成每层 attention/MLP 的 AdaLN shift、scale 和残差 gate。
 
-`--predictor-type mlp` 保留旧 concat-MLP，仅用于兼容和 ablation；默认是 `adaln`。
+`--predictor-type mlp` 是不拼接特征的轻量 FiLM/AdaLN 对照；默认是 `adaln`。
 
 ## 5. 整体数据流
 
