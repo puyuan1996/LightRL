@@ -18,6 +18,9 @@ from tools.evaluation.math_rlvr.verifier import Verifier  # noqa: E402
 
 REPO = _ROOT
 DATA_ROOT = Path(os.environ.get("MATH_DATA_ROOT", REPO / "benchmarks" / "math"))
+# PR #1 called the asynchronous driver ``run``; keep that name for callers
+# while the implementation now lives in the modular ``evaluate`` function.
+run = evaluate
 
 
 def lenient_acc(text: str, ground_truth: object) -> bool:
