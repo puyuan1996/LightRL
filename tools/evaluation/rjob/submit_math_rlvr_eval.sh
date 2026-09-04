@@ -6,10 +6,22 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 : "${MODEL:?set MODEL before submitting}"
 : "${RJOB_NAME:?set RJOB_NAME before submitting}"
 RJOB_BIN="${RJOB_BIN:-rjob}"
-RJOB_ARGS=(submit --name "${RJOB_NAME}")
+RJOB_NAMESPACE="${RJOB_NAMESPACE:-ailab-narmodel}"
+RJOB_GROUP="${RJOB_GROUP:-narmodel_gpu}"
+RJOB_PRIVATE_MACHINE="${RJOB_PRIVATE_MACHINE:-group}"
+RJOB_PRIORITY="${RJOB_PRIORITY:-9}"
+RJOB_IMAGE="${RJOB_IMAGE:-registry.h.pjlab.org.cn/ailab-rlinfra-rlinfra_gpu/rft:20260408}"
+RJOB_MOUNTS="${RJOB_MOUNTS:-gpfs://gpfs1/puyuan:/mnt/shared-storage-user/puyuan gpfs://gpfs2/trustcyberdata:/mnt/shared-storage-gpfs2/trustcyberdata}"
+RJOB_ARGS=(submit --namespace "${RJOB_NAMESPACE}" --group "${RJOB_GROUP}" --name "${RJOB_NAME}"
+  --charged-group "${RJOB_GROUP}" --private-machine "${RJOB_PRIVATE_MACHINE}"
+  --priority "${RJOB_PRIORITY}" --auto-delete-duration "720h" --image "${RJOB_IMAGE}"
+  --share-host-shm True)
 if [[ -n "${RJOB_GPU:-}" ]]; then RJOB_ARGS+=(--gpu "${RJOB_GPU}"); fi
 if [[ -n "${RJOB_CPU:-}" ]]; then RJOB_ARGS+=(--cpu "${RJOB_CPU}"); fi
 if [[ -n "${RJOB_MEMORY:-}" ]]; then RJOB_ARGS+=(--memory "${RJOB_MEMORY}"); fi
+read -r -a _mounts <<< "${RJOB_MOUNTS}"
+for _mount in "${_mounts[@]}"; do RJOB_ARGS+=(--mount="${_mount}"); done
+if [[ -n "${RJOB_FOLDER:-}" ]]; then RJOB_ARGS+=(--folder "${RJOB_FOLDER}"); fi
 EVAL_ENV=(env MODEL_PATH="${MODEL_PATH}" MODEL="${MODEL}")
 for _name in MATH_DATA_ROOT DATASETS OUTPUT_DIR N MAX_TOKENS TEMPERATURE TOP_P CONCURRENCY REWARD_TYPE RUN_DIR; do
   if [[ -n "${!_name:-}" ]]; then EVAL_ENV+=("${_name}=${!_name}"); fi
