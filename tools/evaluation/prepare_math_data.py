@@ -12,12 +12,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from tools.evaluation.math_rlvr.data import (  # noqa: E402
-    deduplicate_rows,
-    load_dataset,
-    write_jsonl,
-    write_manifest,
-)
+from tools.evaluation.math_rlvr.data import load_dataset, write_jsonl, write_manifest  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
