@@ -35,6 +35,13 @@ class ExtractionResult:
         return self.canonical.value if self.canonical else None
 
 
+class AnswerExtractor:
+    """Small state-free adapter useful when injecting an extractor in config."""
+
+    def extract(self, text: str) -> ExtractionResult:
+        return extract_answers(text)
+
+
 # Do not use ``\bAnswer`` alone: a model may write a Markdown heading such as
 # ``**Answer:** 42``.  The line anchor avoids grabbing prose mentioning answer.
 _ANSWER_LINE = re.compile(
@@ -115,4 +122,10 @@ def extract_answers(text: str) -> ExtractionResult:
     return ExtractionResult(canonical, tuple(candidates), conflict)
 
 
-__all__ = ["AnswerCandidate", "ExtractionResult", "extract_answers"]
+def extract_answer(text: str) -> str | None:
+    """Return only the canonical value (legacy convenience API)."""
+
+    return extract_answers(text).value
+
+
+__all__ = ["AnswerCandidate", "AnswerExtractor", "ExtractionResult", "extract_answer", "extract_answers"]

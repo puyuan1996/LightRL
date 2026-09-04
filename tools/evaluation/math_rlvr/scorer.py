@@ -46,6 +46,8 @@ def score_sample(
         "configured_correct": configured.correct,
         "reward_type": config.reward_type,
         "strict_correct": strict.correct,
+        "strict_scorable": strict.scorable,
+        "format_compliant": bool(strict.scorable and strict.format == "answer_line"),
         "lenient_correct": lenient.correct,
         "boxed_correct": boxed.correct,
         "strict_acc": strict.correct,
@@ -101,6 +103,8 @@ def summarize(per_problem: list[dict[str, Any]], *, config: ScoreConfig, elapsed
     format_rate = len(penalty) / len(scoreable) if scoreable else 0.0
     trunc_rate = sum(bool(sample.get("truncated")) for sample in all_samples) / len(all_samples) if all_samples else 0.0
     zero_rate = len(zero_groups) / len(per_problem) if per_problem else 0.0
+    format_scoreable = [sample for sample in all_samples if sample.get("strict_scorable", sample.get("scorable"))]
+    format_compliant = sum(bool(sample.get("format_compliant")) for sample in format_scoreable)
     return {
         "schema_version": 2,
         "reward_type": config.reward_type,
@@ -122,6 +126,8 @@ def summarize(per_problem: list[dict[str, Any]], *, config: ScoreConfig, elapsed
         "format_penalty_rate": format_rate,
         "format_mismatch_rate": format_rate,
         "format_mismatch_count": sum(bool(sample.get("format_penalty")) for sample in scoreable),
+        "format_compliance_count": format_compliant,
+        "format_compliance_rate": format_compliant / len(format_scoreable) if format_scoreable else 0.0,
         "truncated_count": sum(bool(sample.get("truncated")) for sample in all_samples),
         "truncation_rate": trunc_rate,
         "truncated_rate": trunc_rate,

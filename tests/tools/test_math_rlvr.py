@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import json
+import math
 
 from tools.evaluation.math_rlvr.data import MathExample, deduplicate_rows
 from tools.evaluation.math_rlvr.extractor import extract_answers
 from tools.evaluation.math_rlvr.scorer import ScoreConfig, score_group, score_sample, summarize
 from tools.evaluation.math_rlvr.stats import compare_payloads
+from tools.evaluation.math_rlvr.rescorer import compliance_rate
 from tools.evaluation.math_rlvr.verifier import Verifier
 
 
@@ -48,3 +49,7 @@ def test_paired_stats_requires_same_sample_population():
     result = compare_payloads(base, candidate)
     assert result["mean_delta"] == 0.5
     assert result["wins"] == 1
+
+
+def test_format_compliance_excludes_unscorable_labels():
+    assert math.isnan(compliance_rate([{"strict_scorable": False, "format_compliant": True}]))

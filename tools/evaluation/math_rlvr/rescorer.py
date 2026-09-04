@@ -9,6 +9,31 @@ from typing import Any
 from .scorer import ScoreConfig, score_group, summarize
 
 
+def compliance_rate(records: list[dict[str, Any]]) -> float:
+    """Return output-format compliance over a scoreable denominator.
+
+    ``[STRICT_ERROR]``/unscorable labels are excluded rather than counted as
+    compliant; this guards the MATH-500 integer-label edge case.
+    """
+
+    scoreable = [
+        record
+        for record in records
+        if record.get("strict_scorable", record.get("scorable", record.get("strict_pred") != "[STRICT_ERROR]"))
+    ]
+    if not scoreable:
+        return float("nan")
+    def compliant(record: dict[str, Any]) -> bool:
+        if "format_compliant" in record:
+            return bool(record["format_compliant"])
+        if "format" in record:
+            return record["format"] == "answer_line"
+        pred = record.get("strict_pred", record.get("pred"))
+        return pred not in (None, "[INVALID]", "[STRICT_ERROR]")
+
+    return sum(compliant(record) for record in scoreable) / len(scoreable)
+
+
 def rescore_detail(payload: dict[str, Any], *, reward_type: str | None = None, response_cap: int | None = None) -> dict[str, Any]:
     config = ScoreConfig(
         reward_type=reward_type or payload.get("reward_type", "math"),
@@ -60,4 +85,4 @@ def rescore_directory(results_dir: str | Path, *, reward_type: str | None = None
     return outputs
 
 
-__all__ = ["rescore_detail", "rescore_directory", "rescore_file"]
+__all__ = ["compliance_rate", "rescore_detail", "rescore_directory", "rescore_file"]
