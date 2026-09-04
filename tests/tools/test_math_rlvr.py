@@ -18,7 +18,9 @@ def test_extractor_priority_and_conflict():
 
 
 def test_extractor_nested_box_and_natural_language():
-    assert extract_answers(r"final answer is \boxed{\frac{1}{2}}").value == r"\frac{1}{2}"
+    nested = extract_answers(r"final answer is \boxed{\frac{1}{2}}")
+    assert nested.value == r"\frac{1}{2}"
+    assert not nested.conflict
     assert extract_answers("因此答案为 17。").value == "17"
 
 
