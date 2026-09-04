@@ -22,7 +22,7 @@ from tools.evaluation.math_rlvr.data import (  # noqa: E402
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", required=True, help="alias/path or hf://org/name")
+    parser.add_argument("--source", default=None, help="alias/path or hf://org/name (defaults to --dataset)")
     parser.add_argument("--dataset", default=None, help="output dataset name (defaults to source stem)")
     parser.add_argument("--output-dir", "--out-dir", dest="output_dir", default=None)
     parser.add_argument("--output", default=None, help="explicit output JSONL path")
@@ -37,8 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    source = args.source or args.dataset
+    if not source:
+        raise SystemExit("one of --source or --dataset is required")
     rows = load_dataset(
-        args.source,
+        source,
         data_root=args.data_root,
         split=args.split,
         config=args.config,
@@ -46,11 +49,11 @@ def main(argv: list[str] | None = None) -> int:
         limit=args.limit,
         seed=args.seed,
     )
-    name = args.dataset or Path(args.source.rstrip("/")).stem
+    name = args.dataset or Path(source.rstrip("/")).stem
     output_dir = Path(args.output_dir or args.data_root or os.environ.get("MATH_DATA_ROOT", "benchmarks/math"))
     output = Path(args.output) if args.output else output_dir / f"{name}.jsonl"
     write_jsonl(rows, output)
-    manifest = write_manifest(rows, output.with_suffix(".manifest.json"), dataset=args.source, deduplicated=args.deduplicate)
+    manifest = write_manifest(rows, output.with_suffix(".manifest.json"), dataset=source, deduplicated=args.deduplicate)
     print(f"prepared {len(rows)} unique={manifest['unique_questions']} -> {output}")
     print(f"manifest_sha256={manifest['sha256']}")
     return 0

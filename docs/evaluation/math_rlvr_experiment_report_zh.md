@@ -4,6 +4,12 @@
 `rjob` 作业后，将 `summary.json` 和 `math_paired_stats.py` 的输出填入这里，
 不要手工从日志抄取单一准确率。
 
+PR #1 提供的历史锚点（Qwen3-8B、不同数据/运行环境，不能替代本分支复跑）为：
+AIME2025 strict/lenient Avg@16 = 20.62%/67.71%，AMC23 strict/lenient
+Avg@16 = 42.19%/93.44%，MATH-500 over all 500 problems strict/lenient
+Avg@4 = 36.70%/86.20%。MATH-500 的 349 个可评分题目 lenient 基线为 91.98%；
+复现时必须注明采用的是 500 题还是 349 题分母。
+
 ## 配置指纹
 
 | 字段 | 值 |
