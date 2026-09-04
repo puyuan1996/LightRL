@@ -24,6 +24,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("candidate", nargs="*")
     parser.add_argument("--results-dir", default=None, help="discover baseline/candidates by tag")
     parser.add_argument("--baseline-tag", default=BASE)
+    parser.add_argument("--candidate-tag", default=None)
     parser.add_argument("--metric", default="lenient_correct")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--output", default=None)
@@ -38,7 +39,9 @@ def main(argv: list[str] | None = None) -> int:
         if not base_candidates:
             parser.error(f"no baseline tagged {args.baseline_tag!r} in {args.results_dir}")
         baseline = baseline or base_candidates[0]
-        candidates = candidates or [path for path in files if path != baseline]
+        candidates = candidates or [
+            path for path in files if path != baseline and (args.candidate_tag is None or f"_{args.candidate_tag}_" in Path(path).name)
+        ]
     if not baseline or not candidates:
         parser.error("provide baseline and at least one candidate, or --results-dir")
     results = [compare_files(baseline, candidate, key=args.metric, seed=args.seed) for candidate in candidates]
