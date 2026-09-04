@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
-from .verifier import VerificationResult, Verifier
+from .verifier import Verifier
 
 
 @dataclass(frozen=True)
