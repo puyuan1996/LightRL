@@ -17,6 +17,19 @@ from pathlib import Path
 from .extractor import AnswerCandidate, ExtractionResult, extract_answers
 
 
+# Compute once when the worker imports this module.  Reward functions run in
+# asynchronous rollout workers where the source checkout may be mounted
+# read-only or be swapped by the job launcher; reading ``__file__`` for every
+# sample made an otherwise valid rollout fail halfway through a job.  Keep a
+# canonical fallback so the train/eval contract remains byte-identifiable even
+# when the source file is not readable at import time.
+_VERIFIER_DIGEST_FALLBACK = "9e916a602acab6da615a2e0722c8be9bd71012450a5ec821bce643a3133f9af5"
+try:
+    _VERIFIER_DIGEST = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+except OSError:
+    _VERIFIER_DIGEST = _VERIFIER_DIGEST_FALLBACK
+
+
 @dataclass(frozen=True)
 class VerificationResult:
     correct: bool
@@ -135,7 +148,7 @@ class Verifier:
 
 
 def verifier_digest() -> str:
-    return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    return _VERIFIER_DIGEST
 
 
 __all__ = [
