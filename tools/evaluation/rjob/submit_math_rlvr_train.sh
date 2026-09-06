@@ -58,6 +58,7 @@ set -euo pipefail
 cd /mnt/shared-storage-user/puyuan/code/LightRL
 export PYTHONPATH="/mnt/shared-storage-user/puyuan/code/LightRL/Megatron-LM:/mnt/shared-storage-user/puyuan/code/LightRL:/mnt/shared-storage-user/puyuan/code/LightRL/slime:${PYTHONPATH:-}"
 export WANDB_MODE="${WANDB_MODE:-offline}"
+export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-1}"
 mkdir -p "${RUN_DIR}/logs" "${RUN_DIR}/config"
 echo "[math-dapo-rjob] job=${RJOB_NAME} run=${RUN_ID} train=${TRAIN_DATASET} reward=${REWARD_TYPE} cap=${RESPONSE_CAP} seed=${SEED} epochs=${NUM_EPOCHS}"
 echo "[math-dapo-rjob] data_root=${MATH_DATA_ROOT} eval=${EVAL_DATASETS} actor=${ACTOR_GPUS} rollout=${ROLLOUT_GPUS} n=${N_SAMPLES} rollouts=${NUM_ROLLOUT:-auto}"
