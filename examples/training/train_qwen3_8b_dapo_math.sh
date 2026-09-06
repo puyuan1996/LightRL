@@ -39,7 +39,7 @@ ROLLOUT_NUM_GPUS_PER_ENGINE="${ROLLOUT_NUM_GPUS_PER_ENGINE:-1}"
 COLOCATE="${COLOCATE:-0}"
 TRAIN_BACKEND="${TRAIN_BACKEND:-megatron}"
 MODEL_TRANSFORMER_IMPL="${MODEL_TRANSFORMER_IMPL:-transformer_engine}"
-NVTE_FUSED_ATTN="${NVTE_FUSED_ATTN:-0}"
+MODEL_ATTENTION_BACKEND="${MODEL_ATTENTION_BACKEND:-flash}"
 MODEL_NUM_LAYERS="${MODEL_NUM_LAYERS:-36}"
 MODEL_VOCAB_SIZE="${MODEL_VOCAB_SIZE:-151936}"
 MODEL_HIDDEN_SIZE="${MODEL_HIDDEN_SIZE:-4096}"
@@ -103,6 +103,7 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --n-samples-per-eval-prompt "${EVAL_N_SAMPLES}" --eval-max-response-len "${RESPONSE_CAP}"
   --eval-input-key prompt --eval-label-key label --eval-reward-key score
   --eval-top-p "${EVAL_TOP_P}" --train-backend "${TRAIN_BACKEND}"
+  --attention-backend "${MODEL_ATTENTION_BACKEND}"
   --transformer-impl "${MODEL_TRANSFORMER_IMPL}"
   --num-layers "${MODEL_NUM_LAYERS}" --vocab-size "${MODEL_VOCAB_SIZE}" --hidden-size "${MODEL_HIDDEN_SIZE}"
   --num-attention-heads "${MODEL_NUM_ATTENTION_HEADS}" --ffn-hidden-size "${MODEL_FFN_HIDDEN_SIZE}"
@@ -125,7 +126,6 @@ fi
 mkdir -p "${RUN_DIR}/config" "${RUN_DIR}/logs"
 PYTHONPATH="${REPO_ROOT}" "${TRAIN_PYTHON}" -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); p.write_text(json.dumps({"train_data":sys.argv[2],"train_rows":int(sys.argv[3]),"train_batch_size":int(sys.argv[4]),"eval_datasets":sys.argv[5].split(","),"reward_type":sys.argv[6],"response_cap":int(sys.argv[7]),"seed":int(sys.argv[8])}, indent=2)+"\n")' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}"
 export MATH_RLVR_REWARD_TYPE="${REWARD_TYPE}" MATH_RLVR_RESPONSE_CAP="${RESPONSE_CAP}"
-export NVTE_FUSED_ATTN
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
   printf '[dry-run] '
