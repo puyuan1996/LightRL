@@ -25,7 +25,8 @@ if [[ -z "${ROLLOUT_BATCH_SIZE:-}" ]]; then
   fi
 fi
 N_SAMPLES="${N_SAMPLES:-8}"
-NUM_ROLLOUT="${NUM_ROLLOUT:-2000}"
+NUM_EPOCHS="${NUM_EPOCHS:-10}"
+NUM_ROLLOUT="${NUM_ROLLOUT:-}"
 GLOBAL_BATCH_SIZE="${GLOBAL_BATCH_SIZE:-$((ROLLOUT_BATCH_SIZE * N_SAMPLES))}"
 EVAL_DATASETS="${EVAL_DATASETS:-aime-2025,aime-2024}"
 EVAL_N_SAMPLES="${EVAL_N_SAMPLES:-8}"
@@ -49,6 +50,15 @@ MODEL_MAX_POSITION_EMBEDDINGS="${MODEL_MAX_POSITION_EMBEDDINGS:-40960}"
 MODEL_NUM_QUERY_GROUPS="${MODEL_NUM_QUERY_GROUPS:-8}"
 MODEL_NORM_EPSILON="${MODEL_NORM_EPSILON:-1e-6}"
 MODEL_ROTARY_BASE="${MODEL_ROTARY_BASE:-1000000}"
+TENSOR_MODEL_PARALLEL_SIZE="${TENSOR_MODEL_PARALLEL_SIZE:-2}"
+SEQUENCE_PARALLEL="${SEQUENCE_PARALLEL:-1}"
+RECOMPUTE_GRANULARITY="${RECOMPUTE_GRANULARITY:-full}"
+RECOMPUTE_METHOD="${RECOMPUTE_METHOD:-uniform}"
+RECOMPUTE_NUM_LAYERS="${RECOMPUTE_NUM_LAYERS:-1}"
+LR="${LR:-1e-6}"
+LR_DECAY_STYLE="${LR_DECAY_STYLE:-constant}"
+LR_WARMUP_ITERS="${LR_WARMUP_ITERS:-10}"
+CLIP_GRAD="${CLIP_GRAD:-1.0}"
 SLIME_DIR="${SLIME_DIR:-${REPO_ROOT}/slime}"
 TRAIN_PYTHON="${TRAIN_PYTHON:-python3}"
 RUN_ID="${RUN_ID:-math-dapo-${TRAIN_DATASET}-seed${SEED}-$(date +%Y%m%d-%H%M%S)}"
@@ -72,6 +82,11 @@ export TRAIN_DATA TRAIN_DATASET
 
 case "${REWARD_TYPE}" in math|dapo|boxed) ;; *) echo "[math-dapo] invalid REWARD_TYPE=${REWARD_TYPE}" >&2; exit 2 ;; esac
 (( RESPONSE_CAP > 0 && ROLLOUT_BATCH_SIZE > 0 && N_SAMPLES > 0 )) || { echo "[math-dapo] cap/batch/n must be positive" >&2; exit 2; }
+if [[ -z "${NUM_ROLLOUT}" ]]; then
+  (( NUM_EPOCHS > 0 )) || { echo "[math-dapo] NUM_EPOCHS must be positive" >&2; exit 2; }
+else
+  (( NUM_ROLLOUT > 0 )) || { echo "[math-dapo] NUM_ROLLOUT must be positive" >&2; exit 2; }
+fi
 [[ -d "${HF_CKPT}" || -f "${HF_CKPT}" ]] || { echo "[math-dapo] HF_CKPT does not exist: ${HF_CKPT}" >&2; exit 2; }
 [[ -d "${REF_LOAD}" || -f "${REF_LOAD}" ]] || { echo "[math-dapo] REF_LOAD does not exist: ${REF_LOAD}" >&2; exit 2; }
 
@@ -94,7 +109,7 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --prompt-data "${TRAIN_DATA}" --input-key prompt --label-key label
   --reward-key score --rm-type "${REWARD_TYPE}"
   --custom-rm-path tools.evaluation.math_rlvr.reward.reward_func
-  --num-rollout "${NUM_ROLLOUT}" --rollout-batch-size "${ROLLOUT_BATCH_SIZE}"
+  --rollout-batch-size "${ROLLOUT_BATCH_SIZE}"
   --n-samples-per-prompt "${N_SAMPLES}" --global-batch-size "${GLOBAL_BATCH_SIZE}"
   --rollout-max-response-len "${RESPONSE_CAP}" --rollout-max-context-len "$((RESPONSE_CAP + 4096))"
   --rollout-temperature 1.0 --rollout-num-gpus-per-engine "${ROLLOUT_NUM_GPUS_PER_ENGINE}"
@@ -112,9 +127,24 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --position-embedding-type rope --rotary-base "${MODEL_ROTARY_BASE}"
   --group-query-attention --num-query-groups "${MODEL_NUM_QUERY_GROUPS}"
   --swiglu --disable-bias-linear --untie-embeddings-and-output-weights
+  --tensor-model-parallel-size "${TENSOR_MODEL_PARALLEL_SIZE}"
+  --recompute-granularity "${RECOMPUTE_GRANULARITY}" --recompute-method "${RECOMPUTE_METHOD}"
+  --recompute-num-layers "${RECOMPUTE_NUM_LAYERS}"
+  --optimizer adam --lr "${LR}" --lr-decay-style "${LR_DECAY_STYLE}"
+  --lr-warmup-iters "${LR_WARMUP_ITERS}" --clip-grad "${CLIP_GRAD}"
+  --attention-softmax-in-fp32 --accumulate-allreduce-grads-in-fp32
   --actor-num-nodes 1 --actor-num-gpus-per-node "${ACTOR_GPUS}"
   --seed "${SEED}" --save "${RUN_DIR}/checkpoints" --save-interval "${SAVE_INTERVAL:-20}"
   "${EVAL_ARGS[@]}")
+
+if [[ -n "${NUM_ROLLOUT}" ]]; then
+  CMD+=(--num-rollout "${NUM_ROLLOUT}")
+else
+  CMD+=(--num-epoch "${NUM_EPOCHS}")
+fi
+if [[ "${SEQUENCE_PARALLEL}" == "1" ]]; then
+  CMD+=(--sequence-parallel)
+fi
 
 if [[ "${COLOCATE}" == "1" ]]; then
   CMD+=(--colocate)
@@ -124,7 +154,7 @@ else
 fi
 
 mkdir -p "${RUN_DIR}/config" "${RUN_DIR}/logs"
-PYTHONPATH="${REPO_ROOT}" "${TRAIN_PYTHON}" -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); p.write_text(json.dumps({"train_data":sys.argv[2],"train_rows":int(sys.argv[3]),"train_batch_size":int(sys.argv[4]),"eval_datasets":sys.argv[5].split(","),"reward_type":sys.argv[6],"response_cap":int(sys.argv[7]),"seed":int(sys.argv[8])}, indent=2)+"\n")' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}"
+PYTHONPATH="${REPO_ROOT}" "${TRAIN_PYTHON}" -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); p.write_text(json.dumps({"train_data":sys.argv[2],"train_rows":int(sys.argv[3]),"train_batch_size":int(sys.argv[4]),"num_epochs":None if sys.argv[5]=="" else int(sys.argv[5]),"num_rollout":None if sys.argv[6]=="" else int(sys.argv[6]),"eval_datasets":sys.argv[7].split(","),"reward_type":sys.argv[8],"response_cap":int(sys.argv[9]),"seed":int(sys.argv[10]),"tensor_model_parallel_size":int(sys.argv[11]),"sequence_parallel":sys.argv[12]=="1","recompute_granularity":sys.argv[13],"lr":float(sys.argv[14])}, indent=2)+"\n")' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${NUM_EPOCHS:-}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}"
 export MATH_RLVR_REWARD_TYPE="${REWARD_TYPE}" MATH_RLVR_RESPONSE_CAP="${RESPONSE_CAP}"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
