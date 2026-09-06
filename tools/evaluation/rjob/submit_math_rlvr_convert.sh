@@ -94,7 +94,7 @@ job = Job(
     ),
     spec=Spec(
         preemptible="no",
-        backoff_limit=0,
+        backoff_limit=1,
         host_network=False,
         auto_delete_duration=env["SUBMIT_AUTO_DELETE"],
         tasks={"generated-task-0": task},
