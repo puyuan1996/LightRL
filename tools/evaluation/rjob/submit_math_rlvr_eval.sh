@@ -16,14 +16,15 @@ RJOB_ARGS=(submit --namespace "${RJOB_NAMESPACE}" --group "${RJOB_GROUP}" --name
   --charged-group "${RJOB_GROUP}" --private-machine "${RJOB_PRIVATE_MACHINE}"
   --priority "${RJOB_PRIORITY}" --auto-delete-duration "720h" --image "${RJOB_IMAGE}"
   --share-host-shm True)
-if [[ -n "${RJOB_GPU:-}" ]]; then RJOB_ARGS+=(--gpu "${RJOB_GPU}"); fi
-if [[ -n "${RJOB_CPU:-}" ]]; then RJOB_ARGS+=(--cpu "${RJOB_CPU}"); fi
-if [[ -n "${RJOB_MEMORY:-}" ]]; then RJOB_ARGS+=(--memory "${RJOB_MEMORY}"); fi
+RJOB_GPU="${RJOB_GPU:-4}"
+RJOB_CPU="${RJOB_CPU:-50}"
+RJOB_MEMORY="${RJOB_MEMORY:-560000}"
+RJOB_ARGS+=(--gpu "${RJOB_GPU}" --cpu "${RJOB_CPU}" --memory "${RJOB_MEMORY}")
 read -r -a _mounts <<< "${RJOB_MOUNTS}"
 for _mount in "${_mounts[@]}"; do RJOB_ARGS+=(--mount="${_mount}"); done
 if [[ -n "${RJOB_FOLDER:-}" ]]; then RJOB_ARGS+=(--folder "${RJOB_FOLDER}"); fi
 EVAL_ENV=(env MODEL_PATH="${MODEL_PATH}" MODEL="${MODEL}")
-for _name in MATH_DATA_ROOT DATASETS OUTPUT_DIR N MAX_TOKENS TEMPERATURE TOP_P CONCURRENCY REWARD_TYPE RUN_DIR; do
+for _name in MATH_DATA_ROOT DATASETS OUTPUT_DIR N MAX_TOKENS TEMPERATURE TOP_P CONCURRENCY REWARD_TYPE RUN_DIR TP_SIZE MEM_FRACTION SGLANG_EXTRA_ARGS READY_TIMEOUT TAG; do
   if [[ -n "${!_name:-}" ]]; then EVAL_ENV+=("${_name}=${!_name}"); fi
 done
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
