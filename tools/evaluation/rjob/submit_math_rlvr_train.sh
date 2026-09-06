@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
+LIGHTRL_ROOT="${LIGHTRL_ROOT:-${ROOT}}"
 : "${HF_CKPT:?set HF_CKPT before submitting}"
 : "${REF_LOAD:?set REF_LOAD before submitting}"
 : "${RJOB_NAME:?set RJOB_NAME before submitting}"
@@ -55,14 +56,14 @@ RUN_DIR="${RUN_DIR:-${PERSIST_ROOT}/runs/training/${RUN_ID}}"
 
 POD_COMMAND=$(cat <<'EOS'
 set -euo pipefail
-cd /mnt/shared-storage-user/puyuan/code/LightRL
-export PYTHONPATH="/mnt/shared-storage-user/puyuan/code/LightRL/Megatron-LM:/mnt/shared-storage-user/puyuan/code/LightRL:/mnt/shared-storage-user/puyuan/code/LightRL/slime:${PYTHONPATH:-}"
+cd "${LIGHTRL_ROOT}"
+export PYTHONPATH="${LIGHTRL_ROOT}/Megatron-LM:${LIGHTRL_ROOT}:${LIGHTRL_ROOT}/slime:${PYTHONPATH:-}"
 export WANDB_MODE="${WANDB_MODE:-offline}"
 export CUDA_DEVICE_MAX_CONNECTIONS="${CUDA_DEVICE_MAX_CONNECTIONS:-1}"
 mkdir -p "${RUN_DIR}/logs" "${RUN_DIR}/config"
 echo "[math-dapo-rjob] job=${RJOB_NAME} run=${RUN_ID} train=${TRAIN_DATASET} reward=${REWARD_TYPE} cap=${RESPONSE_CAP} seed=${SEED} epochs=${NUM_EPOCHS}"
 echo "[math-dapo-rjob] data_root=${MATH_DATA_ROOT} eval=${EVAL_DATASETS} actor=${ACTOR_GPUS} rollout=${ROLLOUT_GPUS} n=${N_SAMPLES} rollouts=${NUM_ROLLOUT:-auto}"
-exec bash examples/training/train_qwen3_8b_dapo_math.sh
+exec bash "${LIGHTRL_ROOT}/examples/training/train_qwen3_8b_dapo_math.sh"
 EOS
 )
 
@@ -88,6 +89,7 @@ export POD_RECOMPUTE_GRANULARITY="${RECOMPUTE_GRANULARITY}" POD_RECOMPUTE_METHOD
 export POD_RECOMPUTE_NUM_LAYERS="${RECOMPUTE_NUM_LAYERS}" POD_LR="${LR}" POD_LR_DECAY_STYLE="${LR_DECAY_STYLE}"
 export POD_LR_WARMUP_ITERS="${LR_WARMUP_ITERS}" POD_CLIP_GRAD="${CLIP_GRAD}"
 export POD_RUN_ID="${RUN_ID}" POD_RUN_DIR="${RUN_DIR}"
+export POD_LIGHTRL_ROOT="${LIGHTRL_ROOT}"
 
 python3 - <<'PY'
 import json
@@ -99,6 +101,7 @@ from brainpp.rjob import Affinity, Container, Job, Metadata, PrivateMachine, Res
 env = os.environ
 pod_env = {
     "RJOB_TASK_INDEX": "0", "RJOB_NAME": env["SUBMIT_NAME"],
+    "LIGHTRL_ROOT": env["POD_LIGHTRL_ROOT"],
     "HF_CKPT": env["POD_HF_CKPT"], "REF_LOAD": env["POD_REF_LOAD"],
     "MATH_DATA_ROOT": env["POD_MATH_DATA_ROOT"], "TRAIN_DATASET": env["POD_TRAIN_DATASET"],
     "REWARD_TYPE": env["POD_REWARD_TYPE"], "RESPONSE_CAP": env["POD_RESPONSE_CAP"],
