@@ -14,10 +14,13 @@ The evaluation stack has three deliberately separate layers:
    training harnesses.
 
 Math RLVR is a deliberately dependency-light benchmark package under
-`tools/evaluation/math_rlvr/`. Its data/extractor/verifier/scorer/rescorer/stats
-modules are independent of the generic harness lifecycle; the compatibility
+`tools/evaluation/math_rlvr/`. Its data/extractor/verifier/scorer/stats modules
+are independent of the generic harness lifecycle; rescoring is implemented by
+the scorer module so online and offline policies cannot drift. The compatibility
 entrypoints `eval_math.py`, `prepare_math_data.py`, `rescore_math_eval.py` and
-`math_paired_stats.py` are safe to call from an rjob.
+`math_paired_stats.py` are safe to call from an RJob. Scheduler-facing Math RLVR
+submitters live under `local/rjob/` and read site-specific settings from the
+environment.
 
 The canonical command is:
 

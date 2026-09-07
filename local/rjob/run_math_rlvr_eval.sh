@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # rjob payload: serve one checkpoint and run all configured math eval sets.
 set -euo pipefail
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
+ROOT="${LIGHTRL_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
 : "${MODEL_PATH:?set MODEL_PATH to the checkpoint to serve}"
 : "${MODEL:?set MODEL to the served model name}"
 PORT="${PORT:-30000}"

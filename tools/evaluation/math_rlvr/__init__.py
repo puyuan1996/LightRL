@@ -5,7 +5,7 @@ uses it for local scoring, while the training custom RM imports the exact same
 ``Verifier`` implementation.
 """
 
-from .data import MathExample, deduplicate_rows, load_dataset, write_manifest
+from .data import MathExample, data_root_candidates, deduplicate_rows, load_dataset, resolve_data_root, write_manifest
 from .extractor import AnswerCandidate, AnswerExtractor, ExtractionResult, extract_answer, extract_answers
 from .scorer import ScoreConfig, score_group, score_sample, summarize
 from .verifier import VerificationResult, Verifier, verifier_digest
@@ -18,10 +18,12 @@ __all__ = [
     "ScoreConfig",
     "VerificationResult",
     "Verifier",
+    "data_root_candidates",
     "deduplicate_rows",
     "extract_answer",
     "extract_answers",
     "load_dataset",
+    "resolve_data_root",
     "score_group",
     "score_sample",
     "summarize",

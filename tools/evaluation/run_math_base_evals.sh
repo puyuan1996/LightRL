@@ -3,10 +3,11 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "${ROOT}"
 : "${MODEL:?set MODEL to the served model name (no implicit checkpoint)}"
 if [[ -z "${MATH_DATA_ROOT:-}" ]]; then
-  MATH_DATA_ROOT="$(PYTHONPATH="${ROOT}" python3 -c \
-    'from tools.evaluation.math_rlvr.paths import resolve_data_root; print(resolve_data_root())')"
+  MATH_DATA_ROOT="$(PYTHONPATH=. python3 -c \
+    'from tools.evaluation.math_rlvr.data import resolve_data_root; print(resolve_data_root())')"
 fi
 DATA_ROOT="${MATH_DATA_ROOT}"
 OUTPUT_DIR="${OUTPUT_DIR:-${DATA_ROOT}/eval_results}"

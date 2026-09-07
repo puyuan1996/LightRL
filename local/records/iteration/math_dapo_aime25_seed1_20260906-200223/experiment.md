@@ -14,7 +14,7 @@ strict/boxed 指标仅作为诊断轨迹保留，不参与本次训练更新。
 
 - 分支：`feat/math-rlvr-eval`
 - 训练入口：[train_qwen3_8b_dapo_math.sh](../../../../examples/training/train_qwen3_8b_dapo_math.sh)
-- narmodel payload：[submit_math_rlvr_train.sh](../../../../tools/evaluation/rjob/submit_math_rlvr_train.sh)（Pod 内直接调用训练入口）
+- RJob payload：[submit_math_rlvr_train.sh](../../../../local/rjob/submit_math_rlvr_train.sh)（Pod 内直接调用训练入口）
 - 训练 custom RM：`tools.evaluation.math_rlvr.reward.reward_func`
 - 评测 verifier：`tools/evaluation/math_rlvr/verifier.py`
 - verifier SHA-256：`9e916a602acab6da615a2e0722c8be9bd71012450a5ec821bce643a3133f9af5`
@@ -31,7 +31,7 @@ final-answer 片段；候选冲突会进入 per-sample 记录，不会静默覆�
 |---|---|
 | base checkpoint | `/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B` |
 | reference checkpoint | `/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B_torch_dist` |
-| 数据根目录 | `/mnt/shared-storage-user/puyuan/math_rlvr_data` |
+| 数据根目录 | `${MATH_DATA_ROOT}`（默认由 `data.py` 解析 canonical data root） |
 | 训练集 | `aime-2025.jsonl`，30 题 |
 | holdout | `aime-2024.jsonl`，30 题 |
 | AIME2025 SHA-256 | `a6ec56fd56a5f3aa4f3ff74697dd528968c4e79b682658f32d7ce744c3c1a84b` |
@@ -59,11 +59,12 @@ final-answer 片段；候选冲突会进入 per-sample 记录，不会静默覆�
 `Answer:` 而获得或失去训练奖励。AIME2024 只用于 in-training 监控和训练后的
 独立 holdout，不混入训练数据。
 
-## 5. rjob 记录
+## 5. RJob 记录
 
-- namespace：`ailab-narmodel`
-- quota group：`narmodel_gpu`
-- image：`registry.h.pjlab.org.cn/ailab-rlinfra-rlinfra_gpu/rft:20260408`
+集群 namespace、quota group、镜像、挂载和持久化目录均从未提交的
+`local/rjob/rjob.env` 或环境变量注入；仓库不保存站点地址。以下仅记录任务
+逻辑状态和资源规模，不复制集群凭据或地址。
+
 - 资源：4 GPU / 50 CPU / 560000 MiB
 - priority：9
 - 首次训练 job：`math-dapo-aime25-seed1-20260906-200223`（失败，容器内误调用 `rjob`，exit 127；日志已保留）
@@ -95,10 +96,12 @@ final-answer 片段；候选冲突会进入 per-sample 记录，不会静默覆�
   产生训练指标，随后 RJob 挂载的工作区被切换到不含 Math RLVR 文件的分支，
   `reward.py` 的逐样本 `verifier_digest()` 抛出 `FileNotFoundError`）。该故障不是
   显存或 verifier 语义错误；日志保留在对应 RUN_DIR。
-- 10-epoch v3：`math-dapo-aime25-seed1-10epoch-v3`（已提交，使用修复后的
-  verifier digest 缓存；截至本记录更新时间处于 Inqueue/STARTING，待完成）。
+- 10-epoch v3：`math-dapo-aime25-seed1-10epoch-v3`（使用修复后的 verifier digest
+  缓存，但未形成可验收的十 epoch 结果）。
+- isolated-v1：使用独立 source worktree 验证共享分支切换问题；任务最终失败，未
+  产生可验收的十 epoch checkpoint。当前分支不宣称 DAPO 已完成十 epoch。
 - 训练输出根目录：
-  `/mnt/shared-storage-gpfs2/trustcyberdata/private/docker-infra/tmp/puyuan/lightrl/runs/training/math-dapo-aime25-seed1-20260906-200223-retry11`
+  `${PERSIST_ROOT}/runs/training/math-dapo-aime25-seed1-20260906-200223-retry11`
 - 训练 checkpoint 目录：
   `.../math-dapo-aime25-seed1-20260906-200223-retry11/checkpoints/iter_0000000`
   （来自首个 actor update；不是完整多步训练结果，但可作为明确的 step-0
@@ -116,11 +119,11 @@ REWARD_TYPE=math
 N=4
 MAX_TOKENS=8192
 OUTPUT_DIR=<本目录>/holdout_eval
-bash tools/evaluation/rjob/submit_math_rlvr_eval.sh
+bash local/rjob/submit_math_rlvr_eval.sh
 ```
 
 转换 RJob：`math-dapo-aime25-seed1-retry11-convert-retry1`（Succeeded）。HF 输出：
-`/mnt/shared-storage-gpfs2/trustcyberdata/private/docker-infra/tmp/puyuan/lightrl/runs/conversion/math-dapo-aime25-seed1-retry11-hf`。
+`${PERSIST_ROOT}/runs/conversion/math-dapo-aime25-seed1-retry11-hf`。
 holdout exploratory RJob：`math-dapo-aime25-seed1-retry11-aime24-holdou-67b37`（已停止，
 4 卡 TP、N=16、cap=32768、concurrency=4；因长思考输出显示 cap 可能主导耗时，
 已停止并保留 SGLang 日志，未将其当作最终指标。主 holdout RJob：
@@ -139,7 +142,7 @@ hash、checkpoint 路径、任务名和时间。
 主 holdout 已完成：`math-dapo-aime25-seed1-retry11-aime24-holdou-d139d`（Succeeded，
 耗时 866.43 s）。逐样本文件、summary 和 SGLang 日志已复制到本目录的
 `holdout_cap8192/`；原始持久化路径为
-`/mnt/shared-storage-gpfs2/trustcyberdata/private/docker-infra/tmp/puyuan/lightrl/runs/evaluation/math-dapo-aime25-seed1-retry11/aime24_holdout_cap8192/`。
+`${PERSIST_ROOT}/runs/evaluation/math-dapo-aime25-seed1-retry11/aime24_holdout_cap8192/`。
 
 本次结果的关键诊断是：120/120 样本 `finish_reason=length`、truncation=100%，
 zero-variance group=30/30，`verifier_error_count=0`，且模型输出出现高重复/非答案

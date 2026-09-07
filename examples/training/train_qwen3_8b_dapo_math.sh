@@ -15,7 +15,7 @@ cd "${REPO_ROOT}"
 : "${REF_LOAD:?set REF_LOAD to the reference checkpoint}"
 if [[ -z "${MATH_DATA_ROOT:-}" ]]; then
   MATH_DATA_ROOT="$(PYTHONPATH="${REPO_ROOT}" "${TRAIN_PYTHON:-python3}" -c \
-    'from tools.evaluation.math_rlvr.paths import resolve_data_root; print(resolve_data_root())')"
+    'from tools.evaluation.math_rlvr.data import resolve_data_root; print(resolve_data_root())')"
 fi
 TRAIN_DATASET="${TRAIN_DATASET:-aime-2025}"
 REWARD_TYPE="${REWARD_TYPE:-math}"

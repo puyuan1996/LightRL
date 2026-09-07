@@ -2,25 +2,27 @@
 # Submit the math DAPO training payload to a private narmodel RJob.
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
+ROOT="${LIGHTRL_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
 LIGHTRL_ROOT="${LIGHTRL_ROOT:-${ROOT}}"
+RJOB_CONFIG_FILE="${RJOB_CONFIG_FILE:-${ROOT}/local/rjob/rjob.env}"
+if [[ -f "${RJOB_CONFIG_FILE}" ]]; then source "${RJOB_CONFIG_FILE}"; fi
 : "${HF_CKPT:?set HF_CKPT before submitting}"
 : "${REF_LOAD:?set REF_LOAD before submitting}"
 : "${RJOB_NAME:?set RJOB_NAME before submitting}"
 
-RJOB_NAMESPACE="${RJOB_NAMESPACE:-ailab-narmodel}"
-RJOB_GROUP="${RJOB_GROUP:-narmodel_gpu}"
+: "${RJOB_NAMESPACE:?set RJOB_NAMESPACE (or RJOB_CONFIG_FILE) before submitting}"
+: "${RJOB_GROUP:?set RJOB_GROUP (or RJOB_CONFIG_FILE) before submitting}"
 RJOB_GPU="${RJOB_GPU:-4}"
 RJOB_CPU="${RJOB_CPU:-50}"
 RJOB_MEMORY="${RJOB_MEMORY:-560000}"
 RJOB_PRIORITY="${RJOB_PRIORITY:-9}"
-RJOB_IMAGE="${RJOB_IMAGE:-registry.h.pjlab.org.cn/ailab-rlinfra-rlinfra_gpu/rft:20260408}"
-RJOB_MOUNTS="${RJOB_MOUNTS:-gpfs://gpfs1/puyuan:/mnt/shared-storage-user/puyuan gpfs://gpfs2/trustcyberdata:/mnt/shared-storage-gpfs2/trustcyberdata}"
+: "${RJOB_IMAGE:?set RJOB_IMAGE (or RJOB_CONFIG_FILE) before submitting}"
+: "${RJOB_MOUNTS:?set RJOB_MOUNTS (or RJOB_CONFIG_FILE) before submitting}"
 RJOB_AUTO_DELETE="${RJOB_AUTO_DELETE:-720h}"
 
 if [[ -z "${MATH_DATA_ROOT:-}" ]]; then
-  MATH_DATA_ROOT="$(PYTHONPATH="${ROOT}" python3 -c \
-    'from tools.evaluation.math_rlvr.paths import resolve_data_root; print(resolve_data_root())')"
+  MATH_DATA_ROOT="$(cd "${ROOT}" && PYTHONPATH=. python3 -c \
+    'from tools.evaluation.math_rlvr.data import resolve_data_root; print(resolve_data_root())')"
 fi
 TRAIN_DATASET="${TRAIN_DATASET:-aime-2025}"
 REWARD_TYPE="${REWARD_TYPE:-math}"
@@ -54,7 +56,7 @@ LR_DECAY_STYLE="${LR_DECAY_STYLE:-constant}"
 LR_WARMUP_ITERS="${LR_WARMUP_ITERS:-10}"
 CLIP_GRAD="${CLIP_GRAD:-1.0}"
 RUN_ID="${RUN_ID:-${RJOB_NAME}}"
-PERSIST_ROOT="${PERSIST_ROOT:-/mnt/shared-storage-gpfs2/trustcyberdata/private/docker-infra/tmp/puyuan/lightrl}"
+: "${PERSIST_ROOT:?set PERSIST_ROOT (or RJOB_CONFIG_FILE) before submitting}"
 RUN_DIR="${RUN_DIR:-${PERSIST_ROOT}/runs/training/${RUN_ID}}"
 
 POD_COMMAND=$(cat <<'EOS'
@@ -142,7 +144,7 @@ task = Task(
 )
 job = Job(
     metadata=Metadata(name=env["SUBMIT_NAME"], charged_group=env["SUBMIT_GROUP"], annotations={
-        "rjob.brainpp.cn/job-command": "bash tools/evaluation/rjob/submit_math_rlvr_train.sh",
+        "rjob.brainpp.cn/job-command": "bash local/rjob/submit_math_rlvr_train.sh",
         "volcano.brainpp.cn/priority": env["SUBMIT_PRIORITY"], "lightrl.puyuan.cn/topology": "math-dapo",
     }),
     spec=Spec(preemptible="no", backoff_limit=1, host_network=False,

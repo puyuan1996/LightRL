@@ -1,15 +1,18 @@
 # Math RLVR toolkit
 
-The implementation is split into six dependency-light modules:
+The implementation is split into five dependency-light modules:
 
 | module | responsibility |
 |---|---|
-| `data` | aliases, JSON/JSONL/HuggingFace loading, stable deduplication, manifests |
+| `data` | portable roots, aliases, JSON/JSONL/HuggingFace loading, stable deduplication, manifests |
 | `extractor` | `Answer:`, boxed and natural-language candidates with provenance |
 | `verifier` | byte-identical semantic/strict verification used by train and eval |
 | `scorer` | strict/lenient/boxed tracks and format/cap/collapse diagnostics |
-| `rescorer` | replay a detail file with another reward type or response cap |
 | `stats` | paired deltas and deterministic bootstrap confidence intervals |
+
+Post-hoc rescoring is part of `scorer` and is exposed by
+`tools/evaluation/rescore_math_eval.py`; this keeps the scoring policy in one
+place and guarantees that replay uses the same verifier as online evaluation.
 
 Typical local flow:
 

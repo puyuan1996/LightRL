@@ -9,8 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .data import load_dataset, resolve_dataset
-from .paths import resolve_data_root
+from .data import load_dataset, resolve_data_root, resolve_dataset
 from .scorer import ScoreConfig, score_group, score_sample, summarize
 from .verifier import verifier_digest
 

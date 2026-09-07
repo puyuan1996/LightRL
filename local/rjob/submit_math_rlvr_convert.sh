@@ -2,27 +2,29 @@
 # Convert a Megatron torch_dist training checkpoint to HF format on narmodel RJob.
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
+ROOT="${LIGHTRL_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
+RJOB_CONFIG_FILE="${RJOB_CONFIG_FILE:-${ROOT}/local/rjob/rjob.env}"
+if [[ -f "${RJOB_CONFIG_FILE}" ]]; then source "${RJOB_CONFIG_FILE}"; fi
 : "${INPUT_DIR:?set INPUT_DIR to a torch_dist checkpoint directory}"
 : "${ORIGIN_HF_DIR:?set ORIGIN_HF_DIR to the base HF model directory}"
 : "${OUTPUT_DIR:?set OUTPUT_DIR to the converted HF output directory}"
 : "${RJOB_NAME:?set RJOB_NAME before submitting}"
 
-RJOB_NAMESPACE="${RJOB_NAMESPACE:-ailab-narmodel}"
-RJOB_GROUP="${RJOB_GROUP:-narmodel_gpu}"
+: "${RJOB_NAMESPACE:?set RJOB_NAMESPACE (or RJOB_CONFIG_FILE) before submitting}"
+: "${RJOB_GROUP:?set RJOB_GROUP (or RJOB_CONFIG_FILE) before submitting}"
 RJOB_GPU="${RJOB_GPU:-4}"
 RJOB_CPU="${RJOB_CPU:-50}"
 RJOB_MEMORY="${RJOB_MEMORY:-560000}"
 RJOB_PRIORITY="${RJOB_PRIORITY:-9}"
-RJOB_IMAGE="${RJOB_IMAGE:-registry.h.pjlab.org.cn/ailab-rlinfra-rlinfra_gpu/rft:20260408}"
-RJOB_MOUNTS="${RJOB_MOUNTS:-gpfs://gpfs1/puyuan:/mnt/shared-storage-user/puyuan gpfs://gpfs2/trustcyberdata:/mnt/shared-storage-gpfs2/trustcyberdata}"
+: "${RJOB_IMAGE:?set RJOB_IMAGE (or RJOB_CONFIG_FILE) before submitting}"
+: "${RJOB_MOUNTS:?set RJOB_MOUNTS (or RJOB_CONFIG_FILE) before submitting}"
 RJOB_AUTO_DELETE="${RJOB_AUTO_DELETE:-720h}"
 VOCAB_SIZE="${VOCAB_SIZE:-151936}"
 
 POD_COMMAND=$(cat <<'EOS'
 set -euo pipefail
-cd /mnt/shared-storage-user/puyuan/code/LightRL
-export PYTHONPATH="/mnt/shared-storage-user/puyuan/code/LightRL/Megatron-LM:/mnt/shared-storage-user/puyuan/code/LightRL/slime:/mnt/shared-storage-user/puyuan/code/LightRL:${PYTHONPATH:-}"
+cd "${LIGHTRL_ROOT}"
+export PYTHONPATH="${LIGHTRL_ROOT}/Megatron-LM:${LIGHTRL_ROOT}/slime:${LIGHTRL_ROOT}:${PYTHONPATH:-}"
 mkdir -p "$(dirname -- "${OUTPUT_DIR}")"
 echo "[math-rlvr-convert] input=${INPUT_DIR} origin=${ORIGIN_HF_DIR} output=${OUTPUT_DIR} vocab=${VOCAB_SIZE}"
 exec python3 slime/tools/convert_torch_dist_to_hf.py \
@@ -38,7 +40,7 @@ export SUBMIT_GROUP="${RJOB_GROUP}" SUBMIT_GPU="${RJOB_GPU}" SUBMIT_CPU="${RJOB_
 export SUBMIT_MEMORY="${RJOB_MEMORY}" SUBMIT_PRIORITY="${RJOB_PRIORITY}"
 export SUBMIT_IMAGE="${RJOB_IMAGE}" SUBMIT_AUTO_DELETE="${RJOB_AUTO_DELETE}"
 export SUBMIT_MOUNTS="${RJOB_MOUNTS}" SUBMIT_COMMAND="${POD_COMMAND}"
-export POD_INPUT_DIR="${INPUT_DIR}" POD_ORIGIN_HF_DIR="${ORIGIN_HF_DIR}"
+export POD_LIGHTRL_ROOT="${LIGHTRL_ROOT}" POD_INPUT_DIR="${INPUT_DIR}" POD_ORIGIN_HF_DIR="${ORIGIN_HF_DIR}"
 export POD_OUTPUT_DIR="${OUTPUT_DIR}" POD_VOCAB_SIZE="${VOCAB_SIZE}"
 
 python3 - <<'PY'
@@ -50,7 +52,7 @@ from brainpp.rjob import Affinity, Container, Job, Metadata, PrivateMachine, Res
 
 env = os.environ
 pod_env = {
-    "RJOB_TASK_INDEX": "0",
+    "RJOB_TASK_INDEX": "0", "LIGHTRL_ROOT": env["POD_LIGHTRL_ROOT"],
     "RJOB_NAME": env["SUBMIT_NAME"],
     "INPUT_DIR": env["POD_INPUT_DIR"],
     "ORIGIN_HF_DIR": env["POD_ORIGIN_HF_DIR"],
@@ -87,7 +89,7 @@ job = Job(
         name=env["SUBMIT_NAME"],
         charged_group=env["SUBMIT_GROUP"],
         annotations={
-            "rjob.brainpp.cn/job-command": "bash tools/evaluation/rjob/submit_math_rlvr_convert.sh",
+            "rjob.brainpp.cn/job-command": "bash local/rjob/submit_math_rlvr_convert.sh",
             "volcano.brainpp.cn/priority": env["SUBMIT_PRIORITY"],
             "lightrl.puyuan.cn/topology": "math-rlvr-checkpoint-convert",
         },

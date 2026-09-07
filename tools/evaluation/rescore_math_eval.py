@@ -11,7 +11,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from tools.evaluation.math_rlvr.rescorer import rescore_directory, rescore_file  # noqa: E402
+from tools.evaluation.math_rlvr.scorer import rescore_directory, rescore_file  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:

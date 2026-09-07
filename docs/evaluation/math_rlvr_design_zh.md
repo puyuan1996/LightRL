@@ -111,7 +111,7 @@ prepare_math_data.py -> launch_sglang_math.sh -> eval_math.py
 ## 8. 相对 PR #1 的改进
 
 PR [#1](https://github.com/puyuan1996/LightRL/pull/1) 的脚本提供了四数据集 sweep、Avg@k/Pass@k、boxed 对照和重评分入口。本
-分支保留这些兼容入口，但把逻辑拆成 `data/extractor/verifier/scorer/rescorer/
-stats` 模块；数据源、模型、cap、reward 和 eval 列表均为参数；每条记录保存候选
+分支保留这些兼容入口，但把逻辑收敛到 `data/extractor/verifier/scorer/stats`
+模块（重评分实现复用 `scorer`）；数据源、模型、cap、reward 和 eval 列表均为参数；每条记录保存候选
 来源、冲突、truncation 与 zero-variance 证据；训练和评测共享 verifier 并记录
 hash；默认 checkpoint 必填，避免旧服务名静默指向错误模型。

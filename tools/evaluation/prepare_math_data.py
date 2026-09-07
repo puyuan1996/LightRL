@@ -13,7 +13,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from tools.evaluation.math_rlvr.data import load_dataset, write_jsonl, write_manifest  # noqa: E402
-from tools.evaluation.math_rlvr.paths import resolve_data_root  # noqa: E402
+from tools.evaluation.math_rlvr.data import resolve_data_root  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:

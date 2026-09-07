@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from .verifier import Verifier
@@ -145,4 +147,67 @@ def summarize(per_problem: list[dict[str, Any]], *, config: ScoreConfig, elapsed
     }
 
 
-__all__ = ["ScoreConfig", "avg_pass_at_k", "score_group", "score_sample", "summarize"]
+def compliance_rate(records: list[dict[str, Any]]) -> float:
+    """Return format compliance over scoreable records."""
+
+    scoreable = [record for record in records if record.get(
+        "strict_scorable", record.get("scorable", record.get("strict_pred") != "[STRICT_ERROR]"))]
+    if not scoreable:
+        return float("nan")
+    def compliant(record: dict[str, Any]) -> bool:
+        if "format_compliant" in record:
+            return bool(record["format_compliant"])
+        if "format" in record:
+            return record["format"] == "answer_line"
+        return record.get("strict_pred", record.get("pred")) not in (None, "[INVALID]", "[STRICT_ERROR]")
+    return sum(compliant(record) for record in scoreable) / len(scoreable)
+
+
+def rescore_detail(
+    payload: dict[str, Any], *, reward_type: str | None = None, response_cap: int | None = None
+) -> dict[str, Any]:
+    """Recompute all score tracks from stored responses without model calls."""
+
+    config = ScoreConfig(
+        reward_type=reward_type or payload.get("reward_type", "math"),
+        response_cap=int(response_cap or payload.get("response_cap", 32768)),
+    )
+    problems = []
+    for problem in payload.get("problems", payload.get("per_problem", [])):
+        samples = []
+        for sample in problem.get("samples", []):
+            scored = dict(sample)
+            scored.update(score_sample(
+                sample.get("response", sample.get("text", "")), problem.get("label", ""),
+                completion_tokens=sample.get("completion_tokens"),
+                finish_reason=sample.get("finish_reason"), config=config,
+            ))
+            samples.append(scored)
+        group = score_group(samples)
+        problems.append({**problem, "samples": samples, "zero_variance_group": group["zero_variance"]})
+    return {"summary": summarize(problems, config=config), "problems": problems}
+
+
+def rescore_file(
+    path: str | Path, *, output: str | Path | None = None,
+    reward_type: str | None = None, response_cap: int | None = None,
+) -> Path:
+    source = Path(path)
+    result = rescore_detail(json.loads(source.read_text(encoding="utf-8")), reward_type=reward_type, response_cap=response_cap)
+    target = Path(output) if output else source.with_name(source.stem + ".rescore.json")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return target
+
+
+def rescore_directory(
+    results_dir: str | Path, *, reward_type: str | None = None, response_cap: int | None = None
+) -> list[Path]:
+    return [rescore_file(source, reward_type=reward_type, response_cap=response_cap)
+            for source in sorted(Path(results_dir).glob("*.detail.json"))]
+
+
+__all__ = [
+    "ScoreConfig", "avg_pass_at_k", "compliance_rate", "rescore_detail", "rescore_directory",
+    "rescore_file", "score_group", "score_sample", "summarize",
+]

@@ -6,7 +6,7 @@ from tools.evaluation.math_rlvr.data import MathExample, deduplicate_rows
 from tools.evaluation.math_rlvr.extractor import extract_answers
 from tools.evaluation.math_rlvr.scorer import ScoreConfig, score_group, score_sample, summarize
 from tools.evaluation.math_rlvr.stats import compare_payloads
-from tools.evaluation.math_rlvr.rescorer import compliance_rate
+from tools.evaluation.math_rlvr.scorer import compliance_rate
 from tools.evaluation.math_rlvr.verifier import Verifier
 
 
