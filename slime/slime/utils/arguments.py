@@ -1022,7 +1022,7 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                     "we will use this function to calculate the loss. "
                 ),
             )
-            # Optional LEWM/JЕPA auxiliary path.  All defaults are inert so
+            # Optional LeWM/JEPA auxiliary path.  All defaults are inert so
             # vanilla GRPO/DAPO keeps the exact existing objective.
             parser.add_argument(
                 "--world-model-enable",
@@ -1034,7 +1034,7 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 "--world-model-loss-coef",
                 type=float,
                 default=0.0,
-                help="Additive LEWM loss coefficient; zero leaves policy loss unchanged.",
+                help="Additive LeWM loss coefficient; zero leaves policy loss unchanged.",
             )
             parser.add_argument(
                 "--world-model-mode",

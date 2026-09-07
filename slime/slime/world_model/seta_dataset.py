@@ -34,6 +34,8 @@ class TerminalTransition:
 
     @property
     def transition_id(self) -> str:
+        """Stable dedup key hashed from trajectory, turn, action, and feedback."""
+
         return stable_hash(
             {
                 "trajectory_id": self.trajectory_id,
@@ -45,9 +47,18 @@ class TerminalTransition:
 
     @property
     def has_next(self) -> bool:
+        """Whether a successor context exists, so next-state alignment may apply."""
+
         return bool(self.next_context_messages)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to a plain dict for replay/cache payloads.
+
+        Returns:
+            All dataclass fields plus the derived ``transition_id`` and
+            ``has_next`` values, so downstream consumers do not recompute them.
+        """
+
         value = asdict(self)
         value["transition_id"] = self.transition_id
         value["has_next"] = self.has_next
@@ -55,6 +66,19 @@ class TerminalTransition:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "TerminalTransition":
+        """Rebuild a transition from a ``to_dict``-style mapping.
+
+        Only declared dataclass fields are read: derived keys such as
+        ``transition_id`` are recomputed rather than trusted, and unknown keys
+        are ignored so older/newer payloads stay loadable.
+
+        Args:
+            value: Mapping of field names, e.g. a ``to_dict`` output.
+
+        Returns:
+            The reconstructed transition; fields absent from ``value`` are None.
+        """
+
         fields = cls.__dataclass_fields__
         return cls(**{key: value.get(key) for key in fields})
 
@@ -122,6 +146,24 @@ def _turn_reward(reward: dict[str, Any], turn_idx: int) -> float | None:
 
 
 def transitions_from_seta_trajectory(payload: dict[str, Any], *, source_path: str) -> list[TerminalTransition]:
+    """Parse a SETA-native ``traj.json`` payload into turn-level transitions.
+
+    Reward semantics: explicit ``reward.per_turn_scores`` entries win and act
+    as dense per-turn rewards.  When they are absent, the episode-level score
+    (``score``/``base_score``/``raw_score``) is attached to the final turn
+    only, so a single terminal score is treated as sparse return rather than
+    being repeated at every turn.
+
+    Args:
+        payload: Decoded ``traj.json`` dict with ``info``/``reward``/``turns``.
+        source_path: Origin path, stored for provenance and used as fallback
+            when the payload carries no trajectory id.
+
+    Returns:
+        One transition per turn in turn order; the last turn is marked
+        ``done`` and has no ``next_context_messages``.
+    """
+
     info = payload.get("info") if isinstance(payload.get("info"), dict) else {}
     reward = payload.get("reward") if isinstance(payload.get("reward"), dict) else {}
     turns = [turn for turn in (payload.get("turns") or []) if isinstance(turn, dict)]
@@ -335,6 +377,22 @@ def _messages_from_record(record: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def transition_from_world_model_record(record: dict[str, Any], *, source_path: str) -> TerminalTransition:
+    """Build one transition from a world-model record (JSONL row or ``.pt`` item).
+
+    Alternative key spellings from different exporters are accepted
+    (``uid``/``trajectory_id``, ``next_observation_text``/``feedback_text``,
+    structured ``context_messages`` or serialized ``context_text``) so replay
+    checkpoints and offline record files share a single ingestion path.
+
+    Args:
+        record: Record dict; unrecognized keys are ignored.
+        source_path: Origin path, stored for provenance.
+
+    Returns:
+        The populated transition; ``reward`` stays None when the record has
+        no ``reward_score``.
+    """
+
     status = str(record.get("status")) if record.get("status") is not None else None
     reward = record.get("reward_score")
     next_context_messages = None

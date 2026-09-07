@@ -622,6 +622,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Parse CLI args, then train each stream arm and write the run summary.
+
+    Flag validation happens here so config errors surface before any encoding
+    work; ``run_stream`` then loads transitions, builds both arms from
+    identical seeds, trains them chunk by chunk, and writes ``metrics.jsonl``,
+    per-arm checkpoints, and ``stream_summary.json``.
+    """
+
     args = _build_parser().parse_args()
     if args.latent_dim % args.predictor_num_heads != 0 and args.predictor_type == "adaln":
         raise ValueError("--latent-dim must be divisible by --predictor-num-heads")

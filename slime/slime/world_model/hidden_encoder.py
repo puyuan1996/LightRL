@@ -23,6 +23,24 @@ def _stable_hash_hidden(texts: Sequence[str], hidden_dim: int) -> torch.Tensor:
 
 
 def hash_hidden_batch(transitions: Sequence[TerminalTransition], hidden_dim: int) -> dict[str, torch.Tensor]:
+    """Deterministic hash-based pseudo-hiddens for model-free smoke tests.
+
+    Each text field seeds a private RNG from its hash, so results are
+    bit-stable across processes and machines without loading a policy model.
+    The vectors carry NO semantic content; they exist only to exercise the
+    training/eval plumbing end to end and must not be used to draw model
+    quality conclusions.
+
+    Args:
+        transitions: Transitions to encode.
+        hidden_dim: Width of every returned hidden tensor.
+
+    Returns:
+        Dict with ``state_hidden``, ``action_hidden``, ``target_hidden``, and
+        ``next_state_hidden`` of shape ``(B, hidden_dim)``, plus the boolean
+        ``has_next`` mask; keys match ``PolicyHiddenEncoder.forward``.
+    """
+
     state_text = [json.dumps(row.context_messages, ensure_ascii=False, sort_keys=True) for row in transitions]
     action_text = [row.action_text for row in transitions]
     feedback_text = [row.feedback_text for row in transitions]
@@ -92,6 +110,19 @@ class PolicyHiddenEncoder(nn.Module):
         local_files_only: bool = False,
         **kwargs: Any,
     ) -> "PolicyHiddenEncoder":
+        """Load a HuggingFace policy model/tokenizer pair into an encoder.
+
+        Args:
+            model_name_or_path: Hub id or local checkpoint directory.
+            device: Target device; ``"auto"`` picks CUDA when available.
+            dtype: Torch dtype name, or ``"auto"`` to keep checkpoint dtype.
+            local_files_only: Skip network access when resolving the model.
+            **kwargs: Forwarded to ``PolicyHiddenEncoder.__init__``.
+
+        Returns:
+            An encoder in eval mode wrapping the loaded model.
+        """
+
         from transformers import AutoModel, AutoTokenizer
 
         tokenizer = AutoTokenizer.from_pretrained(
@@ -115,10 +146,19 @@ class PolicyHiddenEncoder(nn.Module):
 
     @property
     def device(self) -> torch.device:
+        """Device hosting the wrapped policy model's parameters."""
+
         return next(self.model.parameters()).device
 
     @property
     def hidden_size(self) -> int:
+        """Hidden width of the wrapped model.
+
+        Raises:
+            AttributeError: If the config exposes neither ``hidden_size`` nor
+                ``d_model``.
+        """
+
         value = getattr(self.model.config, "hidden_size", None)
         if value is None:
             value = getattr(self.model.config, "d_model", None)
@@ -290,6 +330,28 @@ class PolicyHiddenEncoder(nn.Module):
         return hidden, attention_mask
 
     def forward(self, transitions: Sequence[TerminalTransition]) -> dict[str, torch.Tensor]:
+        """Encode a batch of transitions into state/action/target hiddens.
+
+        State and action come from one causal pass over ``h_t + a_t``:
+        ``state_hidden`` is read at the prompt-end position, so the causal
+        mask guarantees it never sees action tokens, while ``action_hidden``
+        pools only the action span.  Feedback and next-state targets are
+        computed on detached no-grad branches.
+
+        Args:
+            transitions: Non-empty batch of transitions.
+
+        Returns:
+            Dict with ``state_hidden``, ``action_hidden``, ``target_hidden``,
+            and ``next_state_hidden`` of shape ``(B, hidden_size)``, plus the
+            boolean ``has_next`` mask.  Target/next rows are always detached;
+            state/action rows are detached unless ``backprop_to_llm``.
+
+        Raises:
+            ValueError: If ``transitions`` is empty.
+            RuntimeError: If the policy model returns no hidden states.
+        """
+
         if not transitions:
             raise ValueError("PolicyHiddenEncoder requires at least one transition")
         current_rows: list[list[int]] = []

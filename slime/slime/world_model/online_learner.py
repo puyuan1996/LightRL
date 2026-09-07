@@ -59,6 +59,32 @@ def _load_snapshot_transitions(path: Path) -> list[TerminalTransition]:
 
 
 def run_online(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the online LWM loop over rollout-side replay snapshots.
+
+    Polls ``args.snapshot_dir`` for ``world_model_replay*.pt`` snapshots
+    written by the RolloutManager.  Newly admitted transitions (deduplicated
+    by ``transition_id``) are encoded incrementally — once, into a growing
+    local cache, when the policy is frozen — then mixed with samples from the
+    learner's own FIFO buffer for ``ceil(new/batch_size)`` updates per
+    snapshot, matching the equal-compute rule of the offline streaming
+    protocol.  After each snapshot the model is evaluated on a fixed held-out
+    probe set (``--val-input``) and a row is appended to ``metrics.jsonl``.
+    The loop exits on the ``world_model_replay.DONE`` marker, ``--once``,
+    ``--max-snapshots``, idle timeout, or wall-clock timeout, then writes
+    ``latent_world_model_online.pt``, ``replay_buffer_online.pt``, and
+    ``online_summary.json``.
+
+    Args:
+        args: Parsed CLI namespace from ``_build_parser``.
+
+    Returns:
+        The summary dict also persisted as ``online_summary.json``.
+
+    Raises:
+        ValueError: On incompatible encoder/backprop flags, or when the
+            held-out probe input yields no transitions.
+    """
+
     if args.encoder == "hf-policy" and not args.hf_model:
         raise ValueError("--hf-model is required when --encoder hf-policy")
     if args.encoder == "hash" and args.backprop_to_llm:
@@ -98,6 +124,19 @@ def run_online(args: argparse.Namespace) -> dict[str, Any]:
         hidden_dim = args.hash_hidden_dim
 
     def encode(rows: list[TerminalTransition]) -> dict[str, torch.Tensor]:
+        """Encode a batch of transitions into one concatenated hidden dict.
+
+        The hash path delegates to ``hash_hidden_batch``; the HF path runs the
+        policy encoder in ``--encode-batch-size`` chunks and concatenates the
+        detached CPU tensors, so the result can be cached or saved directly.
+
+        Args:
+            rows: Transitions to encode.
+
+        Returns:
+            Hidden dict with the same keys as ``PolicyHiddenEncoder.forward``.
+        """
+
         if args.encoder == "hash":
             return hash_hidden_batch(rows, args.hash_hidden_dim)
         assert policy_encoder is not None
@@ -351,6 +390,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """CLI entry: parse args, validate flag combinations, run the polling loop."""
+
     args = _build_parser().parse_args()
     if args.latent_dim % args.predictor_num_heads != 0 and args.predictor_type == "adaln":
         raise ValueError("--latent-dim must be divisible by --predictor-num-heads")

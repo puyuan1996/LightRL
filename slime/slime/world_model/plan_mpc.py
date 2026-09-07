@@ -13,6 +13,16 @@ from .modules import TextLatentWorldModel, TextLatentWorldModelConfig
 
 
 def main() -> None:
+    """Run one-step latent MPC for one state against cached candidate actions.
+
+    Loads a ``TextLatentWorldModel`` checkpoint and a ``hidden_cache.pt``
+    payload, scores the chosen state's candidate actions by predicted value
+    (optionally uncertainty-penalized), and writes the ranked plan as JSON to
+    ``--output``.  The command is fail-closed: a checkpoint trained without a
+    value head raises ``ValueError`` before any output is written, and
+    out-of-range ``--state-index``/``--candidate-indices`` raise ``IndexError``.
+    """
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--input", required=True, help="hidden_cache.pt containing state/action hidden tensors")

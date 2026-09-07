@@ -92,6 +92,31 @@ def _adapt_test_script(test_sh: str) -> str:
 
 
 def convert_task(task_dir: Path, out_dir: Path, env_root_name: str) -> dict:
+    """Convert one tb2.x task directory into the TB1-style env layout.
+
+    Reads ``task.toml``/``instruction.md`` for metadata, writes ``task.yaml``
+    plus the stock ``docker-compose.yaml``, hoists ``environment/`` (including
+    its Dockerfile) to the task root so the task dir becomes the build
+    context, merges ``tests/`` and adapts ``tests/test.sh`` into an executable
+    ``run-tests.sh``, and copies ``solution/solve.sh`` when present.  An
+    existing output task dir is replaced.
+
+    Args:
+        task_dir: tb2.x task directory containing ``task.toml``.
+        out_dir: Environment root the converted task dir is created under.
+        env_root_name: Name of that root, recorded in the prompt record's
+            ``task_path`` so rollout configs can reference it.
+
+    Returns:
+        One rollout-prompt JSONL record (``task``/``metadata`` with
+        ``data_source=terminal_bench``).
+
+    Raises:
+        FileNotFoundError: If ``task.toml``, ``environment/Dockerfile``, or
+            ``tests/`` is missing.
+        ValueError: If the task has no usable instruction text.
+    """
+
     toml_path = task_dir / "task.toml"
     if not toml_path.is_file():
         raise FileNotFoundError(f"not a tb2.x task dir (missing task.toml): {task_dir}")
@@ -178,6 +203,15 @@ def convert_task(task_dir: Path, out_dir: Path, env_root_name: str) -> dict:
 
 
 def main() -> None:
+    """CLI entry: convert a tb2.x task tree into a TB1-style env root.
+
+    Iterates task dirs under ``--tasks-dir`` (optionally filtered by
+    ``--tasks``/``--max-tasks``), converts each with :func:`convert_task`,
+    collecting per-task failures into a skipped list instead of aborting, and
+    writes the rollout prompt JSONL plus a ``*.manifest.json`` sidecar.
+    Exits non-zero when no task was converted.
+    """
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tasks-dir", required=True, type=Path)
     parser.add_argument("--output-env-dir", required=True, type=Path)

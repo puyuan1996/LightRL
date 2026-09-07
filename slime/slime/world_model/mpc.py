@@ -65,6 +65,22 @@ def plan_one_step(
 
 
 def candidate_tensor(payload: dict[str, torch.Tensor], indices: Iterable[int] | None = None) -> torch.Tensor:
+    """Extract candidate action hiddens from a hidden-cache payload.
+
+    Args:
+        payload: Loaded ``hidden_cache.pt``-style dict holding an
+            ``action_hidden`` tensor of shape ``(N, D)``.
+        indices: Optional row subset, preserving the given order; ``None``
+            selects every row.
+
+    Returns:
+        Float32 ``(M, D)`` candidate tensor, where ``M`` is ``N`` or
+        ``len(indices)``.
+
+    Raises:
+        KeyError: If the payload has no ``action_hidden`` tensor.
+    """
+
     actions = payload.get("action_hidden")
     if actions is None:
         raise KeyError("input cache is missing action_hidden")

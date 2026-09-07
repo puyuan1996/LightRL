@@ -270,7 +270,7 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="use_dapo_replay_buffer",
         action="store_true",
         default=False,
-        help="Route DAPO-collected transitions through the PR #16-compatible replay interface.",
+        help="Route DAPO-collected transitions through the push/sample trajectory-replay interface (fixed-capacity FIFO, deduplicated).",
     )
     parser.add_argument("--replay-buffer-size", type=int, default=2048)
     parser.add_argument(
@@ -319,6 +319,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Training entry point for the offline latent world model.
+
+    Parses and validates CLI args, loads transitions, builds the hidden
+    encoder (hash or HF policy) and the model, trains according to ``--phase``
+    with optional replay mixing, then writes ``latent_world_model.pt``,
+    ``metrics.jsonl``, ``predictions.jsonl``, and ``run_summary.json``.
+    """
+
     args = _build_parser().parse_args()
     if args.encoder == "hf-policy" and not args.hf_model:
         raise ValueError("--hf-model is required when --encoder hf-policy")
