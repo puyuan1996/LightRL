@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Submit the math DAPO training payload to a private narmodel RJob.
+# Submit the Math DAPO training payload through the RJob Python client.
 set -euo pipefail
 
 ROOT="${LIGHTRL_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"

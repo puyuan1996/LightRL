@@ -1,5 +1,9 @@
 # Math RLVR toolkit
 
+完整协议、运行命令和实验状态见
+[`docs/evaluation/math_rlvr_zh.md`](../../../docs/evaluation/math_rlvr_zh.md)；本页只
+保留包级 API 和最小示例。
+
 The implementation is split into five dependency-light modules:
 
 | module | responsibility |
@@ -17,10 +21,10 @@ place and guarantees that replay uses the same verifier as online evaluation.
 Typical local flow:
 
 ```bash
-# Optional override.  By default the resolver uses the shared canonical root
-# `/mnt/shared-storage-user/puyuan/data/math_rlvr`, then repository-local data,
-# and finally the repository benchmark directory.
-export MATH_DATA_ROOT=/mnt/shared-storage-user/puyuan/data/math_rlvr
+# Optional override.  Without it, the resolver checks repository-local data
+# and then the repository benchmark directory.  Shared or mounted data should
+# always be supplied explicitly by the job environment.
+export MATH_DATA_ROOT=/path/to/math_rlvr_data
 python tools/evaluation/prepare_math_data.py \
   --source hf://open-r1/DAPO-Math-17k --dataset dapo-math-17k
 MODEL_PATH=/shared/ckpt/step-0 \

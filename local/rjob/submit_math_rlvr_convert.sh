@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Convert a Megatron torch_dist training checkpoint to HF format on narmodel RJob.
+# Convert a Megatron torch_dist training checkpoint to Hugging Face format.
 set -euo pipefail
 
 ROOT="${LIGHTRL_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"

@@ -12,11 +12,10 @@ from typing import Any, Iterable
 
 
 # Data-root discovery lives next to the loaders so every caller shares one
-# portable policy (environment override, canonical shared data, repository
-# checkout).  Keeping it here avoids a tiny path-only module and prevents
+# portable policy (environment override, repository data, benchmark data).
+# Keeping it here avoids a tiny path-only module and prevents
 # launchers from growing divergent hard-coded fallbacks.
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CANONICAL_SHARED_ROOT = Path("/mnt/shared-storage-user/puyuan/data/math_rlvr")
 REPO_DATA_ROOT = REPO_ROOT / "data" / "math_rlvr"
 REPO_BENCHMARK_ROOT = REPO_ROOT / "benchmarks" / "math"
 
@@ -33,7 +32,7 @@ def data_root_candidates(explicit: str | os.PathLike[str] | None = None) -> tupl
         value = os.environ.get(variable)
         if value:
             values.append(Path(value).expanduser())
-    values.extend((CANONICAL_SHARED_ROOT, REPO_DATA_ROOT, REPO_BENCHMARK_ROOT))
+    values.extend((REPO_DATA_ROOT, REPO_BENCHMARK_ROOT))
     return tuple(dict.fromkeys(values))
 
 
@@ -288,7 +287,6 @@ def write_manifest(rows: Iterable[MathExample], path: str | os.PathLike[str], *,
 
 __all__ = [
     "DATASET_ALIASES",
-    "CANONICAL_SHARED_ROOT",
     "MathExample",
     "data_root_candidates",
     "deduplicate_rows",

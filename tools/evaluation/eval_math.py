@@ -19,8 +19,7 @@ from tools.evaluation.math_rlvr.data import resolve_data_root  # noqa: E402
 
 REPO = _ROOT
 DATA_ROOT = resolve_data_root()
-# PR #1 called the asynchronous driver ``run``; keep that name for callers
-# while the implementation now lives in the modular ``evaluate`` function.
+# Public alias retained for existing notebooks and automation.
 run = evaluate
 
 
@@ -52,7 +51,7 @@ def grade_answer_verl(text: str, ground_truth: object) -> bool:
 
 
 def avg_and_pass_at_k(per_problem, keep_fn=lambda _sample: True, key="acc"):
-    """Compatibility name used by PR #1 tests and downstream notebooks."""
+    """Compatibility helper for existing tests and downstream notebooks."""
 
     # The original helper used ``acc``; modern records use explicit track keys.
     normalized = []

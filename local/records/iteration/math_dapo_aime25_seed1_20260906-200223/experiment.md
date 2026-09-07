@@ -4,15 +4,14 @@
 
 ## 1. 实验目的
 
-在 `feat/math-rlvr-eval` 分支上提交一个单 seed 的 AIME2025 DAPO 训练任务，
-并在训练结束后用同一 checkpoint 对 AIME2024 holdout 做独立评测。训练和评测均
+提交一个单 seed 的 AIME2025 DAPO 训练任务，并在训练结束后用同一 checkpoint
+对 AIME2024 holdout 做独立评测。训练和评测均
 使用 `reward_type=math`，不要求模型输出固定的 `Answer:` 或 `\\boxed{}` 格式；
 `Answer:`、`\\boxed{}`、自然语言 final-answer 由同一 extractor/verifier 处理。
 strict/boxed 指标仅作为诊断轨迹保留，不参与本次训练更新。
 
 ## 2. 固定实现与一致性约束
 
-- 分支：`feat/math-rlvr-eval`
 - 训练入口：[train_qwen3_8b_dapo_math.sh](../../../../examples/training/train_qwen3_8b_dapo_math.sh)
 - RJob payload：[submit_math_rlvr_train.sh](../../../../local/rjob/submit_math_rlvr_train.sh)（Pod 内直接调用训练入口）
 - 训练 custom RM：`tools.evaluation.math_rlvr.reward.reward_func`
@@ -29,8 +28,8 @@ final-answer 片段；候选冲突会进入 per-sample 记录，不会静默覆�
 
 | 项目 | 值 |
 |---|---|
-| base checkpoint | `/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B` |
-| reference checkpoint | `/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B_torch_dist` |
+| base checkpoint | `${HF_CKPT}` |
+| reference checkpoint | `${REF_LOAD}` |
 | 数据根目录 | `${MATH_DATA_ROOT}`（默认由 `data.py` 解析 canonical data root） |
 | 训练集 | `aime-2025.jsonl`，30 题 |
 | holdout | `aime-2024.jsonl`，30 题 |
@@ -107,8 +106,6 @@ final-answer 片段；候选冲突会进入 per-sample 记录，不会静默覆�
   （来自首个 actor update；不是完整多步训练结果，但可作为明确的 step-0
   训练后检查点进行 holdout）
 - 训练日志：上述目录下的 `logs/train.log`；retry6--retry10 日志在各自同名目录下
-- 代码 PR：<https://github.com/puyuan1996/LightRL/pull/5>
-
 训练检查点转换与 holdout 评测已提交：
 
 ```bash

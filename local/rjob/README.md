@@ -1,5 +1,9 @@
 # Math RLVR RJob entry points
 
+完整的数据、评分、训练和实验协议见
+[`docs/evaluation/math_rlvr_zh.md`](../../docs/evaluation/math_rlvr_zh.md)。本页只说明
+RJob 环境配置和入口参数。
+
 These scripts are the only scheduler-facing entry points for the Math RLVR
 evaluation, DAPO training, and checkpoint conversion flows.  They intentionally
 contain no site namespace, registry, mount, or persistent-storage address.
@@ -17,6 +21,8 @@ export LIGHTRL_ROOT="$PWD"
 The submitters fail early when the required scheduler values are absent.  All
 model, checkpoint, dataset, output, reward, cap, and evaluation settings are
 also explicit environment variables; no checkpoint is silently selected.
+Set `MATH_DATA_ROOT` to the mounted normalized dataset directory (or provide
+`LIGHTRL_DATA_ROOT`); the repository never assumes a site-specific mount.
 
 Examples:
 

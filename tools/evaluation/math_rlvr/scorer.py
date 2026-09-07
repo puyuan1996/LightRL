@@ -120,7 +120,7 @@ def summarize(per_problem: list[dict[str, Any]], *, config: ScoreConfig, elapsed
         "num_samples": len(all_samples),
         "avg_at_k": avg,
         "pass_at_k": passed,
-        # Short aliases retained for notebooks written against PR #1.
+        # Short aliases retained for existing result-processing notebooks.
         "avg": avg,
         "pass": passed,
         "strict_avg_at_k": strict_avg,
