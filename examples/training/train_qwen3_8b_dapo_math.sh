@@ -38,6 +38,17 @@ EVAL_DATASETS="${EVAL_DATASETS:-aime-2025,aime-2024}"
 EVAL_N_SAMPLES="${EVAL_N_SAMPLES:-8}"
 EVAL_INTERVAL="${EVAL_INTERVAL:-5}"
 EVAL_TOP_P="${EVAL_TOP_P:-1.0}"
+EVAL_ROLLOUT_MAX_CONCURRENCY="${EVAL_ROLLOUT_MAX_CONCURRENCY:-8}"
+SGLANG_SERVER_CONCURRENCY="${SGLANG_SERVER_CONCURRENCY:-64}"
+USE_FAULT_TOLERANCE="${USE_FAULT_TOLERANCE:-1}"
+ROLLOUT_GENERATION_MAX_RETRIES="${ROLLOUT_GENERATION_MAX_RETRIES:-3}"
+ROLLOUT_GENERATION_RETRY_INITIAL_BACKOFF="${ROLLOUT_GENERATION_RETRY_INITIAL_BACKOFF:-30}"
+ROLLOUT_GENERATION_RETRY_MAX_BACKOFF="${ROLLOUT_GENERATION_RETRY_MAX_BACKOFF:-120}"
+ROLLOUT_GENERATION_RETRY_BACKOFF_MULTIPLIER="${ROLLOUT_GENERATION_RETRY_BACKOFF_MULTIPLIER:-2}"
+ROLLOUT_HEALTH_CHECK_INTERVAL="${ROLLOUT_HEALTH_CHECK_INTERVAL:-30}"
+ROLLOUT_HEALTH_CHECK_TIMEOUT="${ROLLOUT_HEALTH_CHECK_TIMEOUT:-30}"
+ROLLOUT_HEALTH_CHECK_FIRST_WAIT="${ROLLOUT_HEALTH_CHECK_FIRST_WAIT:-60}"
+export EVAL_ROLLOUT_MAX_CONCURRENCY
 SEED="${SEED:-1}"
 NUM_GPUS="${NUM_GPUS:-1}"
 ACTOR_GPUS="${ACTOR_GPUS:-${NUM_GPUS}}"
@@ -128,6 +139,7 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --num-steps-per-rollout "${NUM_STEPS_PER_ROLLOUT}"
   --rollout-max-response-len "${RESPONSE_CAP}" --rollout-max-context-len "$((RESPONSE_CAP + 4096))"
   --rollout-temperature 1.0 --rollout-num-gpus-per-engine "${ROLLOUT_NUM_GPUS_PER_ENGINE}"
+  --sglang-server-concurrency "${SGLANG_SERVER_CONCURRENCY}"
   --advantage-estimator grpo --eps-clip 0.2 --eps-clip-high 0.28
   --calculate-per-token-loss --eval-interval "${EVAL_INTERVAL}"
   --n-samples-per-eval-prompt "${EVAL_N_SAMPLES}" --eval-max-response-len "${RESPONSE_CAP}"
@@ -151,6 +163,17 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --actor-num-nodes 1 --actor-num-gpus-per-node "${ACTOR_GPUS}"
   --seed "${SEED}" --save "${RUN_DIR}/checkpoints" --save-interval "${SAVE_INTERVAL:-20}"
   "${EVAL_ARGS[@]}")
+
+if [[ "${USE_FAULT_TOLERANCE}" == "1" ]]; then
+  CMD+=(--use-fault-tolerance
+    --rollout-generation-max-retries "${ROLLOUT_GENERATION_MAX_RETRIES}"
+    --rollout-generation-retry-initial-backoff "${ROLLOUT_GENERATION_RETRY_INITIAL_BACKOFF}"
+    --rollout-generation-retry-max-backoff "${ROLLOUT_GENERATION_RETRY_MAX_BACKOFF}"
+    --rollout-generation-retry-backoff-multiplier "${ROLLOUT_GENERATION_RETRY_BACKOFF_MULTIPLIER}"
+    --rollout-health-check-interval "${ROLLOUT_HEALTH_CHECK_INTERVAL}"
+    --rollout-health-check-timeout "${ROLLOUT_HEALTH_CHECK_TIMEOUT}"
+    --rollout-health-check-first-wait "${ROLLOUT_HEALTH_CHECK_FIRST_WAIT}")
+fi
 
 # Normalise both plain string prompts and OpenAI-style message lists before
 # tokenisation.  Without this flag list prompts reach tokenizer.encode during
