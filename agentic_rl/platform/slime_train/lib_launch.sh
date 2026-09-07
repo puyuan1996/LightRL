@@ -406,14 +406,17 @@ if [[ "${FORMAL_CAPTURE_SOURCE_STATE:-0}" == "1" ]]; then
 fi
 
 # ── Start Ray head ───────────────────────────────────────────────────
+_ray_num_cpus="${RAY_NUM_CPUS:-$(nproc)}"
 log "ray start --head ..."
 ray start --head \
   --node-ip-address "${NODE_IP}" \
+  --num-cpus "${_ray_num_cpus}" \
   --num-gpus "${NUM_GPUS}" \
   --disable-usage-stats \
   --dashboard-host=0.0.0.0 \
   --dashboard-port=8265 \
   --temp-dir "${RAY_TMPDIR}"
+unset _ray_num_cpus
 
 log "Waiting for Ray dashboard http://${MASTER_ADDR}:8265 ..."
 for i in {1..40}; do
@@ -485,6 +488,28 @@ if [[ "${HARNESS_OPTION}" == "claude-code" ]]; then
     \"ANTHROPIC_API_URL\": \"${ANTHROPIC_API_URL}\""
 fi
 
+# SGLang behavior flags exported by the launcher (e.g. the GLM-5.1 smoke
+# script) must reach engine actors on EVERY node.  Ray merges the job-level
+# runtime env into all actors, while an actor's own raylet env does not
+# propagate — without this passthrough, workers run with stock SGLang
+# defaults and deadlock against the head in mismatched collectives.
+SGLANG_PASSTHROUGH_JSON=""
+for _sgl_var in \
+  SGLANG_USE_MESSAGE_QUEUE_BROADCASTER \
+  SGLANG_DISABLE_NSA_DP_ATTENTION \
+  SGLANG_ONE_VISIBLE_DEVICE_PER_PROCESS \
+  SGLANG_GLM51_SAFE_MLA_CONCAT \
+  SGLANG_UNBALANCED_MODEL_LOADING_TIMEOUT \
+  SGLANG_DISABLE_CUDA_GRAPH \
+  SGLANG_CHUNKED_PREFILL_SIZE \
+  SGLANG_MEM_FRACTION_STATIC \
+  LIGHTRL_SGLANG_SERVER_PYTHON; do
+  if [[ -n "${!_sgl_var:-}" ]]; then
+    SGLANG_PASSTHROUGH_JSON+=$'\n    '"\"${_sgl_var}\": \"${!_sgl_var}\","
+  fi
+done
+unset _sgl_var
+
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PATH\": \"${PATH}\",
@@ -495,6 +520,7 @@ RUNTIME_ENV_JSON="{
     \"LIGHTRL_SETA_SUPPORT_SITE_PATHS\": \"${LIGHTRL_SETA_SUPPORT_SITE_PATHS:-}\",
     \"LIGHTRL_SETA_FALLBACK_SITE_PATHS\": \"${LIGHTRL_SETA_FALLBACK_SITE_PATHS:-}\",
     \"LIGHTRL_SETA_FALLBACK_MODULES\": \"${LIGHTRL_SETA_FALLBACK_MODULES:-}\",
+    \"LIGHTRL_MEGATRON_BRIDGE_OVERLAY\": \"${LIGHTRL_MEGATRON_BRIDGE_OVERLAY:-}\",
     \"PYTHONUNBUFFERED\": \"1\",
     \"PYTHONFAULTHANDLER\": \"1\",
     \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",
@@ -513,7 +539,7 @@ RUNTIME_ENV_JSON="{
     \"SLIME_SAVE_DEBUG_ROLLOUT_DATA\": \"${SLIME_SAVE_DEBUG_ROLLOUT_DATA:-}\",
     \"MASTER_ADDR\": \"${MASTER_ADDR}\",
     \"SLIME_HOST_IP\": \"${SLIME_HOST_IP:-}\",
-    \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",
+    \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",${SGLANG_PASSTHROUGH_JSON}
     \"USE_REMOTE_ENV\": \"${USE_REMOTE_ENV}\",
     \"ENV_SERVER_URL\": \"${ENV_SERVER_URL}\",
     \"ENV_HTTP_MAX_RETRIES\": \"${ENV_HTTP_MAX_RETRIES}\",

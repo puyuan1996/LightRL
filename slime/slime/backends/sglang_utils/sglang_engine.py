@@ -66,6 +66,43 @@ def _to_local_gpu_id(physical_gpu_id: int) -> int:
 
 
 def launch_server_process(server_args: ServerArgs) -> multiprocessing.Process:
+    # When LIGHTRL_SGLANG_SERVER_PYTHON points at a prepared venv interpreter
+    # (e.g. the glm51-stack with a newer SGLang that natively supports
+    # glm_moe_dsa), run the server under that interpreter instead of spawning
+    # it in-process from the image's SGLang.  The ServerArgs payload is
+    # filtered against the target build's field set so the two SGLang
+    # versions may differ.
+    sglang_python = os.environ.get("LIGHTRL_SGLANG_SERVER_PYTHON")
+    if sglang_python:
+        import dataclasses
+        import pickle
+        import subprocess
+        import tempfile
+
+        fd, payload_path = tempfile.mkstemp(prefix="sglang_server_args_", suffix=".pkl")
+        with os.fdopen(fd, "wb") as f:
+            pickle.dump(dataclasses.asdict(server_args), f)
+        bootstrap = (
+            "import dataclasses, pickle, sys; "
+            "from sglang.srt.server_args import ServerArgs; "
+            "data = pickle.load(open(sys.argv[1], 'rb')); "
+            "data = {k: v for k, v in data.items() if k in {f.name for f in dataclasses.fields(ServerArgs)}}; "
+            "from sglang.srt.entrypoints.http_server import launch_server; "
+            "launch_server(ServerArgs(**data))"
+        )
+        server_args.host = server_args.host.strip("[]")
+        p = subprocess.Popen([sglang_python, "-c", bootstrap, payload_path])
+
+        if server_args.node_rank != 0:
+            return p
+
+        _wait_server_healthy(
+            base_url=server_args.url(),
+            api_key=server_args.api_key,
+            is_process_alive=lambda: p.poll() is None,
+        )
+        return p
+
     from sglang.srt.entrypoints.http_server import launch_server
 
     multiprocessing.set_start_method("spawn", force=True)
@@ -522,13 +559,14 @@ def _compute_server_args(
     nnodes = max(1, gpus_per_engine // args.num_gpus_per_node)
     node_rank = rank % nnodes
     base = base_gpu_id if base_gpu_id is not None else get_base_gpu_id(args, rank)
-    base = _to_local_gpu_id(base)
     if nnodes > 1:
         # Each part of a multi-node engine owns its node's local GPU range:
         # sglang maps tp_rank to node-local ordinals via tp_size_per_node, so a
         # global bundle offset would double-count and exceed the local device
         # count (observed as CUDA "invalid device ordinal").
         base = 0
+    else:
+        base = _to_local_gpu_id(base)
     kwargs = {
         "model_path": model_path,
         "trust_remote_code": True,

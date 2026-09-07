@@ -254,7 +254,10 @@ fi
 
 SGLANG_ARGS=(
   --rollout-num-gpus-per-engine "${ROLLOUT_NUM_GPUS_PER_ENGINE}"
-  --sglang-mem-fraction-static 0.6
+  # Large colocated models (for example GLM-5.1 TP16) need a higher static
+  # pool than the historical 0.6 default.  Keep the old default while
+  # allowing the model runner to select a validated value explicitly.
+  --sglang-mem-fraction-static "${SGLANG_MEM_FRACTION_STATIC:-0.6}"
 )
 if [[ -n "${SGLANG_SERVER_CONCURRENCY:-}" ]]; then
   SGLANG_ARGS+=(--sglang-server-concurrency "${SGLANG_SERVER_CONCURRENCY}")
