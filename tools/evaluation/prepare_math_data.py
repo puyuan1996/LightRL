@@ -13,6 +13,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from tools.evaluation.math_rlvr.data import load_dataset, write_jsonl, write_manifest  # noqa: E402
+from tools.evaluation.math_rlvr.paths import resolve_data_root  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         seed=args.seed,
     )
     name = args.dataset or Path(source.rstrip("/")).stem
-    output_dir = Path(args.output_dir or args.data_root or os.environ.get("MATH_DATA_ROOT", "benchmarks/math"))
+    output_dir = Path(args.output_dir) if args.output_dir else resolve_data_root(args.data_root)
     output = Path(args.output) if args.output else output_dir / f"{name}.jsonl"
     write_jsonl(rows, output)
     manifest = write_manifest(rows, output.with_suffix(".manifest.json"), dataset=source, deduplicated=args.deduplicate)

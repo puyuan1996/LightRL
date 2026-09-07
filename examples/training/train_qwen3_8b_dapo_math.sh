@@ -13,7 +13,10 @@ cd "${REPO_ROOT}"
 # Silent checkpoint fallbacks are dangerous for a capability experiment.
 : "${HF_CKPT:?set HF_CKPT to the checkpoint being trained}"
 : "${REF_LOAD:?set REF_LOAD to the reference checkpoint}"
-MATH_DATA_ROOT="${MATH_DATA_ROOT:-${REPO_ROOT}/benchmarks/math}"
+if [[ -z "${MATH_DATA_ROOT:-}" ]]; then
+  MATH_DATA_ROOT="$(PYTHONPATH="${REPO_ROOT}" "${TRAIN_PYTHON:-python3}" -c \
+    'from tools.evaluation.math_rlvr.paths import resolve_data_root; print(resolve_data_root())')"
+fi
 TRAIN_DATASET="${TRAIN_DATASET:-aime-2025}"
 REWARD_TYPE="${REWARD_TYPE:-math}"
 RESPONSE_CAP="${RESPONSE_CAP:-32768}"

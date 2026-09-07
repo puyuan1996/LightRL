@@ -10,6 +10,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+from .paths import dataset_path as _dataset_path
+from .paths import resolve_data_root
+
 
 DATASET_ALIASES = {
     "aime2025": "aime-2025.jsonl",
@@ -153,13 +156,7 @@ def deduplicate_rows(rows: Iterable[MathExample]) -> list[MathExample]:
 
 
 def resolve_dataset(name_or_path: str | os.PathLike[str], data_root: str | os.PathLike[str] | None = None) -> Path:
-    value = str(name_or_path)
-    path = Path(value)
-    if path.is_absolute() or path.exists():
-        return path
-    root = Path(data_root or os.environ.get("MATH_DATA_ROOT", "benchmarks/math"))
-    filename = DATASET_ALIASES.get(value.lower(), value)
-    return root / filename
+    return _dataset_path(name_or_path, data_root)
 
 
 def load_dataset(
@@ -179,7 +176,11 @@ def load_dataset(
     else:
         path = resolve_dataset(name_or_path, data_root)
         if not path.is_file():
-            raise FileNotFoundError(f"math dataset not found: {path}; set MATH_DATA_ROOT or pass an explicit path")
+            root = resolve_data_root(data_root)
+            raise FileNotFoundError(
+                f"math dataset not found: {path}; set MATH_DATA_ROOT/LIGHTRL_DATA_ROOT "
+                f"or pass an explicit path (resolved root: {root})"
+            )
         rows = _read_jsonl(path, str(path)) if path.suffix.lower() in {".jsonl", ".ndjson"} else _read_json(path, str(path))
     if deduplicate:
         rows = deduplicate_rows(rows)
@@ -231,6 +232,7 @@ __all__ = [
     "load_dataset",
     "normalize_row",
     "resolve_dataset",
+    "resolve_data_root",
     "write_jsonl",
     "write_manifest",
 ]

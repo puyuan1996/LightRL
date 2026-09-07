@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .data import load_dataset, resolve_dataset
+from .paths import resolve_data_root
 from .scorer import ScoreConfig, score_group, score_sample, summarize
 from .verifier import verifier_digest
 
@@ -169,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     detail, summary = asyncio.run(evaluate(args))
-    output_dir = args.output_dir or str(Path(args.data_root or "benchmarks/math") / "eval_results")
+    output_dir = args.output_dir or str(resolve_data_root(args.data_root) / "eval_results")
     detail_path, summary_path = write_outputs(detail, summary, output_dir=output_dir, dataset=args.data, tag=args.tag, n=args.n)
     print(json.dumps({"detail": str(detail_path), "summary": str(summary_path), **summary}, ensure_ascii=False))
     return 0

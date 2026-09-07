@@ -18,7 +18,10 @@ RJOB_IMAGE="${RJOB_IMAGE:-registry.h.pjlab.org.cn/ailab-rlinfra-rlinfra_gpu/rft:
 RJOB_MOUNTS="${RJOB_MOUNTS:-gpfs://gpfs1/puyuan:/mnt/shared-storage-user/puyuan gpfs://gpfs2/trustcyberdata:/mnt/shared-storage-gpfs2/trustcyberdata}"
 RJOB_AUTO_DELETE="${RJOB_AUTO_DELETE:-720h}"
 
-MATH_DATA_ROOT="${MATH_DATA_ROOT:-/mnt/shared-storage-user/puyuan/math_rlvr_data}"
+if [[ -z "${MATH_DATA_ROOT:-}" ]]; then
+  MATH_DATA_ROOT="$(PYTHONPATH="${ROOT}" python3 -c \
+    'from tools.evaluation.math_rlvr.paths import resolve_data_root; print(resolve_data_root())')"
+fi
 TRAIN_DATASET="${TRAIN_DATASET:-aime-2025}"
 REWARD_TYPE="${REWARD_TYPE:-math}"
 RESPONSE_CAP="${RESPONSE_CAP:-32768}"

@@ -1,6 +1,6 @@
 # Reference configuration for the shell entrypoints. Values may be exported as
 # environment variables; paths are intentionally site-specific.
-data_root: ${MATH_DATA_ROOT:-benchmarks/math}
+data_root: ${MATH_DATA_ROOT:-/mnt/shared-storage-user/puyuan/data/math_rlvr}
 datasets:
   - aime-2025
   - aime-2024

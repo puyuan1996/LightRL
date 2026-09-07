@@ -15,9 +15,10 @@ from tools.evaluation.math_rlvr.eval_runner import main, evaluate, write_outputs
 from tools.evaluation.math_rlvr.scorer import avg_pass_at_k  # noqa: E402
 from tools.evaluation.math_rlvr.extractor import extract_answers  # noqa: E402
 from tools.evaluation.math_rlvr.verifier import Verifier  # noqa: E402
+from tools.evaluation.math_rlvr.paths import resolve_data_root  # noqa: E402
 
 REPO = _ROOT
-DATA_ROOT = Path(os.environ.get("MATH_DATA_ROOT", REPO / "benchmarks" / "math"))
+DATA_ROOT = resolve_data_root()
 # PR #1 called the asynchronous driver ``run``; keep that name for callers
 # while the implementation now lives in the modular ``evaluate`` function.
 run = evaluate
