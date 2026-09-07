@@ -24,6 +24,14 @@ def test_extractor_nested_box_and_natural_language():
     assert extract_answers("因此答案为 17。").value == "17"
 
 
+def test_natural_language_equation_uses_terminal_scalar():
+    # The reasoning trace may end without ``Answer:`` or ``\\boxed{}``.
+    # The terminal value of a conclusion equation is still the submitted
+    # answer and must be scored identically by train and eval.
+    assert Verifier("math").verify("Therefore m+n=106", "106").correct
+    assert Verifier("math").verify("Thus, the answer is 3/4.", "3/4").correct
+
+
 def test_verifier_tracks_format_without_format_learning():
     assert Verifier("math").verify(r"\boxed{42}", "42").correct
     strict = score_sample(r"\boxed{42}", "42", config=ScoreConfig("math", 100))

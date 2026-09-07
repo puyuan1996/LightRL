@@ -51,6 +51,11 @@ _NATURAL = re.compile(
     r"(?is)(?:final[ \t]+answer|the[ \t]+answer|therefore[ ,:;\-]*answer|答案)"
     r"[ \t]*(?:is|=|:|为|是)?[ \t]*([^\n.!?。！？;；]+)"
 )
+_CONCLUSION_SCALAR = re.compile(
+    r"(?im)^[ \t]*(?:therefore|thus|hence|so)[ ,:;\-\t]+.*?"
+    r"(?P<value>[+-]?(?:\d[\d,]*)(?:\.\d+)?(?:\s*/\s*[+-]?(?:\d[\d,]*)(?:\.\d+)?)?)"
+    r"\s*[.)。，、;；:：]*\s*$"
+)
 
 
 def _boxed_candidates(text: str) -> list[AnswerCandidate]:
@@ -91,6 +96,34 @@ def _strip_markup(value: str) -> str:
     return value
 
 
+_TRAILING_SCALAR = re.compile(
+    r"(?P<value>[+-]?(?:\d[\d,]*)(?:\.\d+)?(?:\s*/\s*[+-]?(?:\d[\d,]*)(?:\.\d+)?)?)"
+    r"\s*[.)。，、;；:：]*\s*$"
+)
+
+
+def _normalize_natural_value(value: str) -> str:
+    """Reduce a final-answer phrase to its terminal scalar when unambiguous.
+
+    Models often finish with prose such as ``therefore m+n=106`` or
+    ``so the answer is 3/4``.  Keeping the whole phrase makes a numeric label
+    impossible to verify.  For natural-language candidates only, prefer the
+    right-hand side of the last equality and then a trailing scalar.  If no
+    scalar is found, preserve the original expression so symbolic answers are
+    still handled by the normal verifier.
+    """
+
+    original = _strip_markup(value)
+    # An equality is the strongest signal that the terminal side is the
+    # submitted answer.  Use the last equality to avoid selecting an earlier
+    # derivation such as ``x=1, y=2, x+y=3``.
+    tail = re.split(r"(?:=|\\s+is\\s+|\\s+为\\s+|\\s+是\\s+)", original, flags=re.IGNORECASE)[-1]
+    match = _TRAILING_SCALAR.search(tail)
+    if match:
+        return match.group("value").replace(" ", "")
+    return original
+
+
 def _candidate_key(value: str) -> str:
     """Collapse wrapper markup so a natural-language mention of ``boxed`` is
     not reported as a conflict with the boxed candidate it contains."""
@@ -120,9 +153,15 @@ def extract_answers(text: str) -> ExtractionResult:
         )
     candidates.extend(_boxed_candidates(text))
     for match in _NATURAL.finditer(text):
-        value = _strip_markup(match.group(1))
+        value = _normalize_natural_value(match.group(1))
         if value:
             candidates.append(AnswerCandidate(value, "natural_language", match.start(), match.end()))
+    # A common concise finish omits the literal word ``answer``:
+    # ``Therefore m+n=106`` or ``Thus, 3/4``.  Only accept a terminal scalar
+    # for this lower-confidence form so ordinary reasoning lines beginning
+    # with ``so`` cannot become an answer candidate.
+    for match in _CONCLUSION_SCALAR.finditer(text):
+        candidates.append(AnswerCandidate(match.group("value").replace(" ", ""), "natural_language", match.start(), match.end()))
 
     complete = [c for c in candidates if c.closed and c.value]
     rank = {"answer_line": 3, "boxed": 2, "natural_language": 1}
