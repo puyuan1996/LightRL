@@ -291,7 +291,8 @@ $$
 下比较 `replay=off` 与 `replay=on`：pooled 训练中 replay 只是对同一分布
 重采样，预期不体现效率差异，其价值是验证 replay 生命周期不引入回归。
 效率收益只能在数据分批到达的在线条件下测量，因此引入流式 A/B（阶段
-四，§4.6）。
+四，§4.6）。在线训练期间，`online_learner.py` 以同一 replay 快照为数据
+源做增量学习（§4.7），把离线验证过的训练配方接到真实 rollout 流上。
 
 ### 3.7 Value Head 与 Latent MPC
 
@@ -439,7 +440,7 @@ loss 不劣于 noreplay 臂；若 replay 臂用更少 fresh 样本达到 norepla
 终水平（steps-to-threshold 左移），记为样本效率收益；guardrail 为
 effective rank 不塌缩、action_delta > 0、无 NaN（指标定义见表 7）。
 
-### 4.7 在线采集（DAPO rollout）
+### 4.7 在线采集与在线学习（DAPO rollout）
 
 ```bash
 EXTRA_ALGO_ARGS="--world-model-enable \
@@ -450,6 +451,24 @@ bash examples/training/train_qwen3_8b_seta_dive_po.sh
 
 这只收集/保存 world-model replay，不开启辅助 policy loss。在线 loss
 hook 仍只消费显式提供的 `wm_pred_latents`/`wm_target_latents`。
+
+rollout 侧的快照（`world_model_replay_<rollout_id>.pt`）可由在线学习器
+`slime.world_model.online_learner` 消费：它轮询快照目录，按
+`transition_id` 增量编码新到达的 transition，混合 replay buffer 抽样做
+LWM 增量训练，并在固定 held-out probe 集上逐快照评估——这是 §4.6 流式
+A/B 的在线对应物，也是让 replay 在 RL 训练期间真正产生 LWM 梯度的一环：
+
+```bash
+PYTHONPATH=slime:. python -m slime.world_model.online_learner \
+  --snapshot-dir <SAVE>/rollout \
+  --val-input /path/to/tb21_trajectories \
+  --output-dir runs/training/lwm_online/<run_name> \
+  --encoder hash   # smoke；语义实验用 --encoder hf-policy --hf-model ...
+```
+
+tb2.1 任务若需转换为在线训练运行时的 TB1 风格 env 目录（task.yaml /
+compose / Dockerfile / tests），使用
+`agentic_rl/data/convert_tb21_to_terminal_env.py`。
 
 ### 4.8 配置参数参考
 
@@ -580,9 +599,10 @@ hash encoder 用确定性哈希把文本映射为伪 hidden，因此它**能**�
 ### 6.3 未来方向
 
 - 用真实 policy hidden 完成表 4 的三阶段验收与流式 A/B，补齐语义证据；
+- 用 `online_learner.py` 在真实 rollout 流上复测流式 A/B 的效率结论；
 - 候选 action 真实同-state 执行实验，验证 latent 并行评分的实际优势；
-- 在线 latent 生产者接入后，评估预计算 latent hook 对 DAPO 的辅助收
-  益；
+- 评估预计算 latent hook 对线上 DAPO 的辅助收益（§3.5 的 hook 契约已就
+  绪）；
 - 将 one-step MPC 扩展为多步 latent MCTS（只需替换 planner，不改动
   predictor 与 policy loss）。
 
@@ -630,9 +650,11 @@ policy checkpoint 的环境中直接复现。
 | `slime/slime/world_model/replay_buffer.py` | 有界、去重、可复现的 transition replay |
 | `slime/slime/world_model/train_latent.py` | 三阶段训练、checkpoint、metrics、预测输出 |
 | `slime/slime/world_model/stream_latent.py` | 流式（online-style）replay A/B 训练协议 |
+| `slime/slime/world_model/online_learner.py` | 在线学习器：轮询 rollout replay 快照，增量训练并逐快照评估 |
 | `slime/slime/world_model/mpc.py` / `plan_mpc.py` | 同 state 候选 action 的 latent one-step planning |
 | `slime/slime/world_model/loss_hook.py` | 与 GRPO/DAPO 的显式、default-off 辅助损失契约 |
 | `slime/slime/world_model/metadata.py` | rollout 侧轻量 transition metadata |
+| `agentic_rl/data/convert_tb21_to_terminal_env.py` | tb2.x 任务目录 → 在线训练运行时 TB1 风格 env 布局 |
 | `examples/training/world_model/train_seta_latent.sh` | 指定 SETA 轨迹的一键训练入口 |
 | `examples/training/world_model/run_tb21_lwm_phase.sh` | 三阶段（baseline/replay/value_mpc）可复现入口 |
 | `examples/training/world_model/run_tb21_lwm_stream.sh` | 流式 A/B 入口 |
