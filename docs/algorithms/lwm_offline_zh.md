@@ -573,6 +573,36 @@ replay 生命周期与流式 A/B 协议（`slime/tests/world_model/`，运行命
 - 若 policy return 没有提升，结论应写成“latent dynamics representation
   有效/无效”，而不是将 offline prediction 误读为 Agentic RL 性能提升。
 
+### 5.5 Policy 级 latent WM 对照
+
+现在的 `default_world_model_loss_hook` 支持把环境侧 target latent 放回
+Megatron 的 policy loss。启用 `--world-model-enable
+--world-model-loss-coef 0.01 --world-model-backprop-to-llm` 后，hook 对
+response logits 做无参数的 signed-hash latent 投影，与 detached 的环境
+target 做 MSE；投影直接读取带梯度的 policy logits，因此 aux loss 会进入
+策略网络。具备真实中间层 hidden 的 rollout adapter 可直接提供
+`wm_pred_latents`，绕过 logits 投影。缺少 target 或系数为 0 时 hook 是
+严格 no-op，现有 DAPO 目标和显存路径不变。
+
+对照实验固定 seed、prompt 顺序、rollout 数、batch 和硬件，只改变
+`world_model_loss_coef=0` 与 `0.01/0.05`。每个 rollout 记录 reward、
+`wm/loss`、`wm/policy_gradient_path`、tokens、wall-clock 和 held-out
+pass@1；以达到相同 pass@1 的 fresh transitions、optimizer steps 和总时
+间评估效率。`wm/policy_gradient_path=1` 是实现检查项，不代表收益提升；
+当前验收采用单 seed；policy 指标与梯度路径必须在同一 seed 的 A/B 中同时
+改善，才报告 ECHO 式效率结论。
+
+### 5.6 观测口径
+
+正式 LWM 数据优先使用 SETA `traj.json` 的原始
+`tool_calls[].result`，即 stdout/stderr/exit code；不要把终端
+`capture-pane` 屏幕文本当作环境 observation。后者会带入 prompt 装饰、
+parser warning 和 action 回显，并且多个命令可能共用一张屏幕，破坏
+action↔observation 对齐。`--require-tool-feedback` 现在只接受显式 raw
+tool result；旧 ATIF pane 数据仍可读取，但会在该过滤器下被排除。tb2.1
+目录若没有 raw result，应先用同一 runtime 重放并导出 SETA trajectory，再
+用于 policy 级 A/B。
+
 ## 6. 分析与讨论
 
 ### 6.1 hash smoke 能证明什么、不能证明什么
@@ -681,3 +711,184 @@ encoder 或替换 planner，不需要修改 predictor 和 policy loss。
   <https://arxiv.org/abs/2509.22601>
 - Terminal-Bench：<https://github.com/laude-institute/terminal-bench>
 - Harbor（ATIF 轨迹格式规范）：<https://github.com/laude-institute/harbor>
+
+### 附录 C：obs/act hidden 提取与 loss 计算流程（代码走读）
+
+> 对应分支 `feat/lwm-offline-verify` 当前代码。路径均为仓库相对路径
+> （`slime/` 子模块根下的 `slime/slime/...`）。本附录只读代码，不含任何
+> 实现改动。
+
+#### C.0 总览
+
+```
+trajectory (tb2.1/SETA/records/replay)
+  │  seta_dataset.py  →  TerminalTransition(context_messages, action_text, feedback_text, next_context_messages)
+  ▼
+hidden_encoder.py  PolicyHiddenEncoder           ← 冻结 Qwen3-8B（或 hash 伪 hidden）
+  │  state_hidden / action_hidden / target_hidden / next_state_hidden  (B, 4096)
+  ▼  （离线时整体落入 hidden_cache.pt，训练期不再前向 LLM）
+modules.py  TextLatentWorldModel
+  │  state/action/target 三路 Adapter+Projector → latent(128)；predictor(state, action) → pred_latent
+  ▼
+modules.py  compute_loss = pred + sigreg + action_contrast + alignment + value
+  ▼
+train_latent.py / stream_latent.py / online_learner.py  训练循环（可选 replay 混合）
+──────────── online/policy 侧 ────────────
+metadata.py 挂记录 → ray/rollout.py 收进 TrajectoryReplayBuffer 落盘
+  → megatron_utils/loss.py 调 loss_hook.py 把 aux loss 加进 policy loss
+```
+
+#### C.1 transition 构建（obs/act 的文本来源）
+
+`slime/slime/world_model/seta_dataset.py:117-135`：SETA 格式的反馈文本直接
+取每个 tool call 的**原始 result**，包一层标签后拼接：
+
+```python
+def _feedback_text(turn, *, status, reward):
+    for call in turn.get("tool_calls") or []:
+        if not isinstance(call, dict) or call.get("result") is None:
+            continue
+        name = str(call.get("tool_name") or call.get("name") or "tool")
+        parts.append(f"<tool_result name={name}>\n{call.get('result')}\n</tool_result>")
+```
+
+tb2.1（ATIF/terminus）路径在同文件 `seta_dataset.py:207-233`
+（`_tb21_observation_text`）与 `:268-361`（`transitions_from_tb21_trajectory`）：
+observation 取自 `observation.results[].content`（终端屏幕抓图文本，口径
+差异见交接文档 §3.3）。两种格式最终统一为 `TerminalTransition`
+（`seta_dataset.py:14-47`）：`context_messages`（历史）、`action_text`
+（模型输出+工具调用签名）、`feedback_text`（环境反馈，即 obs 预测目标）。
+
+#### C.2 obs/act hidden 提取（核心）
+
+`slime/slime/world_model/hidden_encoder.py` 的 `PolicyHiddenEncoder`。
+设计要点：**state 与 action 共用同一次因果前向**，靠位置切分而非两次编码。
+
+1) 拼 prompt+action、切边界（`hidden_encoder.py:221-250`）：
+
+```python
+prompt = self._chat_ids(transition.context_messages, add_generation_prompt=True, ...)
+full   = self._chat_ids(context + [{"role": "assistant", "content": action_text}], ...)
+prefix = _longest_common_prefix(prompt, full)
+if prefix >= max(1, len(prompt) // 2):
+    prompt, action = full[:prefix], full[prefix:]   # chat template 对齐成功
+else:
+    action = self.tokenizer.encode(action_text, add_special_tokens=False)  # 兜底
+prompt = prompt[-self.max_context_tokens:]   # 左截断，保留最近上下文
+action = action[-self.max_action_tokens:]
+combined = prompt + action
+return combined, len(prompt) - 1, list(range(len(prompt), len(combined)))
+```
+
+2) 一次前向取整层 hidden（`hidden_encoder.py:310-330`）：
+
+```python
+output = self.model(input_ids=..., attention_mask=...,
+                    output_hidden_states=True, use_cache=False)
+hidden = output.hidden_states[self.hidden_layer].float()   # 默认最后一层
+```
+
+3) 按位置读出四路 hidden（`hidden_encoder.py:366-396`）：
+
+```python
+state_rows.append(current_hidden[index, state_position])        # prompt 末位：因果保证看不到 action
+action_span = current_hidden[index, action_position]
+action_rows.append(action_span.mean(dim=0))                     # action span mean-pool（可选 last）
+...
+target_pooled = (target_hidden * target_mask.unsqueeze(-1)).sum(1) / target_mask.sum(1)...  # obs：整段 mean-pool，no_grad
+next_pooled   = next_hidden[arange, next_lengths]               # next-state：末 token，no_grad
+result["target_hidden"]  = target_pooled.detach()               # 目标侧恒 detach
+result["state_hidden"]/result["action_hidden"]                  # 默认也 detach；--backprop-to-llm 时保留梯度
+```
+
+obs 目标侧单独编码（`hidden_encoder.py:252-285`）：加固定前缀
+`"<environment_observation>\n"`，先做字符级截断（`max_feedback_tokens*12`
+字符）再左截断到 token 上限——终端日志可能上 MB，这里防止 tokenize 出
+10 万 token 的行。
+
+工程降本：冻结 encoder 时全部 transition 一次性编码进缓存
+（`train_latent.py:84-101` `_cache_hidden`，产物 `hidden_cache.pt`），
+训练/评估阶段只做 `index_select`（`train_latent.py:79-81`），不再前向 LLM。
+
+#### C.3 latent 投影与预测
+
+`slime/slime/world_model/modules.py` 的 `TextLatentWorldModel.forward`
+（`modules.py:310-374`）：
+
+```python
+state_latent  = self.shared_projector(self.state_adapter(state_feat))    # 状态：adapter→共享投影
+action_latent = self.action_projector(action_feat)                       # 动作：独立投影
+pred_latent   = self.predictor(state_latent, action_latent)              # 动作条件预测下一观测
+target_latent = self.shared_projector(self.target_adapter(target_feat))  # obs 目标：与 state 共享投影
+```
+
+- `StableProjector`（`modules.py:55-84`）：clamp(±30) → LayerNorm →
+  Linear→GELU→Linear → LayerNorm → L2 normalize，稳定 LLM hidden 的数值尺度。
+- predictor 默认 `adaln`（`ActionConditionedTransformerPredictor`，
+  `modules.py:166-227`）：action latent 只通过 AdaLN 的 shift/scale/gate
+  调制 state token，**不作为 token 拼接进序列**（`modules.py:120-163`
+  `ActionAdaLNBlock`），多 turn 时 state token 间用因果 mask 自注意力。
+- value/uncertainty 头读的是 `pred_latent`（`modules.py:361-364`）——
+  候选质量必须依赖"预测的后果"而非当前状态。
+
+#### C.4 loss 计算
+
+`modules.py:376-502` `compute_loss`，总loss（`modules.py:481-487`）：
+
+```python
+loss = (pred_loss
+        + sigreg_coef * sigreg_loss
+        + action_contrast_coef * contrast_loss
+        + alignment_coef * alignment_loss
+        + value_coef * value_loss)
+```
+
+各项（默认 coef 见 `train_latent.py:304-307`：sigreg 0.09 / contrast 0.1 /
+alignment 0.1 / value 0.0）：
+
+| 项 | 代码 | 说明 |
+| --- | --- | --- |
+| pred | `modules.py:439-444` | 主目标：pred_latent vs target_latent 的 mse/smooth_l1/cosine；`--stop-grad-target` 时目标 detach（JEPA 式） |
+| sigreg | `modules.py:448` + `SIGReg`(`modules.py:23-52`) | 对 state_latent 做随机投影+高斯特征函数匹配，防表征塌缩；batch<2 时退化返回 0 |
+| action_contrast | `modules.py:451-458` | `torch.roll` 打乱动作构造负样本，hinge(margin + pos − neg)，保证预测真的依赖动作 |
+| alignment | `modules.py:460-469` | next_state_latent 对齐到 detach 的 target_latent，仅 `has_next` 为真的行参与 |
+| value | `modules.py:471-479` | 价值头对折扣回报（`train_latent.py:56-69` 按轨迹倒推）做 smooth_l1，仅 reward 非空的行 |
+
+诊断指标随 loss 一并返回（`modules.py:488-501`）：`wm/effective_rank`
+（塌缩护栏）、`wm/action_delta`（动作敏感度）、`wm/value_mask_count` 等。
+
+#### C.5 训练循环与 replay 混合
+
+`train_latent.py:104-177` `_run_epoch`：取 hidden（缓存或现场编码）→
+组装 reward/mask → `model.compute_loss(...)`（`train_latent.py:152-164`）→
+`loss.backward()` + 梯度裁剪 + `optimizer.step()`（`train_latent.py:166-170`）。
+replay 混合在 epoch 循环里（`train_latent.py:456-472`）：按比例
+`replay_ratio` 从 `TrajectoryReplayBuffer` 采样历史 transition，与 fresh
+拼接成当 epoch 训练集；`--backprop-to-llm` 时 LLM 参数以独立
+`--llm-lr` 进同一 AdamW（`train_latent.py:439-442`），梯度经
+state/action hidden 两路回传到 policy backbone。
+
+#### C.6 online/policy 侧：从 rollout 到 aux loss
+
+1) rollout 侧挂记录（`slime/slime/world_model/metadata.py`）：
+   `build_terminal_world_model_record`（`metadata.py:133-202`）把每 turn 的
+   context/action/`next_observation_text`（= 原始 tool result 拼接，
+   `metadata.py:99-130`）写入 `sample.metadata["world_model"]`，挂接点
+   `agentic_rl/rollout/generate_steps.py:1277`。
+2) 收进 buffer 并落盘（`slime/slime/ray/rollout.py:359-369`）：
+   `world_model_records_from_samples`（`replay_buffer.py:164-179`）抽出记录
+   → `TrajectoryReplayBuffer.push` → 每个 rollout 存
+   `<save>/rollout/world_model_replay_<id>.pt`；在线学习器
+   `online_learner.py` 轮询该目录增量训练 LWM（梯度回传 LWM 在此实现）。
+3) policy 训练侧 aux loss（`slime/slime/backends/megatron_utils/loss.py:864-871`
+   与 `:1296-1303` 两处 policy loss 末尾）调
+   `apply_world_model_loss`（`slime/slime/world_model/loss_hook.py:157-187`）：
+   `world_model_enable` 且 `world_model_loss_coef != 0` 才生效（default-off），
+   `loss += coef * aux_loss`。
+   默认 hook（`loss_hook.py:109-154`）的兜底路径：batch 里没有预算好的
+   `wm_pred_latents` 时，若开 `--world-model-backprop-to-llm`，把 policy
+   logits 在 response 区间池化（`loss_hook.py:36-74`）后经**固定无参的
+   signed-hash 投影**（`loss_hook.py:77-97`）映到 latent 空间，与
+   `wm_target_latents`（detach）算 MSE——投影作用在未 detach 的 logits 上，
+   因此产生真实 policy 梯度；预算 latent 路径则对 policy 梯度恒为 0
+   （这是阶段一 aux loss 保持 coef=0 的原因，见交接文档 §4）。
