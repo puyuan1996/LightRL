@@ -146,6 +146,19 @@ Avg@4/Pass@4 = 0/0，truncation=100%，zero-variance=100%，verifier errors=0；
 能力下降结论。十 epoch 训练尚未形成可验收 checkpoint，后续应先解决训练稳定性，
 再进行 paired AIME2025/AIME2024 评测和 reward/cap/data 消融。
 
+最近一次 10-epoch 尝试的可核验状态：
+
+| 任务 | 状态 | 诊断 |
+|---|---|---|
+| v1 | Failed | 启动阶段缺少 Megatron TP 所需的 CUDA 连接配置 |
+| v2 | Failed | rollout 0--11 后工作区切换导致 custom verifier 文件不可导入 |
+| v3 | Stopped | 首轮 rollout 阶段无法导入 custom reward 模块 |
+| isolated-v1 | Failed | 完成 20 次 actor update（latest iteration 19）后，AIME2024 in-training eval 将非字符串 prompt 直接传给 tokenizer，触发 `TextEncodeInput` 类型错误 |
+
+isolated-v1 的 metrics 显示多次 `loss=0`/零梯度，同时非零更新的
+`grad_norm_pre_clip` 达到约 `7.63e10`、`1.13e10`，说明即使修复 eval 输入类型，
+仍需先处理 reward/advantage 分布和梯度稳定性，再判断数学能力变化。
+
 逐样本 detail、summary、日志和 checkpoint 应由运行系统写入外部 artifact store；
 公共仓库不追踪运行期 `local/` 目录。本节的数字是已核验的汇总，原始记录由实验
 系统按时间戳保存，不替代本规范中的协议。
