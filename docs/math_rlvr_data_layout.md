@@ -19,9 +19,9 @@ It contains the normalized JSONL files and their manifests/checksums:
 `MATH_DATA_ROOT` is the explicit override for both training and evaluation;
 `LIGHTRL_DATA_ROOT` is accepted as a generic alias. If neither is set, the
 shared canonical root is preferred, followed by `data/math_rlvr` in the
-repository and the legacy `/mnt/shared-storage-user/puyuan/math_rlvr_data`
-directory. The legacy directory is intentionally retained as a compatibility
-copy; it is not the default for new runs.
+repository and the repository benchmark directory.
 
 The copy into the canonical root was verified against the original
-`SHA256SUMS` before updating launchers. No source files were deleted.
+`SHA256SUMS` before updating launchers. The former staging directory was
+removed after verification, so new runs should use the canonical root or an
+explicit `MATH_DATA_ROOT` override.

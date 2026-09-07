@@ -2,9 +2,8 @@
 
 The evaluator and training launchers accept an explicit ``MATH_DATA_ROOT``.
 When it is omitted, this module searches the canonical shared-data location,
-the repository-local data directory, and the legacy pre-refactor location.
-Keeping the fallback policy here prevents each launcher from growing a
-different hard-coded path list.
+the repository-local data directory. Keeping the fallback policy here prevents
+each launcher from growing a different hard-coded path list.
 """
 
 from __future__ import annotations
@@ -15,7 +14,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CANONICAL_SHARED_ROOT = Path("/mnt/shared-storage-user/puyuan/data/math_rlvr")
-LEGACY_SHARED_ROOT = Path("/mnt/shared-storage-user/puyuan/math_rlvr_data")
 REPO_DATA_ROOT = REPO_ROOT / "data" / "math_rlvr"
 REPO_BENCHMARK_ROOT = REPO_ROOT / "benchmarks" / "math"
 
@@ -34,7 +32,7 @@ def data_root_candidates(explicit: str | os.PathLike[str] | None = None) -> tupl
         value = os.environ.get(variable)
         if value:
             values.append(Path(value).expanduser())
-    values.extend((CANONICAL_SHARED_ROOT, REPO_DATA_ROOT, LEGACY_SHARED_ROOT, REPO_BENCHMARK_ROOT))
+    values.extend((CANONICAL_SHARED_ROOT, REPO_DATA_ROOT, REPO_BENCHMARK_ROOT))
     # Preserve order while removing duplicate spellings.
     return tuple(dict.fromkeys(values))
 
@@ -91,4 +89,4 @@ def dataset_path(name_or_path: str | os.PathLike[str], data_root: str | os.PathL
     return resolve_data_root(data_root) / aliases.get(value.lower(), value)
 
 
-__all__ = ["CANONICAL_SHARED_ROOT", "LEGACY_SHARED_ROOT", "REPO_DATA_ROOT", "data_root_candidates", "dataset_path", "resolve_data_root"]
+__all__ = ["CANONICAL_SHARED_ROOT", "REPO_DATA_ROOT", "data_root_candidates", "dataset_path", "resolve_data_root"]

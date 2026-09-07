@@ -16,7 +16,7 @@ Typical local flow:
 ```bash
 # Optional override.  By default the resolver uses the shared canonical root
 # `/mnt/shared-storage-user/puyuan/data/math_rlvr`, then repository-local data,
-# and finally the legacy `math_rlvr_data` location for backward compatibility.
+# and finally the repository benchmark directory.
 export MATH_DATA_ROOT=/mnt/shared-storage-user/puyuan/data/math_rlvr
 python tools/evaluation/prepare_math_data.py \
   --source hf://open-r1/DAPO-Math-17k --dataset dapo-math-17k
