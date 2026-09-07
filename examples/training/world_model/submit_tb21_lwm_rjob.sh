@@ -13,6 +13,8 @@ RJOB_GPU="${RJOB_GPU:-1}"
 RJOB_CPU="${RJOB_CPU:-16}"
 RJOB_MEMORY_MB="${RJOB_MEMORY_MB:-256000}"
 RJOB_PRIORITY="${RJOB_PRIORITY:-5}"
+RJOB_PREEMPTIBLE="${RJOB_PREEMPTIBLE:-no}"
+RJOB_GPU_AFFINITY_TYPE="${RJOB_GPU_AFFINITY_TYPE:-guaranteed}"
 RJOB_PRIVATE_MACHINE="${RJOB_PRIVATE_MACHINE:-group}"
 RJOB_MOUNT_PUYUAN="${RJOB_MOUNT_PUYUAN:-gpfs://gpfs1/puyuan:/mnt/shared-storage-user/puyuan}"
 RJOB_MOUNT_NARMODEL="${RJOB_MOUNT_NARMODEL:-gpfs://gpfs2/narmodel:/mnt/shared-storage-user/narmodel}"
@@ -33,7 +35,7 @@ for phase in "${phase_list[@]}"; do
   case "${phase}" in baseline|replay|value_mpc) ;; *) echo "unknown phase: ${phase}" >&2; exit 2 ;; esac
   stamp="$(date +%Y%m%d-%H%M%S)"
   name="${RJOB_NAME_PREFIX:-lwm-tb21}-${phase}-${stamp}"
-  command_string="cd ${REPO_ROOT} && RUNS_ROOT=${RUNS_ROOT} WM_INPUT=${WM_INPUT:-${RUNS_ROOT}/evaluation} WM_SUPPLEMENT_INPUT=${WM_SUPPLEMENT_INPUT:-${RUNS_ROOT}/training} WM_PHASE=${phase} WM_STAMP=${name} WM_ENCODER=${WM_ENCODER:-hf-policy} WM_HF_MODEL=${WM_HF_MODEL:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B} WM_MAX_TRAJECTORIES=${WM_MAX_TRAJECTORIES:-256} WM_MAX_TRANSITIONS=${WM_MAX_TRANSITIONS:-0} WM_EPOCHS=${WM_EPOCHS:-5} WM_BATCH_SIZE=${WM_BATCH_SIZE:-32} WM_LATENT_DIM=${WM_LATENT_DIM:-128} WM_SEED=${WM_SEED:-42} WM_REPLAY_BUFFER_SIZE=${WM_REPLAY_BUFFER_SIZE:-4096} WM_REPLAY_RATIO=${WM_REPLAY_RATIO:-1.0} PYTHON_BIN=${PYTHON_BIN} bash examples/training/world_model/run_tb21_lwm_phase.sh"
+  command_string="cd ${REPO_ROOT} && RUNS_ROOT=${RUNS_ROOT} WM_INPUT=${WM_INPUT:-${RUNS_ROOT}/evaluation} WM_SUPPLEMENT_INPUT=${WM_SUPPLEMENT_INPUT:-${RUNS_ROOT}/training} WM_PHASE=${phase} WM_STAMP=${name} WM_ENCODER=${WM_ENCODER:-hf-policy} WM_HF_MODEL=${WM_HF_MODEL:-/mnt/shared-storage-user/puyuan/code/slime/Qwen3-8B} WM_MAX_TRAJECTORIES=${WM_MAX_TRAJECTORIES:-256} WM_MAX_TRANSITIONS=${WM_MAX_TRANSITIONS:-0} WM_MAX_CONTEXT_TOKENS=${WM_MAX_CONTEXT_TOKENS:-1536} WM_MAX_ACTION_TOKENS=${WM_MAX_ACTION_TOKENS:-512} WM_MAX_FEEDBACK_TOKENS=${WM_MAX_FEEDBACK_TOKENS:-512} WM_BACKPROP_TO_LLM=${WM_BACKPROP_TO_LLM:-0} WM_USE_DAPO_REPLAY_BUFFER=${WM_USE_DAPO_REPLAY_BUFFER:-0} WM_REPLAY_SAMPLES_PER_EPOCH=${WM_REPLAY_SAMPLES_PER_EPOCH:-0} WM_EPOCHS=${WM_EPOCHS:-5} WM_BATCH_SIZE=${WM_BATCH_SIZE:-32} WM_LATENT_DIM=${WM_LATENT_DIM:-128} WM_SEED=${WM_SEED:-42} WM_REPLAY_BUFFER_SIZE=${WM_REPLAY_BUFFER_SIZE:-4096} WM_REPLAY_RATIO=${WM_REPLAY_RATIO:-1.0} PYTHON_BIN=${PYTHON_BIN} bash examples/training/world_model/run_tb21_lwm_phase.sh"
   echo "[lwm-rjob] submitting ${name} (${phase})"
   rjob submit \
     --namespace="${RJOB_NAMESPACE}" \
@@ -41,7 +43,8 @@ for phase in "${phase_list[@]}"; do
     --gpu="${RJOB_GPU}" --cpu="${RJOB_CPU}" --memory="${RJOB_MEMORY_MB}" \
     --charged-group="${RJOB_CHARGED_GROUP:-narmodel_gpu}" \
     --priority="${RJOB_PRIORITY}" --image="${RJOB_IMAGE}" \
-    --private-machine="${RJOB_PRIVATE_MACHINE}" \
+    --gpu-affinity-type="${RJOB_GPU_AFFINITY_TYPE}" \
+    --private-machine="${RJOB_PRIVATE_MACHINE}" --preemptible="${RJOB_PREEMPTIBLE}" \
     --mount="${RJOB_MOUNT_PUYUAN}" --mount="${RJOB_MOUNT_NARMODEL}" \
     --mount="${RJOB_MOUNT_TRUSTCYBER}" --privileged=false --host-network=false \
     --share-host-shm=true --termination-grace-period-seconds=30 \

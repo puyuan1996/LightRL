@@ -126,8 +126,35 @@ class PolicyHiddenEncoder(nn.Module):
             raise AttributeError("Cannot infer hidden size from model config")
         return int(value)
 
-    def _chat_ids(self, messages: list[dict[str, Any]], *, add_generation_prompt: bool) -> list[int]:
+    def _chat_ids(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        add_generation_prompt: bool,
+        max_length: int | None = None,
+    ) -> list[int]:
+        kwargs: dict[str, Any] = {
+            "tokenize": True,
+            "add_generation_prompt": add_generation_prompt,
+            "return_dict": False,
+        }
+        if max_length is not None:
+            kwargs.update({"truncation": True, "max_length": int(max_length)})
         try:
+            original_truncation_side = getattr(self.tokenizer, "truncation_side", None)
+            if original_truncation_side is not None and max_length is not None:
+                self.tokenizer.truncation_side = "left"
+            try:
+                ids = self.tokenizer.apply_chat_template(messages, **kwargs)
+            finally:
+                if original_truncation_side is not None and max_length is not None:
+                    self.tokenizer.truncation_side = original_truncation_side
+            if isinstance(ids, torch.Tensor):
+                ids = ids.tolist()
+            return list(ids)
+        except TypeError:
+            # Small test/fallback tokenizers may not expose HF truncation
+            # kwargs; fall back to the legacy call path in that case.
             ids = self.tokenizer.apply_chat_template(
                 messages,
                 tokenize=True,
@@ -139,14 +166,32 @@ class PolicyHiddenEncoder(nn.Module):
             return list(ids)
         except Exception:
             text = json.dumps(messages, ensure_ascii=False, sort_keys=True, default=str)
-            return list(self.tokenizer.encode(text, add_special_tokens=True))
+            try:
+                return list(
+                    self.tokenizer.encode(
+                        text,
+                        add_special_tokens=True,
+                        truncation=max_length is not None,
+                        max_length=max_length,
+                    )
+                )
+            except TypeError:
+                return list(self.tokenizer.encode(text, add_special_tokens=True))
 
     def _current_ids(self, transition: TerminalTransition) -> tuple[list[int], int, list[int]]:
-        prompt = self._chat_ids(transition.context_messages, add_generation_prompt=True)
+        prompt = self._chat_ids(
+            transition.context_messages,
+            add_generation_prompt=True,
+            max_length=self.max_context_tokens + self.max_action_tokens + 64,
+        )
         full_messages = list(transition.context_messages) + [
             {"role": "assistant", "content": transition.action_text}
         ]
-        full = self._chat_ids(full_messages, add_generation_prompt=False)
+        full = self._chat_ids(
+            full_messages,
+            add_generation_prompt=False,
+            max_length=self.max_context_tokens + self.max_action_tokens + 64,
+        )
         prefix = _longest_common_prefix(prompt, full)
         if prefix >= max(1, len(prompt) // 2):
             prompt = full[:prefix]
@@ -201,7 +246,7 @@ class PolicyHiddenEncoder(nn.Module):
 
     def _next_ids(self, transition: TerminalTransition) -> list[int]:
         messages = transition.next_context_messages or transition.context_messages
-        ids = self._chat_ids(messages, add_generation_prompt=True)
+        ids = self._chat_ids(messages, add_generation_prompt=True, max_length=self.max_context_tokens + 64)
         if not ids:
             bos = self.tokenizer.bos_token_id
             ids = [int(bos if bos is not None else 0)]
