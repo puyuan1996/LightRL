@@ -19,21 +19,24 @@ if [[ -z "${MATH_DATA_ROOT:-}" ]]; then
 fi
 TRAIN_DATASET="${TRAIN_DATASET:-aime-2025}"
 REWARD_TYPE="${REWARD_TYPE:-math}"
-RESPONSE_CAP="${RESPONSE_CAP:-32768}"
+RESPONSE_CAP="${RESPONSE_CAP:-8192}"
 if [[ -z "${ROLLOUT_BATCH_SIZE:-}" ]]; then
   if [[ "${TRAIN_DATASET}" == "dapo" || "${TRAIN_DATASET}" == "dapo-math-17k" ]]; then
     ROLLOUT_BATCH_SIZE=256
   else
-    ROLLOUT_BATCH_SIZE=30
+    # AIME has only 30 prompts.  Four prompts x four samples gives a
+    # sufficiently large GRPO group while still allowing several updates per
+    # epoch; callers with more memory can override this explicitly.
+    ROLLOUT_BATCH_SIZE=4
   fi
 fi
-N_SAMPLES="${N_SAMPLES:-8}"
+N_SAMPLES="${N_SAMPLES:-4}"
 NUM_EPOCHS="${NUM_EPOCHS:-10}"
 NUM_ROLLOUT="${NUM_ROLLOUT:-}"
 GLOBAL_BATCH_SIZE="${GLOBAL_BATCH_SIZE:-$((ROLLOUT_BATCH_SIZE * N_SAMPLES))}"
 EVAL_DATASETS="${EVAL_DATASETS:-aime-2025,aime-2024}"
 EVAL_N_SAMPLES="${EVAL_N_SAMPLES:-8}"
-EVAL_INTERVAL="${EVAL_INTERVAL:-20}"
+EVAL_INTERVAL="${EVAL_INTERVAL:-5}"
 EVAL_TOP_P="${EVAL_TOP_P:-1.0}"
 SEED="${SEED:-1}"
 NUM_GPUS="${NUM_GPUS:-1}"
@@ -62,6 +65,14 @@ LR="${LR:-1e-6}"
 LR_DECAY_STYLE="${LR_DECAY_STYLE:-constant}"
 LR_WARMUP_ITERS="${LR_WARMUP_ITERS:-10}"
 CLIP_GRAD="${CLIP_GRAD:-1.0}"
+NUM_STEPS_PER_ROLLOUT="${NUM_STEPS_PER_ROLLOUT:-1}"
+OVER_SAMPLING_BATCH_SIZE="${OVER_SAMPLING_BATCH_SIZE:-$((ROLLOUT_BATCH_SIZE * 2))}"
+DYNAMIC_SAMPLING_MAX_GROUPS="${DYNAMIC_SAMPLING_MAX_GROUPS:-256}"
+MAX_TOKENS_PER_GPU="${MAX_TOKENS_PER_GPU:-4096}"
+ROLLOUT_SHUFFLE="${ROLLOUT_SHUFFLE:-1}"
+BALANCE_DATA="${BALANCE_DATA:-1}"
+USE_DYNAMIC_BATCH_SIZE="${USE_DYNAMIC_BATCH_SIZE:-1}"
+APPLY_CHAT_TEMPLATE="${APPLY_CHAT_TEMPLATE:-1}"
 SLIME_DIR="${SLIME_DIR:-${REPO_ROOT}/slime}"
 TRAIN_PYTHON="${TRAIN_PYTHON:-python3}"
 RUN_ID="${RUN_ID:-math-dapo-${TRAIN_DATASET}-seed${SEED}-$(date +%Y%m%d-%H%M%S)}"
@@ -114,6 +125,7 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --custom-rm-path tools.evaluation.math_rlvr.reward.reward_func
   --rollout-batch-size "${ROLLOUT_BATCH_SIZE}"
   --n-samples-per-prompt "${N_SAMPLES}" --global-batch-size "${GLOBAL_BATCH_SIZE}"
+  --num-steps-per-rollout "${NUM_STEPS_PER_ROLLOUT}"
   --rollout-max-response-len "${RESPONSE_CAP}" --rollout-max-context-len "$((RESPONSE_CAP + 4096))"
   --rollout-temperature 1.0 --rollout-num-gpus-per-engine "${ROLLOUT_NUM_GPUS_PER_ENGINE}"
   --advantage-estimator grpo --eps-clip 0.2 --eps-clip-high 0.28
@@ -140,6 +152,27 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --seed "${SEED}" --save "${RUN_DIR}/checkpoints" --save-interval "${SAVE_INTERVAL:-20}"
   "${EVAL_ARGS[@]}")
 
+# Normalise both plain string prompts and OpenAI-style message lists before
+# tokenisation.  Without this flag list prompts reach tokenizer.encode during
+# in-training evaluation and abort after otherwise valid updates.
+if [[ "${APPLY_CHAT_TEMPLATE}" == "1" ]]; then
+  CMD+=(--apply-chat-template)
+fi
+if [[ "${ROLLOUT_SHUFFLE}" == "1" ]]; then
+  CMD+=(--rollout-shuffle --rollout-seed "${SEED}")
+fi
+if [[ "${BALANCE_DATA}" == "1" ]]; then
+  CMD+=(--balance-data)
+fi
+if [[ "${USE_DYNAMIC_BATCH_SIZE}" == "1" ]]; then
+  CMD+=(--use-dynamic-batch-size --max-tokens-per-gpu "${MAX_TOKENS_PER_GPU}")
+fi
+if (( OVER_SAMPLING_BATCH_SIZE > ROLLOUT_BATCH_SIZE )); then
+  CMD+=(--over-sampling-batch-size "${OVER_SAMPLING_BATCH_SIZE}"
+    --dynamic-sampling-filter-path slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std
+    --dynamic-sampling-max-groups "${DYNAMIC_SAMPLING_MAX_GROUPS}")
+fi
+
 if [[ -n "${NUM_ROLLOUT}" ]]; then
   CMD+=(--num-rollout "${NUM_ROLLOUT}")
 else
@@ -157,7 +190,28 @@ else
 fi
 
 mkdir -p "${RUN_DIR}/config" "${RUN_DIR}/logs"
-PYTHONPATH="${REPO_ROOT}" "${TRAIN_PYTHON}" -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); p.write_text(json.dumps({"train_data":sys.argv[2],"train_rows":int(sys.argv[3]),"train_batch_size":int(sys.argv[4]),"num_epochs":None if sys.argv[5]=="" else int(sys.argv[5]),"num_rollout":None if sys.argv[6]=="" else int(sys.argv[6]),"eval_datasets":sys.argv[7].split(","),"reward_type":sys.argv[8],"response_cap":int(sys.argv[9]),"seed":int(sys.argv[10]),"tensor_model_parallel_size":int(sys.argv[11]),"sequence_parallel":sys.argv[12]=="1","recompute_granularity":sys.argv[13],"lr":float(sys.argv[14])}, indent=2)+"\n")' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${NUM_EPOCHS:-}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}"
+PYTHONPATH="${REPO_ROOT}" "${TRAIN_PYTHON}" -c '
+import json, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+payload = {
+    "train_data": sys.argv[2], "train_rows": int(sys.argv[3]),
+    "rollout_batch_size": int(sys.argv[4]), "n_samples": int(sys.argv[5]),
+    "global_batch_size": int(sys.argv[6]), "num_epochs": int(sys.argv[7]),
+    "num_rollout": None if sys.argv[8] == "" else int(sys.argv[8]),
+    "eval_datasets": sys.argv[9].split(","), "reward_type": sys.argv[10],
+    "response_cap": int(sys.argv[11]), "seed": int(sys.argv[12]),
+    "tensor_model_parallel_size": int(sys.argv[13]), "sequence_parallel": sys.argv[14] == "1",
+    "recompute_granularity": sys.argv[15], "lr": float(sys.argv[16]),
+    "num_steps_per_rollout": int(sys.argv[17]), "over_sampling_batch_size": int(sys.argv[18]),
+    "dynamic_sampling_filter": sys.argv[19], "dynamic_sampling_max_groups": int(sys.argv[20]),
+    "use_dynamic_batch_size": sys.argv[21] == "1", "max_tokens_per_gpu": int(sys.argv[22]),
+    "apply_chat_template": sys.argv[23] == "1", "rollout_shuffle": sys.argv[24] == "1",
+    "balance_data": sys.argv[25] == "1",
+}
+path.write_text(json.dumps(payload, indent=2) + "\n")
+' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${N_SAMPLES}" "${GLOBAL_BATCH_SIZE}" "${NUM_EPOCHS}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}" "${NUM_STEPS_PER_ROLLOUT}" "${OVER_SAMPLING_BATCH_SIZE}" "slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std" "${DYNAMIC_SAMPLING_MAX_GROUPS}" "${USE_DYNAMIC_BATCH_SIZE}" "${MAX_TOKENS_PER_GPU}" "${APPLY_CHAT_TEMPLATE}" "${ROLLOUT_SHUFFLE}" "${BALANCE_DATA}"
 export MATH_RLVR_REWARD_TYPE="${REWARD_TYPE}" MATH_RLVR_RESPONSE_CAP="${RESPONSE_CAP}"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
