@@ -140,13 +140,43 @@ scorer/stats 重点测试和 DAPO-Math-17k 17,255 条唯一数据校验。基线
 | AMC23 | 95.78% | 100.00% | 0.00% | 0.78% | 34/40 |
 | MATH-500 | 87.51% | 90.20% | 61.28% | 0.24% | 460/500 |
 
-一次 actor update 的训练后 checkpoint 在 AIME2024 `N=4, cap=8192` holdout 上为
-Avg@4/Pass@4 = 0/0，truncation=100%，zero-variance=100%，verifier errors=0；
-输出为高重复非答案序列，因此该结果只说明 checkpoint/训练不稳定，不能作为数学
-能力下降结论。十 epoch 训练尚未形成可验收 checkpoint，后续应先解决训练稳定性，
-再进行 paired AIME2025/AIME2024 评测和 reward/cap/data 消融。
+### 当前 `math-dapo-aime25` v5 任务（2026-09-07 18:02，UTC+8）
 
-最近一次 10-epoch 尝试的可核验状态：
+当前 RJob `math-dapo-aime25-seed1-10epoch-v5-4519155` 仍在 narmodel 分区运行，
+不是已完成的 10 epoch 结果。配置为 AIME2025 30 题、`rollout_batch_size=2`、
+`n_samples=4`、`global_batch_size=8`、10 epochs、`reward_type=math`、
+`response_cap=8192`，并启用 dynamic batching、non-zero-std filter、chat template、
+oversampling=4。按当前数据量估算总量约为 150 个 rollout；已完成 rollout 0--20
+（21 次 actor update，约 14%），最近已提交的 checkpoint 为 `iter_0000019`。
+截至该快照，in-training AIME2024 eval20 已写出 240 个样本的聚合结果：
+`eval/aime-2024=0.4167`、平均 response length 为 7,837.85、truncation 为
+77.92%。该值是训练器的在线平均 reward，不等同于最终离线 Pass@k；AIME2025 的
+最终评测行尚未出现在日志中，因此不能报告完整 paired holdout 或训练后能力提升。
+
+已完成的 20 个训练 rollout 的可核验统计如下：
+
+| 指标 | 结果 | 解释 |
+|---|---:|---|
+| raw reward 均值 | 0.4375 | verifier 的原始数学得分，尚未形成稳定上升趋势 |
+| 训练 reward/advantage 均值 | 约 0 | dynamic filter 后组内方差极小，实际梯度信号接近零 |
+| truncation rate | 88.75% | `response_cap=8192` 已成为主要瓶颈 |
+| response length 均值 | 8,052 tokens | 中位数接近 cap |
+| latest rollout raw reward / truncation | 0.25 / 87.5% | rollout 20 |
+
+前 20 个 rollout 的 raw-reward 曲线（用于现场诊断，不是 10 epoch 完整曲线）为：
+
+```text
+0.625, 0.375, 0.375, 0.250, 0.500, 0.375, 0.375, 0.500, 0.500, 0.250,
+0.750, 0.375, 0.625, 0.750, 0.375, 0.375, 0.500, 0.250, 0.375, 0.250
+```
+
+该运行目前的主要风险不是 verifier 格式兼容性，而是长输出导致的 cap 主导和
+极端梯度：已记录的 `grad_norm_pre_clip` 达到约 `1.8e11`，同时训练 reward 接近
+零。即使 RJob 继续运行，也必须把最终 checkpoint 标记为“待评测”；只有完成全部
+rollout 并得到 paired AIME2025/AIME2024、format mismatch、truncation 和
+zero-variance summary 后，才可据此判断数学能力变化。
+
+历史 10-epoch 尝试的可核验状态：
 
 | 任务 | 状态 | 诊断 |
 |---|---|---|
@@ -154,11 +184,13 @@ Avg@4/Pass@4 = 0/0，truncation=100%，zero-variance=100%，verifier errors=0；
 | v2 | Failed | rollout 0--11 后工作区切换导致 custom verifier 文件不可导入 |
 | v3 | Stopped | 首轮 rollout 阶段无法导入 custom reward 模块 |
 | isolated-v1 | Failed | 完成 20 次 actor update（latest iteration 19）后，AIME2024 in-training eval 将非字符串 prompt 直接传给 tokenizer，触发 `TextEncodeInput` 类型错误 |
+| v5 | Running | 已修复启动/导入链路并进入训练与 eval；截至上方快照完成 21 次 update，AIME2024 eval20=0.4167，但 truncation 和梯度规模仍不满足验收门槛 |
 
 isolated-v1 的 metrics 显示多次 `loss=0`/零梯度，同时非零更新的
 `grad_norm_pre_clip` 达到约 `7.63e10`、`1.13e10`，说明即使修复 eval 输入类型，
 仍需先处理 reward/advantage 分布和梯度稳定性，再判断数学能力变化。
 
 逐样本 detail、summary、日志和 checkpoint 应由运行系统写入外部 artifact store；
-公共仓库不追踪运行期 `local/` 目录。本节的数字是已核验的汇总，原始记录由实验
-系统按时间戳保存，不替代本规范中的协议。
+公共仓库不追踪运行期 `local/` 目录。本节的数字是截至上述时间戳已核验的汇总，
+原始记录由实验系统按时间戳保存，不替代本规范中的协议。训练结束后应回填本节，
+并明确区分“RJob 完成”与“模型能力通过 paired holdout 验收”。
