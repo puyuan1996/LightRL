@@ -1,6 +1,6 @@
 # OpenClaw Terminal Latent World Model v2
 
-当前实现把 SETA/tb2.1 turn 轨迹映射为 policy-hidden-conditioned latent transition，并用 action-conditioned AdaLN Transformer 预测环境反馈 latent。完整设计与命令见 [`docs/algorithms/lwm_offline_verify_design_zh.md`](../../../docs/algorithms/lwm_offline_verify_design_zh.md)。
+当前实现把 SETA/tb2.1 turn 轨迹映射为 policy-hidden-conditioned latent transition，并用 action-conditioned AdaLN Transformer 预测环境反馈 latent。完整设计与命令见 [`docs/algorithms/lwm_offline_zh.md`](../../../docs/algorithms/lwm_offline_zh.md)。
 
 ## 主路径
 
