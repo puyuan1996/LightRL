@@ -89,7 +89,7 @@ cap 或敏感性曲线。zero-variance group 不伪造 advantage，应记录并�
 | `tools/evaluation/eval_math.py` | OpenAI-compatible endpoint 评测入口 |
 | `tools/evaluation/run_math_base_evals.sh` | 四个核心数据集批量评测 |
 | `examples/training/train_qwen3_8b_dapo_math.sh` | Qwen3 DAPO 训练配方 |
-| `local/rjob/` | scheduler submitter、payload、checkpoint 转换入口 |
+| `local/rjob/`（本地 overlay） | 站点 scheduler submitter、payload、checkpoint 转换入口；不随公共仓库发布 |
 
 ## 5. 本地与 RJob 使用
 
@@ -106,21 +106,22 @@ python tools/evaluation/rescore_math_eval.py \
 ```
 
 训练必须显式提供 `HF_CKPT`、`REF_LOAD`、`TRAIN_DATASET`、`REWARD_TYPE` 和
-`RESPONSE_CAP`。RJob 入口位于 `local/rjob/`，复制 `rjob.env.example` 为未跟踪的
-`rjob.env`，通过环境变量提供 namespace、charged group、镜像、挂载和持久化目录；
-仓库不保存站点地址。`DRY_RUN=1`（CLI submitter）或 `RJOB_DRY_RUN=1`（Python
-client submitter）只生成命令/spec，不提交作业。
+`RESPONSE_CAP`。站点 RJob submitter 是 operator-provided 的本地 overlay（通常放在
+`local/rjob/`，不纳入公共仓库）；通过环境变量提供 namespace、charged group、镜像、
+挂载和持久化目录，仓库不保存站点地址。submitter 应提供 dry-run 模式，只生成
+命令/spec 而不提交作业。
 
 建议的最小训练/holdout 流程：
 
 ```bash
+export RJOB_WRAPPER_DIR=/path/to/operator/rjob/overlay
 HF_CKPT=/path/to/base REF_LOAD=/path/to/reference \
   RJOB_NAME=math-dapo-seed1 NUM_EPOCHS=10 \
-  bash local/rjob/submit_math_rlvr_train.sh
+  bash "${RJOB_WRAPPER_DIR}/submit_math_rlvr_train.sh"
 
 MODEL_PATH=/path/to/converted-hf MODEL=my-model DATASETS=aime-2024 \
   REWARD_TYPE=math N=4 MAX_TOKENS=8192 \
-  bash local/rjob/submit_math_rlvr_eval.sh
+  bash "${RJOB_WRAPPER_DIR}/submit_math_rlvr_eval.sh"
 ```
 
 每次运行应保留 config、manifest、per-sample detail、summary、服务/训练日志和
@@ -145,6 +146,6 @@ Avg@4/Pass@4 = 0/0，truncation=100%，zero-variance=100%，verifier errors=0；
 能力下降结论。十 epoch 训练尚未形成可验收 checkpoint，后续应先解决训练稳定性，
 再进行 paired AIME2025/AIME2024 评测和 reward/cap/data 消融。
 
-详细的时间戳实验原始记录位于
-[`local/records/iteration/math_dapo_aime25_seed1_20260906-200223/experiment.md`](../../local/records/iteration/math_dapo_aime25_seed1_20260906-200223/experiment.md)；
-该记录只描述可复现实验事实，不替代本规范中的协议。
+逐样本 detail、summary、日志和 checkpoint 应由运行系统写入外部 artifact store；
+公共仓库不追踪运行期 `local/` 目录。本节的数字是已核验的汇总，原始记录由实验
+系统按时间戳保存，不替代本规范中的协议。

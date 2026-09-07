@@ -12,8 +12,8 @@ python3 -m tools.evaluation smoke --config <config.yaml> --task <task>
 `examples/evaluation/` 只保留面向用户的完整配方；例如 Qwen3-8B + SETA
 fixed12 + Camel-Agent 的 4-GPU 配方为
 `examples/evaluation/run_qwen3_8b_seta_fixed12_camel_4gpu.sh`。通用 CLI 和
-benchmark 脚本不负责提交 RJob，Math RLVR 的可审阅提交器位于
-`local/rjob/`，站点参数通过未跟踪配置注入。
+benchmark 脚本不负责提交 RJob；Math RLVR 的站点提交器由 operator 以本地
+overlay 提供（通常位于 `local/rjob/`），站点参数通过未跟踪配置注入，不进入公共仓库。
 
 Math RLVR 的完整协议、入口、指标和实验状态见
 [`math_rlvr_zh.md`](math_rlvr_zh.md)。
