@@ -26,6 +26,7 @@ AdaLN Transformer（以及 `predictor_type=mlp` 的轻量 FiLM/AdaLN 对照）�
 | `modules.py` | shared latent、AdaLN predictor、SIGReg、contrast/value loss |
 | `replay_buffer.py` | 可选 DAPO world-model trajectory replay |
 | `train_latent.py` | 端到端训练、预测、checkpoint |
+| `stream_latent.py` | 流式（online-style）replay A/B：分 chunk 到达、等算力对照 |
 | `mpc.py` / `plan_mpc.py` | 同一 state 上的候选 action latent one-step MPC |
 | `metadata.py` | rollout 侧轻量 transition metadata |
 

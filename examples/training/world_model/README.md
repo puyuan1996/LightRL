@@ -31,6 +31,29 @@ is frozen), `metrics.jsonl`, `latent_world_model.pt`, `predictions.jsonl`,
 `run_summary.json`, and phase logs.  `value_mpc` additionally writes
 `mpc_plan.json` when a value checkpoint and cache are available.
 
+## Streaming A/B (online-style replay)
+
+`run_tb21_lwm_stream.sh` runs the online-style comparison described in the
+"Streaming protocol" section of the design doc: the train split is cut into
+trajectory-contiguous chunks ("rollout arrivals"), and the `noreplay` /
+`replay` arms perform identical gradient-step counts per chunk — only batch
+composition differs (`replay` mixes `WM_REPLAY_RATIO` samples from the FIFO
+buffer with fresh chunk transitions).  Held-out metrics are recorded after
+every chunk, so training efficiency is read as held-out loss versus
+cumulative fresh transitions.
+
+```bash
+WM_ENCODER=hash WM_MAX_TRAJECTORIES=12 WM_STREAM_CHUNKS=3 \
+  bash examples/training/world_model/run_tb21_lwm_stream.sh   # local smoke
+
+WM_ENCODER=hf-policy WM_HF_MODEL=/path/to/Qwen3-8B \
+  bash examples/training/world_model/submit_tb21_lwm_stream_rjob.sh  # rjob
+```
+
+Outputs add per-arm `latent_world_model_{arm}.pt`, `predictions_{arm}.jsonl`,
+`replay_buffer_replay.pt`, a shared `hidden_cache.pt`, per-chunk
+`metrics.jsonl`, and `stream_summary.json`.
+
 ## rjob submission
 
 Submit independent jobs for all phases (defaults are

@@ -360,13 +360,14 @@ def main() -> None:
         json.dumps(data_manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 
-    replay_stats = None
     replay: TrajectoryReplayBuffer | None = None
     if args.use_dapo_replay_buffer:
         replay = TrajectoryReplayBuffer(args.replay_buffer_size, seed=args.seed)
         replay.push(transitions, current_step=0)
         replay.save(output_dir / "replay_buffer.pt")
-        replay_stats = replay.stats()
+    # replay_stats must be captured AFTER the training loop: sampling happens
+    # per epoch, so a pre-training snapshot always reports total_sampled=0.
+    replay_stats: dict[str, float] | None = None
 
     device = _device(args.device)
     policy_encoder: PolicyHiddenEncoder | None = None
@@ -509,6 +510,8 @@ def main() -> None:
             handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
         print(json.dumps(row, sort_keys=True))
 
+    if replay is not None:
+        replay_stats = replay.stats()
     checkpoint = {
         "schema_version": "openclaw_terminal_latent_wm_v2",
         "created_at": datetime.now(timezone.utc).isoformat(),

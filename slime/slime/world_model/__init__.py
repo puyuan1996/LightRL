@@ -10,6 +10,7 @@ __all__ = [
     "TrajectoryReplayBuffer",
     "MPCPlan",
     "plan_one_step",
+    "plan_stream",
     "attach_terminal_world_model_metadata",
     "is_world_model_enabled",
 ]
@@ -37,4 +38,8 @@ def __getattr__(name):
         from .mpc import MPCPlan, plan_one_step
 
         return {"MPCPlan": MPCPlan, "plan_one_step": plan_one_step}[name]
+    if name == "plan_stream":
+        from .stream_latent import plan_stream
+
+        return plan_stream
     raise AttributeError(name)

@@ -140,6 +140,7 @@ tb2.1/SETA/replay paths
 | `modules.py` | Adapter、shared Projector、AdaLN predictor、loss/head |
 | `replay_buffer.py` | 有界、去重、可复现的 transition replay |
 | `train_latent.py` | 三阶段训练、checkpoint、metrics、预测输出 |
+| `stream_latent.py` | 流式（online-style）replay A/B 训练协议 |
 | `mpc.py` | 同 state 候选 action 的 latent one-step planning |
 | `loss_hook.py` | 与 GRPO/DAPO 的显式、default-off 辅助损失契约 |
 
@@ -164,7 +165,7 @@ tb2.1/SETA/replay paths
   action，适合未来 MPC/MCTS。代价是 latent 可解释性和解码能力较弱，必须报告
   retrieval、action shuffle gap、value calibration，不能只看训练 loss。
 
-## 4. 三阶段实验协议与验收门槛
+## 4. 实验协议与验收门槛
 
 ### 阶段一：无 replay 的 tb2.1 baseline
 
@@ -192,6 +193,35 @@ tb2.1/SETA/replay paths
 - 对同 state 的候选 action 做 one-step MPC，报告 top-1 reward、regret、覆盖率；
   候选不足或没有 verified value head 时 fail-closed。
 - 不将 MPC 决策自动注入 GRPO；只有单独 planner 实验显式消费规划结果。
+
+### 阶段四：流式（online-style）replay A/B
+
+阶段二的全量 pooled 训练中，replay 只是对同一分布重采样，无法体现效率
+差异；ECHO 式的"免费监督"收益只有在数据分批到达的在线条件下才可测。
+阶段四把 train split 切成按 trajectory 完整的流式 chunk（模拟 rollout 到
+达），两臂执行**相同的 gradient step 数与 batch 大小**，仅 batch 组成不同：
+
+- `noreplay`（改动前）：batch 只含当前 chunk 的 fresh transition；
+- `replay`（改动后）：chunk 先全部 push 进固定容量 FIFO
+  `TrajectoryReplayBuffer`（成功与失败都入库——world model 需要完整
+  outcome 分布，因此不采用 SPEAR 的 advantage>0 质量闸），每个 batch 按
+  `replay_ratio` 从 buffer 抽样、其余取当前 chunk 的 fresh transition。
+
+两臂在每个 chunk 后于同一 trajectory 分组 held-out 集合上评估；模型权重
+用同一 seed 初始化，冻结 encoder 时共享同一份 hidden cache，保证唯一变量
+是 batch 组成。ECHO 本身没有 replay buffer（严格 on-policy 环境 token
+CE），replay 机制设计参考 SPEAR：有界 FIFO 承担陈旧度控制，
+`--replay-warmup-chunks` 提供 replay 比例的线性 warmup（对应 SPEAR 的
+cosine 权重 warmup）。
+
+- 入口：`examples/training/world_model/run_tb21_lwm_stream.sh` /
+  `submit_tb21_lwm_stream_rjob.sh`（单 job 内顺序跑两臂，共享编码）。
+- 通过条件：在相同累计 fresh transition 数下，replay 臂 held-out
+  pred loss 不劣于 noreplay 臂；若 replay 臂用更少 fresh 样本达到
+  noreplay 最终水平（steps-to-threshold 左移），记为 ECHO 式样本效率
+  收益；guardrail 为 effective rank 不塌缩、action_delta>0、无 NaN。
+- 解释边界：该结论只覆盖 LWM 训练效率，不外推为 policy return 提升；
+  policy 级验证需要在线 latent 生产者，属于后续独立实验。
 
 所有阶段的入口均支持 `rjob`：站点只需在 `rjob` 容器中执行脚本并覆盖
 `RUNS_ROOT/WM_INPUT/WM_HF_MODEL`，输出统一位于 `runs/training`（训练）或
