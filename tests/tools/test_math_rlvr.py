@@ -30,6 +30,10 @@ def test_natural_language_equation_uses_terminal_scalar():
     # answer and must be scored identically by train and eval.
     assert Verifier("math").verify("Therefore m+n=106", "106").correct
     assert Verifier("math").verify("Thus, the answer is 3/4.", "3/4").correct
+    assert not extract_answers(
+        "Therefore, the conclusion is that the greedy algorithm is optimal "
+        "when the remainder has last digit >=5, so the number is 9"
+    ).candidates
 
 
 def test_verifier_tracks_format_without_format_learning():

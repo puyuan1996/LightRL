@@ -52,7 +52,12 @@ _NATURAL = re.compile(
     r"[ \t]*(?:is|=|:|为|是)?[ \t]*([^\n.!?。！？;；]+)"
 )
 _CONCLUSION_SCALAR = re.compile(
-    r"(?im)^[ \t]*(?:therefore|thus|hence|so)[ ,:;\-\t]+.*?"
+    r"(?im)^[ \t]*(?:therefore|thus|hence|so)[ ,:;\-\t]+"
+    # Only permit a compact algebraic equality before the terminal scalar.
+    # Long prose conclusions are deliberately excluded: they often occur in
+    # intermediate reasoning and must not become a false answer candidate.
+    r"(?:(?=[^=\n]{1,80}[+\-*/^])"
+    r"[A-Za-z0-9_()+\-*/^ ]{1,80}=\s*)?"
     r"(?P<value>[+-]?(?:\d[\d,]*)(?:\.\d+)?(?:\s*/\s*[+-]?(?:\d[\d,]*)(?:\.\d+)?)?)"
     r"\s*[.)。，、;；:：]*\s*$"
 )
