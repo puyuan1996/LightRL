@@ -11,10 +11,17 @@ encoder plus the trained LWM target branch (``target_adapter`` +
 Runtime configuration is intentionally env-based so the rollout-side call
 site (``attach_terminal_world_model_metadata``) needs no signature change:
 
-- ``LWM_TARGET_PROVIDER_ENCODER``: ``hf`` (default) or ``hash`` (plumbing
-  smoke: deterministic pseudo-targets without loading a model).
+- ``LWM_TARGET_PROVIDER_ENCODER``: ``hf`` (default, frozen LWM target
+  branch), ``raw`` (frozen encoder hidden, L2-normalized, no learned head —
+  the zero-training ablation; pair with ``--world-model-latent-dim
+  <encoder hidden size>`` so the policy-side projection width matches), or
+  ``hash`` (plumbing smoke: deterministic pseudo-targets, no semantics).
+- ``LWM_ONLINE_JOINT``: when set to ``1``, routing goes to
+  ``joint_online.joint_update_and_targets`` instead — the LWM trains inside
+  this same process on each rollout batch and targets come from its EMA
+  target branch (see ``joint_online.py``).
 - ``LWM_TARGET_CHECKPOINT``: trained LWM checkpoint with ``config`` +
-  ``state_dict`` (required in ``hf`` mode).
+  ``state_dict`` (required in ``hf`` mode; warm start in joint mode).
 - ``LWM_TARGET_ENCODER_MODEL``: local HF policy checkpoint used as the frozen
   text encoder (default: site Qwen3-8B path).
 - ``LWM_TARGET_DEVICE``: ``auto`` (default), ``cuda`` or ``cpu``.
@@ -138,6 +145,42 @@ def _hf_targets(
     return latents
 
 
+def _load_raw_encoder() -> tuple[PolicyHiddenEncoder, torch.device]:
+    """Load only the frozen encoder (raw mode needs no LWM checkpoint)."""
+
+    if "raw_encoder" in _state:
+        return _state["raw_encoder"]
+    device = _device()
+    model_path = os.environ.get("LWM_TARGET_ENCODER_MODEL", _DEFAULT_ENCODER_MODEL)
+    encoder = PolicyHiddenEncoder.from_pretrained(
+        model_path,
+        device=str(device),
+        dtype="bfloat16" if device.type == "cuda" else "float32",
+        local_files_only=True,
+        backprop_to_llm=False,
+    )
+    _state["raw_encoder"] = (encoder, device)
+    return _state["raw_encoder"]
+
+
+@torch.no_grad()
+def _raw_targets(
+    texts: list[str],
+    *,
+    encoder: PolicyHiddenEncoder,
+    encode_batch: int,
+) -> list[list[float]]:
+    """Frozen-encoder pooled hidden, L2-normalized — the no-learned-head target."""
+
+    latents: list[list[float]] = []
+    for start in range(0, len(texts), encode_batch):
+        rows = [encoder._target_ids(text) for text in texts[start : start + encode_batch]]
+        hidden, mask = encoder._forward_hidden(rows, require_grad=False)
+        pooled = (hidden * mask.unsqueeze(-1)).sum(dim=1) / mask.sum(dim=1, keepdim=True).clamp_min(1)
+        latents.extend(torch.nn.functional.normalize(pooled, dim=-1).float().cpu().tolist())
+    return latents
+
+
 def frozen_wm_target_provider(
     *,
     args: Any,
@@ -160,10 +203,24 @@ def frozen_wm_target_provider(
     present = {index: text for index, text in enumerate(texts) if text is not None}
 
     latents: dict[int, list[float]] = {}
-    if present:
+    if os.environ.get("LWM_ONLINE_JOINT") == "1":
+        from .joint_online import joint_update_and_targets  # noqa: PLC0415
+
+        # Joint mode ingests the whole batch (training happens even when some
+        # samples lack an observation text) and returns EMA targets per index.
+        latents = joint_update_and_targets(args=args, samples=samples)
+    elif present:
         ordered = [present[index] for index in sorted(present)]
-        if os.environ.get("LWM_TARGET_PROVIDER_ENCODER", "hf") == "hash":
+        mode = os.environ.get("LWM_TARGET_PROVIDER_ENCODER", "hf")
+        if mode == "hash":
             values = _hash_targets(ordered, latent_dim)
+        elif mode == "raw":
+            encoder, _device_ = _load_raw_encoder()
+            values = _raw_targets(
+                ordered,
+                encoder=encoder,
+                encode_batch=int(os.environ.get("LWM_TARGET_ENCODE_BATCH", "4")),
+            )
         else:
             encoder, model, device = _load_hf_stack(args)
             values = _hf_targets(
