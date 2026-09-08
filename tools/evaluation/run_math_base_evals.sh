@@ -27,11 +27,9 @@ DATASETS="${DATASETS:-aime-2025 aime-2024 amc23 math-500}"
 
 mkdir -p "${OUTPUT_DIR}"
 for dataset in ${DATASETS}; do
-  data_path="${dataset}"
-  if [[ -f "${dataset}" ]]; then data_path="${dataset}"; fi
   echo "[math-eval] dataset=${dataset} model=${MODEL} n=${N} cap=${MAX_TOKENS} reward=${REWARD_TYPE}"
   "${PYTHON}" "${ROOT}/tools/evaluation/eval_math.py" \
-    --data "${data_path}" --data-root "${DATA_ROOT}" --model "${MODEL}" \
+    --data "${dataset}" --data-root "${DATA_ROOT}" --model "${MODEL}" \
     --output-dir "${OUTPUT_DIR}" --tag "${TAG}" --n "${N}" \
     --temperature "${TEMPERATURE}" --top-p "${TOP_P}" \
     --max-tokens "${MAX_TOKENS}" --concurrency "${CONCURRENCY}" \

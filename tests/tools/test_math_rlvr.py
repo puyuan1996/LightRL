@@ -67,3 +67,15 @@ def test_paired_stats_requires_same_sample_population():
 
 def test_format_compliance_excludes_unscorable_labels():
     assert math.isnan(compliance_rate([{"strict_scorable": False, "format_compliant": True}]))
+
+
+def test_score_sample_tracks_match_direct_verifiers():
+    # score_sample reuses one extraction for all tracks; each track must still
+    # match an independent Verifier call on the raw response.
+    response = "Some reasoning.\n\\boxed{41}\n**Answer:** 42"
+    record = score_sample(response, "42", config=ScoreConfig("math", 100))
+    assert record["configured_correct"] == Verifier("math").verify(response, "42").correct
+    assert record["lenient_correct"] == Verifier("math").verify(response, "42").correct
+    assert record["boxed_correct"] == Verifier("boxed").verify(response, "42").correct
+    assert record["strict_correct"] == Verifier("dapo").verify(response, "42").correct
+    assert record["lenient_correct"] and record["strict_correct"] and not record["boxed_correct"]

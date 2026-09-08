@@ -4,10 +4,19 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from .extractor import extract_answers
 from .verifier import Verifier
+
+
+@lru_cache(maxsize=None)
+def _verifier(reward_type: str) -> Verifier:
+    # Verifier is stateless; cache one instance per track instead of building
+    # four of them for every scored sample.
+    return Verifier(reward_type)
 
 
 @dataclass(frozen=True)
@@ -18,7 +27,7 @@ class ScoreConfig:
     def __post_init__(self) -> None:
         if self.response_cap <= 0:
             raise ValueError("response_cap must be positive")
-        Verifier(self.reward_type)  # validate early
+        _verifier(self.reward_type)  # validate early
 
 
 def _truncated(completion_tokens: int | None, finish_reason: str | None, cap: int) -> bool:
@@ -38,10 +47,11 @@ def score_sample(
     """Return one JSON-serializable record with all three score tracks."""
 
     config = config or ScoreConfig()
-    configured = Verifier(config.reward_type).verify(response, label)
-    lenient = Verifier("math").verify(response, label)
-    boxed = Verifier("boxed").verify(response, label)
-    strict = Verifier("dapo").verify(response, label)
+    extraction = extract_answers(str(response or ""))
+    configured = _verifier(config.reward_type).verify_extraction(extraction, label)
+    lenient = _verifier("math").verify_extraction(extraction, label)
+    boxed = _verifier("boxed").verify_extraction(extraction, label)
+    strict = _verifier("dapo").verify_extraction(extraction, label)
     truncated = _truncated(completion_tokens, finish_reason, config.response_cap)
     return {
         "reward": 1.0 if configured.correct else 0.0,

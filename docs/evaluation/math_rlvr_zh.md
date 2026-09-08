@@ -128,69 +128,13 @@ MODEL_PATH=/path/to/converted-hf MODEL=my-model DATASETS=aime-2024 \
 checkpoint 路径；所有结果需记录 verifier hash、数据 hash、seed、reward、cap 和
 评测清单。
 
-## 6. 已完成验证与当前实验状态
+## 6. 验证与实验记录
 
-静态/冒烟验证已覆盖 Python 编译、Shell 语法、RJob dry-run、extractor/verifier/
-scorer/stats 重点测试和 DAPO-Math-17k 17,255 条唯一数据校验。基线 `n=16` 结果：
+静态/冒烟验证覆盖 Python 编译、Shell 语法、RJob dry-run、extractor/verifier/
+scorer/stats 单元测试（`tests/tools/test_math_rlvr.py`）和 DAPO-Math-17k
+17,255 条唯一数据校验。
 
-| 数据集 | lenient Avg@16 | Pass@16 | format mismatch | truncation | zero-variance groups |
-|---|---:|---:|---:|---:|---:|
-| AIME2025 | 69.17% | 80.00% | 68.96% | 11.04% | 14/30 |
-| AIME2024 | 77.92% | 90.00% | 77.50% | 6.88% | 15/30 |
-| AMC23 | 95.78% | 100.00% | 0.00% | 0.78% | 34/40 |
-| MATH-500 | 87.51% | 90.20% | 61.28% | 0.24% | 460/500 |
-
-### 当前 `math-dapo-aime25` v5 任务（2026-09-07 18:06，UTC+8）
-
-RJob `math-dapo-aime25-seed1-10epoch-v5-4519155` 已在 narmodel 分区失败，
-不是已完成的 10 epoch 结果。配置为 AIME2025 30 题、`rollout_batch_size=2`、
-`n_samples=4`、`global_batch_size=8`、10 epochs、`reward_type=math`、
-`response_cap=8192`，并启用 dynamic batching、non-zero-std filter、chat template、
-oversampling=4。按当前数据量估算总量约为 150 个 rollout；已完成 rollout 0--20
-（21 次 actor update，约 14%），最近已提交的 checkpoint 为 `iter_0000019`。
-截至失败前的快照，in-training AIME2024 eval20 已写出 240 个样本的聚合结果：
-`eval/aime-2024=0.4167`、平均 response length 为 7,837.85、truncation 为
-77.92%。该值是训练器的在线平均 reward，不等同于最终离线 Pass@k；AIME2025 的
-最终 AIME2025 评测行尚未出现在日志中，因此不能报告完整 paired holdout 或训练后能力提升。
-
-已完成的 20 个训练 rollout 的可核验统计如下：
-
-| 指标 | 结果 | 解释 |
-|---|---:|---|
-| raw reward 均值 | 0.4375 | verifier 的原始数学得分，尚未形成稳定上升趋势 |
-| 训练 reward/advantage 均值 | 约 0 | dynamic filter 后组内方差极小，实际梯度信号接近零 |
-| truncation rate | 88.75% | `response_cap=8192` 已成为主要瓶颈 |
-| response length 均值 | 8,052 tokens | 中位数接近 cap |
-| latest rollout raw reward / truncation | 0.25 / 87.5% | rollout 20 |
-
-前 20 个 rollout 的 raw-reward 曲线（用于现场诊断，不是 10 epoch 完整曲线）为：
-
-```text
-0.625, 0.375, 0.375, 0.250, 0.500, 0.375, 0.375, 0.500, 0.500, 0.250,
-0.750, 0.375, 0.625, 0.750, 0.375, 0.375, 0.500, 0.250, 0.375, 0.250
-```
-
-该运行的主要问题不是 verifier 格式兼容性，而是长输出导致的 cap 主导和
-极端梯度：已记录的 `grad_norm_pre_clip` 达到约 `1.8e11`，同时训练 reward 接近
-零。作业在下一轮 rollout（rollout 21）生成阶段因一个 SGLang endpoint
-connection refused 失败，重试 abort 请求 60 次后退出。
-现有 checkpoint 只能标记为“部分训练、待评测”；不能据此判断十 epoch 能力变化。
-
-历史 10-epoch 尝试的可核验状态：
-
-| 任务 | 状态 | 诊断 |
-|---|---|---|
-| v1 | Failed | 启动阶段缺少 Megatron TP 所需的 CUDA 连接配置 |
-| v2 | Failed | rollout 0--11 后工作区切换导致 custom verifier 文件不可导入 |
-| v3 | Stopped | 首轮 rollout 阶段无法导入 custom reward 模块 |
-| isolated-v1 | Failed | 完成 20 次 actor update（latest iteration 19）后，AIME2024 in-training eval 将非字符串 prompt 直接传给 tokenizer，触发 `TextEncodeInput` 类型错误 |
-| v5 | Failed | 完成 21 次 update、AIME2024 eval20=0.4167 后，在 rollout 21 生成阶段因 SGLang endpoint connection refused 失败；truncation 和梯度规模仍不满足验收门槛 |
-
-isolated-v1 的 metrics 显示多次 `loss=0`/零梯度，同时非零更新的
-`grad_norm_pre_clip` 达到约 `7.63e10`、`1.13e10`，说明即使修复 eval 输入类型，
-仍需先处理 reward/advantage 分布和梯度稳定性，再判断数学能力变化。
-
-逐样本 detail、summary、日志和 checkpoint 应由运行系统写入外部 artifact store；
-公共仓库不追踪运行期 `local/` 目录。本节的数字是截至上述时间戳已核验的汇总，
-原始记录由实验系统按时间戳保存，不替代本规范中的协议。训练结束后应回填本节，
-并明确区分“RJob 完成”与“模型能力通过 paired holdout 验收”。
+基线结果、历次训练任务诊断、迭代决策和待办不随公共仓库发布，统一记录在未跟踪的
+`local/records/iteration/`（入口：`math_rlvr_iteration_log.md`，每次运行的详细
+分析在对应 run 目录下的 `experiment.md`）。运行系统负责把逐样本 detail、
+summary、日志和 checkpoint 写入外部 artifact store。

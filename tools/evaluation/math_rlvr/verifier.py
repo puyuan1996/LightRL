@@ -120,8 +120,10 @@ class Verifier:
             raise ValueError(f"unknown math reward type {reward_type!r}; choose from {sorted(self.SUPPORTED)}")
         self.reward_type = reward_type
 
-    def verify(self, response: str, label: object) -> VerificationResult:
-        extraction = extract_answers(response)
+    def verify_extraction(self, extraction: ExtractionResult, label: object) -> VerificationResult:
+        """Verify a precomputed extraction, so multi-track scoring pays for
+        answer extraction only once per response."""
+
         candidate = extraction.canonical
         if self.reward_type == "dapo":
             candidate = _dapo_candidate(extraction)
@@ -146,6 +148,9 @@ class Verifier:
 
         correct = semantic_equal(candidate.value, label)
         return VerificationResult(correct, candidate.value, candidate.format, True, None, extraction.conflict)
+
+    def verify(self, response: str, label: object) -> VerificationResult:
+        return self.verify_extraction(extract_answers(response), label)
 
     def score(self, response: str, label: object) -> float:
         return 1.0 if self.verify(response, label).correct else 0.0

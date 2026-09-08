@@ -1,8 +1,8 @@
 # Math RLVR toolkit
 
-完整协议、运行命令和实验状态见
+完整协议和运行命令见
 [`docs/evaluation/math_rlvr_zh.md`](../../../docs/evaluation/math_rlvr_zh.md)；本页只
-保留包级 API 和最小示例。
+保留包级 API 和最小示例。实验记录不随仓库发布，见本地 `local/records/iteration/`。
 
 The implementation is split into five dependency-light modules:
 

@@ -59,21 +59,6 @@ def resolve_data_root(
     return candidates[0]
 
 
-def dataset_path(name_or_path: str | os.PathLike[str], data_root: str | os.PathLike[str] | None = None) -> Path:
-    value = str(name_or_path)
-    path = Path(value).expanduser()
-    if path.is_absolute() or path.exists():
-        return path
-    aliases = {
-        "aime2025": "aime-2025.jsonl", "aime-2025": "aime-2025.jsonl",
-        "aime2024": "aime-2024.jsonl", "aime-2024": "aime-2024.jsonl",
-        "amc23": "amc23.jsonl", "amc-23": "amc23.jsonl",
-        "math500": "math-500.jsonl", "math-500": "math-500.jsonl",
-        "dapo": "dapo-math-17k.jsonl", "dapo-math-17k": "dapo-math-17k.jsonl",
-    }
-    return resolve_data_root(data_root) / aliases.get(value.lower(), value)
-
-
 DATASET_ALIASES = {
     "aime2025": "aime-2025.jsonl",
     "aime-2025": "aime-2025.jsonl",
@@ -86,6 +71,14 @@ DATASET_ALIASES = {
     "dapo": "dapo-math-17k.jsonl",
     "dapo-math-17k": "dapo-math-17k.jsonl",
 }
+
+
+def dataset_path(name_or_path: str | os.PathLike[str], data_root: str | os.PathLike[str] | None = None) -> Path:
+    value = str(name_or_path)
+    path = Path(value).expanduser()
+    if path.is_absolute() or path.exists():
+        return path
+    return resolve_data_root(data_root) / DATASET_ALIASES.get(value.lower(), value)
 
 
 @dataclass(frozen=True)
@@ -107,7 +100,7 @@ def _pick(row: dict[str, Any], names: tuple[str, ...], what: str) -> Any:
     raise ValueError(f"dataset row has no {what} field; tried {', '.join(names)}")
 
 
-def normalize_row(row: dict[str, Any], *, source: str, index: int) -> MathExample:
+def normalize_row(row: dict[str, Any], *, source: str) -> MathExample:
     prompt = _pick(row, ("prompt", "messages", "conversations", "question", "problem", "task", "input"), "prompt")
     label = row.get("reward_model")
     if label is None:
@@ -139,7 +132,7 @@ def _read_jsonl(path: Path, source: str) -> list[MathExample]:
             row = json.loads(line)
             if not isinstance(row, dict):
                 raise ValueError(f"{path}:{index + 1}: expected JSON object")
-            examples.append(normalize_row(row, source=source, index=index))
+            examples.append(normalize_row(row, source=source))
     return examples
 
 
@@ -149,7 +142,7 @@ def _read_json(path: Path, source: str) -> list[MathExample]:
         payload = payload.get("data", payload.get("examples", [payload]))
     if not isinstance(payload, list):
         raise ValueError(f"{path}: expected a JSON list or object with data/examples")
-    return [normalize_row(row, source=source, index=i) for i, row in enumerate(payload)]
+    return [normalize_row(row, source=source) for row in payload]
 
 
 def _read_huggingface(source: str, *, split: str, config: str | None) -> list[MathExample]:
@@ -162,7 +155,7 @@ def _read_huggingface(source: str, *, split: str, config: str | None) -> list[Ma
         dataset = load_dataset(source, config, **kwargs)
     else:
         dataset = load_dataset(source, **kwargs)
-    return [normalize_row(dict(row), source=f"hf:{source}@{split}", index=i) for i, row in enumerate(dataset)]
+    return [normalize_row(dict(row), source=f"hf:{source}@{split}") for row in dataset]
 
 
 def _question_text(prompt: Any) -> str:
