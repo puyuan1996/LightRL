@@ -19,7 +19,15 @@ if [[ -z "${MATH_DATA_ROOT:-}" ]]; then
 fi
 TRAIN_DATASET="${TRAIN_DATASET:-aime-2025}"
 REWARD_TYPE="${REWARD_TYPE:-math}"
-RESPONSE_CAP="${RESPONSE_CAP:-8192}"
+# 8192 truncates ~91% of AIME-style long-CoT rollouts (v8 measurement); the
+# DAPO recipe uses 20480 and the slime reference uses 16384 for eval.  16384
+# is the largest cap that stayed within memory on 4xH200 with dynamic
+# batching; 32768 OOMed in the actor log-prob forward (retry10).
+RESPONSE_CAP="${RESPONSE_CAP:-16384}"
+# Use the rollout engine's logprobs as the PPO old policy (PPO-bypass).  The
+# Megatron old-policy recomputation disagreed with SGLang by ~8 nats/token in
+# v8, which poisons the IS ratio; bypassing it also skips one full forward.
+USE_ROLLOUT_LOGPROBS="${USE_ROLLOUT_LOGPROBS:-0}"
 if [[ -z "${ROLLOUT_BATCH_SIZE:-}" ]]; then
   if [[ "${TRAIN_DATASET}" == "dapo" || "${TRAIN_DATASET}" == "dapo-math-17k" ]]; then
     ROLLOUT_BATCH_SIZE=256
@@ -190,6 +198,9 @@ fi
 if [[ "${USE_DYNAMIC_BATCH_SIZE}" == "1" ]]; then
   CMD+=(--use-dynamic-batch-size --max-tokens-per-gpu "${MAX_TOKENS_PER_GPU}")
 fi
+if [[ "${USE_ROLLOUT_LOGPROBS}" == "1" ]]; then
+  CMD+=(--use-rollout-logprobs)
+fi
 if (( OVER_SAMPLING_BATCH_SIZE > ROLLOUT_BATCH_SIZE )); then
   CMD+=(--over-sampling-batch-size "${OVER_SAMPLING_BATCH_SIZE}"
     --dynamic-sampling-filter-path slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std
@@ -231,10 +242,10 @@ payload = {
     "dynamic_sampling_filter": sys.argv[19], "dynamic_sampling_max_groups": int(sys.argv[20]),
     "use_dynamic_batch_size": sys.argv[21] == "1", "max_tokens_per_gpu": int(sys.argv[22]),
     "apply_chat_template": sys.argv[23] == "1", "rollout_shuffle": sys.argv[24] == "1",
-    "balance_data": sys.argv[25] == "1",
+    "balance_data": sys.argv[25] == "1", "use_rollout_logprobs": sys.argv[26] == "1",
 }
 path.write_text(json.dumps(payload, indent=2) + "\n")
-' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${N_SAMPLES}" "${GLOBAL_BATCH_SIZE}" "${NUM_EPOCHS}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}" "${NUM_STEPS_PER_ROLLOUT}" "${OVER_SAMPLING_BATCH_SIZE}" "slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std" "${DYNAMIC_SAMPLING_MAX_GROUPS}" "${USE_DYNAMIC_BATCH_SIZE}" "${MAX_TOKENS_PER_GPU}" "${APPLY_CHAT_TEMPLATE}" "${ROLLOUT_SHUFFLE}" "${BALANCE_DATA}"
+' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${N_SAMPLES}" "${GLOBAL_BATCH_SIZE}" "${NUM_EPOCHS}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}" "${NUM_STEPS_PER_ROLLOUT}" "${OVER_SAMPLING_BATCH_SIZE}" "slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std" "${DYNAMIC_SAMPLING_MAX_GROUPS}" "${USE_DYNAMIC_BATCH_SIZE}" "${MAX_TOKENS_PER_GPU}" "${APPLY_CHAT_TEMPLATE}" "${ROLLOUT_SHUFFLE}" "${BALANCE_DATA}" "${USE_ROLLOUT_LOGPROBS}"
 export MATH_RLVR_REWARD_TYPE="${REWARD_TYPE}" MATH_RLVR_RESPONSE_CAP="${RESPONSE_CAP}"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
