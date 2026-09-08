@@ -63,6 +63,24 @@ DAPO rollout 侧收集使用：
 --world-model-replay-buffer-size 4096
 ```
 
+策略级 latent WM 对照可在 DAPO 命令中额外启用：
+
+```text
+--world-model-enable
+--world-model-backprop-to-llm
+--world-model-loss-coef 0.01
+--world-model-target-provider-path package.module:function
+```
+
+target provider 在每个 rollout 为样本附加冻结 WM 的 target latent；hook
+对 target detach，并从 policy response logits（或 provider 直接给出的
+`wm_pred_latents`）计算 aux loss。`wm/loss` 与
+`wm/policy_gradient_path` 会进入训练指标，便于与同 seed 的 DAPO-only
+对照统计 fresh transitions、optimizer steps 和 wall-clock。
+
+正式数据应来自 SETA `tool_calls[].result` 的 stdout/stderr/exit code；
+`capture-pane` 屏幕文本只保留为兼容旧 tb2.1 ATIF 的离线格式。
+
 ## 默认安全边界
 
 - backbone 梯度默认关闭；feedback/next-state target 始终 detached，但与 current branch 共享 policy checkpoint，并非独立 EMA teacher。

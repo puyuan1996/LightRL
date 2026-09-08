@@ -358,26 +358,41 @@ def train_one_step(
         """
 
         # Get the batch.
+        batch_keys = [
+            "tokens",
+            "multimodal_train_inputs",
+            "packed_seq_params",
+            "total_lengths",
+            "response_lengths",
+            "loss_masks",
+            "log_probs",
+            "ref_log_probs",
+            "values",
+            "advantages",
+            "returns",
+            "rollout_log_probs",
+            "max_seq_lens",
+            "teacher_log_probs",
+            "teacher_topk_log_probs",
+            "teacher_topk_indices",
+            # Optional differentiable latent-world-model supervision.  These
+            # keys are absent for the default DAPO path and are fetched lazily
+            # only when the world-model hook has been enabled by the caller.
+            "wm_pred_latents",
+            "wm_target_latents",
+            "wm_state_latents",
+            "wm_action_latents",
+            "wm_target_mask",
+        ]
+        if args.loss_type == "decoupled_policy_loss":
+            batch_keys.append("proximal_log_probs")
+            batch_keys.append("use_proximal_logp_approximation")
+            batch_keys.append("per_is_weights")
+            batch_keys.extend(["policy_versions", "current_policy_version"])
+
         batch = get_batch(
             data_iterator,
-            [
-                "tokens",
-                "multimodal_train_inputs",
-                "packed_seq_params",
-                "total_lengths",
-                "response_lengths",
-                "loss_masks",
-                "log_probs",
-                "ref_log_probs",
-                "values",
-                "advantages",
-                "returns",
-                "rollout_log_probs",
-                "max_seq_lens",
-                "teacher_log_probs",
-                "teacher_topk_log_probs",
-                "teacher_topk_indices",
-            ],
+            batch_keys,
             args.data_pad_size_multiplier,
             args.qkv_format,
         )

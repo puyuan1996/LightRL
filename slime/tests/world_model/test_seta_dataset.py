@@ -102,6 +102,62 @@ def test_tb21_atif_adapter_emits_agent_transitions_and_terminal_reward(tmp_path)
     assert manifest["terminal_transition_count"] == 1
 
 
+def test_tb21_raw_tool_call_result_is_marked_for_clean_feedback_filter(tmp_path):
+    trial = tmp_path / "task__raw"
+    (trial / "verifier").mkdir(parents=True)
+    (trial / "verifier" / "reward.txt").write_text("1\n", encoding="utf-8")
+    payload = {
+        "session_id": "tb-raw",
+        "steps": [
+            {"source": "user", "message": "inspect"},
+            {
+                "source": "agent",
+                "message": "run pwd",
+                "tool_calls": [
+                    {
+                        "tool_name": "bash",
+                        "result": {"stdout": "/tmp", "stderr": "", "exit_code": 0},
+                    }
+                ],
+                # A pane capture is also present, but clean feedback must use
+                # the per-call result above rather than this screen snapshot.
+                "observation": {"results": [{"content": "root@host:/app#"}]},
+            },
+        ],
+    }
+    path = trial / "trajectory.json"
+    transitions = transitions_from_tb21_trajectory(payload, source_path=str(path))
+
+    assert len(transitions) == 1
+    assert transitions[0].feedback_text.startswith("<tool_result name=bash>")
+    assert "/tmp" in transitions[0].feedback_text
+    assert "root@host" not in transitions[0].feedback_text
+
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    clean = load_terminal_transitions(path, require_tool_feedback=True, data_source="tb21")
+    assert len(clean) == 1
+
+
+def test_tb21_pane_capture_does_not_satisfy_clean_feedback_filter(tmp_path):
+    trial = tmp_path / "task__pane"
+    trial.mkdir(parents=True)
+    payload = {
+        "session_id": "tb-pane",
+        "steps": [
+            {"source": "user", "message": "inspect"},
+            {
+                "source": "agent",
+                "message": "run pwd",
+                "observation": {"results": [{"content": "root@host:/app#"}]},
+            },
+        ],
+    }
+    path = trial / "trajectory.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert load_terminal_transitions(path, require_tool_feedback=True, data_source="tb21") == []
+
+
 def test_loader_prioritizes_tb21_and_reads_multiple_records_from_jsonl(tmp_path):
     tb_trial = tmp_path / "tb" / "task"
     (tb_trial / "verifier").mkdir(parents=True)

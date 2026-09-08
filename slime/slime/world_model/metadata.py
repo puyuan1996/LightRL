@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from typing import Any
+
+from slime.utils.misc import load_function
+
+logger = logging.getLogger(__name__)
 
 
 def is_world_model_enabled(args: Any) -> bool:
@@ -55,6 +60,20 @@ def _tool_action_text(call: dict[str, Any], max_chars: int) -> str:
     return _truncate(f"{name}({args_text})", max_chars, strategy="head_tail")
 
 
+def _render_tool_result(value: Any) -> str:
+    """Render one raw tool result without terminal/prompt decoration."""
+    if isinstance(value, dict):
+        fields = [
+            f"{key}={value[key]}"
+            for key in ("stdout", "stderr", "exit_code")
+            if value.get(key) is not None
+        ]
+        if fields:
+            return "\n".join(fields)
+        return json.dumps(_jsonable(value), ensure_ascii=False, sort_keys=True, default=str)
+    return str(value)
+
+
 def _extract_action_text(turn: dict[str, Any], max_chars: int) -> str:
     parts: list[str] = []
     assistant = str(turn.get("assistant_output") or "").strip()
@@ -94,7 +113,7 @@ def _extract_observation_text(
     observations: list[str] = []
     for call in turn.get("tool_calls") or []:
         if isinstance(call, dict) and call.get("result") is not None:
-            observations.append(str(call.get("result")))
+            observations.append(_render_tool_result(call.get("result")))
     if not observations:
         reason = None
         if isinstance(eval_details, dict):
@@ -225,3 +244,32 @@ def attach_terminal_world_model_metadata(
         train_metadata = dict(sample.train_metadata or {})
         train_metadata["world_model"] = record
         sample.train_metadata = train_metadata
+
+    provider_path = getattr(args, "world_model_target_provider_path", None)
+    if not provider_path:
+        return
+    provider = load_function(provider_path)
+    provided = provider(
+        args=args,
+        samples=samples,
+        turn_records=turn_records,
+        task_meta=task_meta,
+        run_ctx=run_ctx,
+    )
+    if provided is None:
+        # A provider may mutate sample.metadata directly.  This is useful when
+        # it keeps a resident frozen encoder and avoids copying large tensors.
+        return
+    if not isinstance(provided, (list, tuple)) or len(provided) != len(samples):
+        raise ValueError(
+            "world-model target provider must return one latent payload per sample "
+            "or mutate sample.metadata and return None"
+        )
+    for sample, target in zip(samples, provided, strict=True):
+        world_model = sample.metadata.setdefault("world_model", {})
+        if target is not None:
+            world_model["target_latents"] = target
+        train_metadata = dict(sample.train_metadata or {})
+        train_metadata["world_model"] = world_model
+        sample.train_metadata = train_metadata
+    logger.info("Attached frozen latent WM targets with provider=%s", provider_path)

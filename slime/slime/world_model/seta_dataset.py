@@ -114,13 +114,27 @@ def _action_text(turn: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
+def _render_tool_result(value: Any) -> str:
+    """Render raw stdout/stderr/exit-code fields deterministically."""
+    if isinstance(value, dict):
+        fields = [
+            f"{key}={value[key]}"
+            for key in ("stdout", "stderr", "exit_code")
+            if value.get(key) is not None
+        ]
+        if fields:
+            return "\n".join(fields)
+        return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+    return str(value)
+
+
 def _feedback_text(turn: dict[str, Any], *, status: Any, reward: dict[str, Any]) -> str:
     parts: list[str] = []
     for call in turn.get("tool_calls") or []:
         if not isinstance(call, dict) or call.get("result") is None:
             continue
         name = str(call.get("tool_name") or call.get("name") or "tool")
-        parts.append(f"<tool_result name={name}>\n{call.get('result')}\n</tool_result>")
+        parts.append(f"<tool_result name={name}>\n{_render_tool_result(call.get('result'))}\n</tool_result>")
     if parts:
         return "\n\n".join(parts)
     return json.dumps(
@@ -233,6 +247,40 @@ def _tb21_observation_text(value: Any) -> str:
     return str(value)
 
 
+def _tb21_raw_tool_result_text(step: dict[str, Any]) -> str:
+    """Render explicit per-call tool results, when an ATIF export preserves them.
+
+    Terminal-Bench ATIF exports commonly contain only ``observation`` (a pane
+    capture).  That field is deliberately *not* treated as a tool result.
+    Runtime exports that retain ``tool_calls[].result`` are the clean source
+    used by ``--require-tool-feedback`` and are wrapped with the same marker as
+    SETA trajectories.
+    """
+
+    calls: Any = step.get("tool_calls")
+    if not isinstance(calls, list) and isinstance(step.get("observation"), dict):
+        calls = step["observation"].get("tool_calls")
+    if not isinstance(calls, list):
+        return ""
+    parts: list[str] = []
+    for call in calls:
+        if not isinstance(call, dict) or call.get("result") is None:
+            continue
+        name = str(call.get("tool_name") or call.get("name") or "tool")
+        rendered = _render_tool_result(call.get("result"))
+        parts.append(f"<tool_result name={name}>\n{rendered}\n</tool_result>")
+    return "\n\n".join(parts)
+
+
+def _tb21_feedback_text(step: dict[str, Any]) -> str:
+    """Return clean raw tool output when available, otherwise pane text."""
+
+    raw = _tb21_raw_tool_result_text(step)
+    if raw:
+        return raw
+    return _tb21_observation_text(step.get("observation"))
+
+
 def _tb21_reward_and_status(path: Path) -> tuple[float | None, str | None, str | None]:
     """Read a trial reward next to an ATIF trajectory when available."""
 
@@ -300,7 +348,7 @@ def transitions_from_tb21_trajectory(payload: dict[str, Any], *, source_path: st
         for i, row in enumerate(steps)
         if str(row.get("source", "")).lower() in {"agent", "assistant"}
         and str(row.get("message") or row.get("content") or "").strip()
-        and _tb21_observation_text(row.get("observation"))
+        and _tb21_feedback_text(row)
     ]
     transitions: list[TerminalTransition] = []
     cursor = 0
@@ -323,7 +371,7 @@ def transitions_from_tb21_trajectory(payload: dict[str, Any], *, source_path: st
             cursor += 1
         step = steps[step_index]
         action_text = str(step.get("message") or step.get("content") or "").strip()
-        feedback_text = _tb21_observation_text(step.get("observation"))
+        feedback_text = _tb21_feedback_text(step)
         next_messages = list(messages)
         next_messages.extend(
             [

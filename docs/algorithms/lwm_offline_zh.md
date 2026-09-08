@@ -592,6 +592,13 @@ pass@1；以达到相同 pass@1 的 fresh transitions、optimizer steps 和总�
 当前验收采用单 seed；policy 指标与梯度路径必须在同一 seed 的 A/B 中同时
 改善，才报告 ECHO 式效率结论。
 
+线上若要从冻结的 latent WM 产生监督，可设置
+`--world-model-target-provider-path package.module:function`。provider 接收
+`(args, samples, turn_records, task_meta, run_ctx)`，返回与 samples 等长的
+target latent 列表，或直接把 `world_model.target_latents` 写入每个 sample
+后返回 `None`；target 在 policy loss 中始终 detach。这样训练臂不需要把
+latent WM 参数并入 Megatron actor，仍能把 aux 梯度传回策略。
+
 ### 5.6 观测口径
 
 正式 LWM 数据优先使用 SETA `traj.json` 的原始
@@ -716,7 +723,9 @@ encoder 或替换 planner，不需要修改 predictor 和 policy loss。
 
 > 对应分支 `feat/lwm-offline-verify` 当前代码。路径均为仓库相对路径
 > （`slime/` 子模块根下的 `slime/slime/...`）。本附录只读代码，不含任何
-> 实现改动。
+> 实现改动。行号快照于 2026-09-07 撰写时的工作区状态；后续 off-policy/
+> SPEAR 批次合入后 `loss_hook.py`/`metadata.py`/`seta_dataset.py`/
+> `ray/rollout.py`/`megatron_utils/loss.py` 的行号可能漂移，以符号名为准。
 
 #### C.0 总览
 
