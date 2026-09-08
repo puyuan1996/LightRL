@@ -272,9 +272,45 @@ class RolloutManager:
 
     def offload(self):
         self.health_monitoring_pause()
-        return ray.get(
-            [engine.release_memory_occupation.remote() for engine in self.rollout_engines if engine is not None]
-        )
+        engines = [engine for engine in self.rollout_engines if engine is not None]
+        # GLM-5.1 uses a multi-process SGLang server.  The HTTP request is
+        # issued by rank 0 and synchronizes the other ranks, so a transient
+        # 200 response does not guarantee that every rank has completed the
+        # CUDA memory release.  Keep the operation observable and retry a
+        # short, configurable number of times before propagating the error.
+        retries = max(0, int(os.getenv("SLIME_RELEASE_MEMORY_RETRIES", "2")))
+        delay = max(0.0, float(os.getenv("SLIME_RELEASE_MEMORY_RETRY_DELAY", "2")))
+        raw_tags = os.getenv("SLIME_RELEASE_MEMORY_TAGS", "").strip()
+        release_tags = [tag.strip() for tag in raw_tags.split(",") if tag.strip()] or None
+        last_result = None
+        for attempt in range(retries + 1):
+            try:
+                last_result = ray.get(
+                    [engine.release_memory_occupation.remote(tags=release_tags) for engine in engines]
+                )
+                logger.info(
+                    "SGLang memory release completed (attempt %d/%d, engines=%d, tags=%s): %r",
+                    attempt + 1,
+                    retries + 1,
+                    len(engines),
+                    release_tags or "all",
+                    last_result,
+                )
+                return last_result
+            except Exception:
+                if attempt >= retries:
+                    logger.exception("SGLang memory release failed after %d attempts", attempt + 1)
+                    raise
+                logger.warning(
+                    "SGLang memory release failed (attempt %d/%d); retrying in %.1fs",
+                    attempt + 1,
+                    retries + 1,
+                    delay,
+                    exc_info=True,
+                )
+                if delay:
+                    time.sleep(delay)
+        return last_result
 
     def onload(self, tags: list[str] | None = None):
         return ray.get(

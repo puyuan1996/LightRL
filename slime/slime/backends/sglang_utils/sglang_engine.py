@@ -407,9 +407,10 @@ class SGLangEngine(RayActor):
         response.raise_for_status()
         return response.json()["weight_version"]
 
-    def release_memory_occupation(self):
+    def release_memory_occupation(self, tags: list[str] | None = None):
         self.flush_cache()
-        return self._make_request("release_memory_occupation")
+        payload = {} if tags is None else {"tags": tags}
+        return self._make_request("release_memory_occupation", payload)
 
     def resume_memory_occupation(self, tags: list[str] = None):
         """

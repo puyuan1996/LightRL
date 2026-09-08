@@ -501,6 +501,8 @@ for _sgl_var in \
   SGLANG_GLM51_SAFE_MLA_CONCAT \
   SGLANG_UNBALANCED_MODEL_LOADING_TIMEOUT \
   SGLANG_DISABLE_CUDA_GRAPH \
+  SGLANG_ENABLE_WEIGHTS_CPU_BACKUP \
+  SGLANG_ATTENTION_BACKEND \
   SGLANG_CHUNKED_PREFILL_SIZE \
   SGLANG_MEM_FRACTION_STATIC \
   LIGHTRL_SGLANG_SERVER_PYTHON; do
@@ -786,19 +788,55 @@ fi
 set +e
 ray job logs --address="http://${MASTER_ADDR}:8265" "${RAY_JOB_SUBMISSION_ID}" -f --log-style=record
 RAY_LOG_EXIT=$?
-RAY_STATUS_OUTPUT=$(ray job status --address="http://${MASTER_ADDR}:8265" "${RAY_JOB_SUBMISSION_ID}" --log-style=record 2>&1)
-echo "${RAY_STATUS_OUTPUT}"
+RAY_STATUS_OUTPUT=""
+RAY_STATUS_STATE="unknown"
+RAY_STATUS_RETRIES="${RAY_JOB_STATUS_RETRIES:-12}"
+RAY_STATUS_INTERVAL="${RAY_JOB_STATUS_RETRY_DELAY:-10}"
+# `ray job logs -f` can return when the dashboard briefly drops its HTTP
+# connection even though the submitted job is still RUNNING.  A single status
+# request at that point used to turn a healthy run into the failure/cleanup
+# path.  Require an explicit terminal state and tolerate transient status
+# errors before deciding what to do.
+for ((status_attempt = 1; status_attempt <= RAY_STATUS_RETRIES; status_attempt++)); do
+  RAY_STATUS_OUTPUT=$(ray job status --address="http://${MASTER_ADDR}:8265" "${RAY_JOB_SUBMISSION_ID}" --log-style=record 2>&1)
+  echo "${RAY_STATUS_OUTPUT}"
+  RAY_STATUS_LOWER=$(echo "${RAY_STATUS_OUTPUT}" | tr '[:upper:]' '[:lower:]')
+  if [[ "${RAY_STATUS_LOWER}" == *"status for job"* && "${RAY_STATUS_LOWER}" == *"succeeded"* ]]; then
+    RAY_STATUS_STATE="succeeded"
+    break
+  fi
+  if [[ "${RAY_STATUS_LOWER}" == *"status for job"* && ( "${RAY_STATUS_LOWER}" == *"failed"* || "${RAY_STATUS_LOWER}" == *"stopped"* ) ]]; then
+    RAY_STATUS_STATE="failed"
+    break
+  fi
+  if [[ "${RAY_STATUS_LOWER}" == *"currently running"* || "${RAY_STATUS_LOWER}" == *"pending"* ]]; then
+    RAY_STATUS_STATE="running"
+  fi
+  if (( status_attempt < RAY_STATUS_RETRIES )); then
+    log "Ray job status is transient/unavailable (attempt ${status_attempt}/${RAY_STATUS_RETRIES}); preserving the run and retrying in ${RAY_STATUS_INTERVAL}s"
+    sleep "${RAY_STATUS_INTERVAL}"
+  fi
+done
+if [[ "${RAY_STATUS_STATE}" == "running" ]]; then
+  # A still-running job after the bounded poll is not a failure.  Keep the
+  # cluster alive so an operator can inspect it or resume log streaming.
+  RAY_STATUS_STATE="unknown"
+fi
 set -e
 
 # Checkpoint pruning happens transactionally in checkpoint_utils.py.  Do not
 # delete iter_* directories here: a newer directory can be an incomplete save,
 # while the commit marker still points at the older recoverable checkpoint.
 
-RAY_STATUS_LOWER=$(echo "${RAY_STATUS_OUTPUT}" | tr '[:upper:]' '[:lower:]')
-if [[ "${RAY_STATUS_LOWER}" == *"succeeded"* ]]; then
+if [[ "${RAY_STATUS_STATE}" == "succeeded" ]]; then
   run_case_study_if_requested success
   log "Ray job succeeded"
   exit 0
+fi
+
+if [[ "${RAY_STATUS_STATE}" == "unknown" ]]; then
+  log "Ray job state remains unknown after ${RAY_STATUS_RETRIES} status attempts; leaving Ray/SGLang processes untouched for diagnosis"
+  exit 2
 fi
 
 # ── Failure auto-capture ─────────────────────────────────────────────

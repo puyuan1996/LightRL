@@ -259,6 +259,22 @@ SGLANG_ARGS=(
   # allowing the model runner to select a validated value explicitly.
   --sglang-mem-fraction-static "${SGLANG_MEM_FRACTION_STATIC:-0.6}"
 )
+if [[ "${SGLANG_DISABLE_CUDA_GRAPH:-0}" == "1" ]]; then
+  SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+fi
+if [[ "${SGLANG_ENABLE_WEIGHTS_CPU_BACKUP:-0}" == "1" ]]; then
+  # Keep a CPU copy of the SGLang weights so torch-memory-saver can unmap the
+  # GPU weight pool during colocated Megatron initialization and restore it
+  # before the next rollout.  This is essential for very large TP16 models.
+  SGLANG_ARGS+=(--sglang-enable-weights-cpu-backup)
+fi
+if [[ -n "${SGLANG_ATTENTION_BACKEND:-}" ]]; then
+  # ``torch_native`` is a safe fallback for memory-saver resume tests: the
+  # installed SGLang 0.5.10 Triton token-pool writer can receive a CPU index
+  # tensor after a full KV pause.  Keep the production default untouched and
+  # let the smoke opt into the fallback explicitly.
+  SGLANG_ARGS+=(--sglang-attention-backend "${SGLANG_ATTENTION_BACKEND}")
+fi
 if [[ -n "${SGLANG_SERVER_CONCURRENCY:-}" ]]; then
   SGLANG_ARGS+=(--sglang-server-concurrency "${SGLANG_SERVER_CONCURRENCY}")
 fi

@@ -32,6 +32,7 @@ Differences from upstream, forced by the runtime stack:
 """
 
 import logging
+import os
 from typing import Any
 
 import torch
@@ -165,6 +166,20 @@ class GLMMoEDSABridge(MegatronModelBridge):
             "fp16": params_dtype == torch.float16,
             "bf16": params_dtype == torch.bfloat16,
             "params_dtype": params_dtype,
+            # Construct parameters on CPU while the colocated SGLang engine
+            # is still resident.  The default GPU initialization needs a
+            # transient allocation for every grouped expert linear and can
+            # fail even after SGLang's memory-saver endpoint returns 200.
+            # Weight loading subsequently moves each TP shard to CUDA.
+            "use_cpu_initialization": os.getenv("GLM_CPU_INITIALIZATION", "1").lower()
+            in {"1", "true", "yes", "on"},
+            # The bridge load path overwrites every parameter with checkpoint
+            # data immediately after construction, so random initialization
+            # is wasted work.  Disabling it avoids minutes of CPU RNG work for
+            # the 256-expert model and prevents the repeated RNG-context
+            # warnings seen during colocated startup.
+            "perform_initialization": os.getenv("GLM_PERFORM_INITIALIZATION", "0").lower()
+            in {"1", "true", "yes", "on"},
             # MLA.  NOTE: mcore ``qk_head_dim`` is the *nope* width; the HF
             # ``qk_head_dim`` (256) = nope (192) + rope (64).
             "multi_latent_attention": True,
