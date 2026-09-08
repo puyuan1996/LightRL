@@ -149,6 +149,13 @@ transition/task/terminal 统计），保证每次运行的数据构成可审计�
 
 **图 1：LWM 离线训练数据流。**
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/lwm/lwm_fig1_dataflow-dark.png">
+  <img src="assets/lwm/lwm_fig1_dataflow-light.png" alt="图 1：LWM 离线训练数据流">
+</picture>
+
+（上方为渲染版，源文件 `assets/lwm/lwm_fig1_dataflow.svg`；下方为纯文本版，便于终端阅读。）
+
 ```text
 tb2.1 ATIF / SETA traj.json / records JSONL / replay.pt
         |
@@ -178,6 +185,13 @@ action latent --> per-layer AdaLN ---------------------> predictor
 HF policy 路径在一次 causal forward 中编码 $h_t + a_t$（图 2）：
 
 **图 2：单次 causal forward 的 hidden 提取边界。**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/lwm/lwm_fig2_hidden_boundary-dark.png">
+  <img src="assets/lwm/lwm_fig2_hidden_boundary-light.png" alt="图 2：单次 causal forward 的 hidden 提取边界">
+</picture>
+
+（上方为渲染版，源文件 `assets/lwm/lwm_fig2_hidden_boundary.svg`；下方为纯文本版，便于终端阅读。）
 
 ```text
 prompt tokens | action tokens
@@ -221,6 +235,13 @@ target geometry 会随 policy 参数漂移（§3.5）。
 （图 3）：
 
 **图 3：AdaLN predictor——action 只生成每层的调制参数。**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/lwm/lwm_fig3_adaln_predictor-dark.png">
+  <img src="assets/lwm/lwm_fig3_adaln_predictor-light.png" alt="图 3：AdaLN predictor——action 只生成每层的调制参数">
+</picture>
+
+（上方为渲染版，源文件 `assets/lwm/lwm_fig3_adaln_predictor.svg`；下方为纯文本版，便于终端阅读。）
 
 ```text
 z_state tokens ───────────────> self-attention Q/K/V ──> predicted feedback latent
