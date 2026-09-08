@@ -660,8 +660,10 @@ def _compute_logprob_entropy_chunked(
     chunk_size: int,
 ) -> tuple[torch.Tensor, torch.Tensor | None]:
     # fused_vocab_parallel_cross_entropy may write into input tensor.
-    # In forward-only/no-grad phases we can skip clone to reduce memory peak.
-    need_clone = torch.is_grad_enabled()
+    # In forward-only/no-grad phases we can skip clone to reduce memory peak,
+    # except when entropy is still needed: the fused CE turns the chunks into
+    # softmax probabilities, and a later entropy pass would read garbage.
+    need_clone = torch.is_grad_enabled() or with_entropy
 
     num_chunks = (logits.size(0) - 1) // chunk_size + 1
     tokens_chunks = tokens.chunk(num_chunks, dim=0)

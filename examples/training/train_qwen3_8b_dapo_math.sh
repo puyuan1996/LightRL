@@ -73,6 +73,9 @@ MODEL_NUM_ATTENTION_HEADS="${MODEL_NUM_ATTENTION_HEADS:-32}"
 MODEL_FFN_HIDDEN_SIZE="${MODEL_FFN_HIDDEN_SIZE:-12288}"
 MODEL_MAX_POSITION_EMBEDDINGS="${MODEL_MAX_POSITION_EMBEDDINGS:-40960}"
 MODEL_NUM_QUERY_GROUPS="${MODEL_NUM_QUERY_GROUPS:-8}"
+# Qwen3 attention applies QK layernorm; Megatron defaults it off and silently
+# skips the checkpoint's q/k norm weights, corrupting the train-side forward.
+MODEL_KV_CHANNELS="${MODEL_KV_CHANNELS:-128}"
 MODEL_NORM_EPSILON="${MODEL_NORM_EPSILON:-1e-6}"
 MODEL_ROTARY_BASE="${MODEL_ROTARY_BASE:-1000000}"
 TENSOR_MODEL_PARALLEL_SIZE="${TENSOR_MODEL_PARALLEL_SIZE:-2}"
@@ -161,7 +164,9 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --normalization RMSNorm --norm-epsilon "${MODEL_NORM_EPSILON}"
   --position-embedding-type rope --rotary-base "${MODEL_ROTARY_BASE}"
   --group-query-attention --num-query-groups "${MODEL_NUM_QUERY_GROUPS}"
+  --qk-layernorm --kv-channels "${MODEL_KV_CHANNELS}"
   --swiglu --disable-bias-linear --untie-embeddings-and-output-weights
+  --attention-dropout 0.0 --hidden-dropout 0.0
   --tensor-model-parallel-size "${TENSOR_MODEL_PARALLEL_SIZE}"
   --recompute-granularity "${RECOMPUTE_GRANULARITY}" --recompute-method "${RECOMPUTE_METHOD}"
   --recompute-num-layers "${RECOMPUTE_NUM_LAYERS}"
