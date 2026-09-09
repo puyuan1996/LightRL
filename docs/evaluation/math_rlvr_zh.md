@@ -158,6 +158,5 @@ scorer/stats 单元测试（`tests/tools/test_math_rlvr.py`）、曲线汇总测
 17,255 条唯一数据校验。
 
 基线结果、历次训练任务诊断、迭代决策和待办不随公共仓库发布，统一记录在未跟踪的
-`local/records/iteration/`（入口：`math_rlvr_iteration_log.md`，每次运行的详细
-分析在对应 run 目录下的 `experiment.md`）。运行系统负责把逐样本 detail、
-summary、日志和 checkpoint 写入外部 artifact store。
+`local/records/iteration/math_rlvr_iteration_log.md`（单一入口，含逐次运行分析）。
+运行系统负责把逐样本 detail、summary、日志和 checkpoint 写入外部 artifact store。
