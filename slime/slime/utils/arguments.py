@@ -1375,7 +1375,11 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 "--dump-details",
                 type=str,
                 default=None,
-                help=("Dump all details of training for post-hoc analysis and visualization."),
+                help=(
+                    "Dump rollout details for post-hoc analysis and visualization; "
+                    "the rollout scope defaults to eval and is controlled by "
+                    "--debug-rollout-data-scope."
+                ),
             )
             # use together with --record-memory-history and --memory-snapshot-path (defined in Megatron)
             parser.add_argument(
@@ -1971,7 +1975,11 @@ def slime_validate_args(args):
 
     if args.dump_details is not None:
         args.save_debug_rollout_data = f"{args.dump_details}/rollout_data/{{rollout_id}}.pt"
-        args.save_debug_train_data = f"{args.dump_details}/train_data/{{rollout_id}}_{{rank}}.pt"
+        # Keep the compact eval-only default from implicitly creating large
+        # per-rank training artifacts.  Callers that need them can opt into
+        # the train or both rollout dump scopes.
+        if args.debug_rollout_data_scope in ("train", "both"):
+            args.save_debug_train_data = f"{args.dump_details}/train_data/{{rollout_id}}_{{rank}}.pt"
 
     if args.load_debug_rollout_data is not None:
         logger.info(
