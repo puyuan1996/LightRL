@@ -1083,11 +1083,26 @@ class RolloutManager:
                 sil_buffer = self.data_source.sil_buffer
                 sil_count = 0 if len(samples) == 0 else min(max(1, len(samples) // 4), len(sil_buffer))
                 main_rewards = list(train_data.get("rewards", []))
-                baseline = float(statistics.median(main_rewards)) if main_rewards else 0.0
+                # SPEAR recomputes replay advantages against the historical
+                # p50 of per-group rewards.  Keep a current-batch fallback for
+                # old checkpoints/custom buffers that have no history yet.
+                baseline = None
+                baseline_fn = getattr(sil_buffer, "baseline_reward", None)
+                if callable(baseline_fn):
+                    try:
+                        baseline = baseline_fn()
+                    except Exception:
+                        baseline = None
+                if baseline is None:
+                    baseline = float(statistics.median(main_rewards)) if main_rewards else 0.0
                 max_steps = float(getattr(self.args, "max_replay_loss_steps", 200))
                 final_coef = float(getattr(self.args, "replay_loss_coef", 0.001))
-                coef = min(self.rollout_id / max(max_steps, 1.0), 1.0) * final_coef
-                sil_entries = sil_buffer.sample(sil_count, self.rollout_id, baseline) if sil_count > 0 else []
+                replay_step = int(getattr(self, "current_policy_version", self.rollout_id))
+                progress = min(max(float(replay_step), 0.0) / max(max_steps, 1.0), 1.0)
+                # Match the reference actor's cosine warm-up while preserving
+                # the existing integrated-batch interface.
+                coef = 0.5 * (1.0 - math.cos(math.pi * progress)) * final_coef
+                sil_entries = sil_buffer.sample(sil_count, replay_step, baseline) if sil_count > 0 else []
 
                 if sil_entries:
                     from slime.utils.sil_buffer import normalize_sil_loss_mask

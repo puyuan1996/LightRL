@@ -127,6 +127,29 @@ def test_sil_buffer_resume_restores_local_sampler_state():
     assert resumed.sample(1, current_step=2)[0]["tokens"] == expected
 
 
+def test_sil_buffer_tracks_historical_p50_and_drops_stale_records():
+    sil_buffer = SILBuffer(buffer_size=4, score_threshold=0.0, baseline_buffer_size=4, tolerate_steps=1)
+    sil_buffer.push(
+        [
+            {"tokens": [1], "response_length": 1, "loss_mask": [1], "reward": 2.0},
+            {"tokens": [2], "response_length": 1, "loss_mask": [1], "reward": 4.0},
+        ],
+        current_step=0,
+        group_rewards=[0.0, 2.0, 4.0],
+    )
+    assert sil_buffer.baseline_reward() == 2.0
+    assert sil_buffer.sample(1, current_step=0, baseline_reward=None)[0]["advantage"] in {0.0, 2.0}
+
+    sil_buffer.push(
+        [{"tokens": [3], "response_length": 1, "loss_mask": [1], "reward": 3.0}],
+        current_step=2,
+        group_rewards=[3.0],
+    )
+    # The step-0 records are outside the one-step tolerance window.
+    assert len(sil_buffer) == 1
+    assert sil_buffer.sample(1, current_step=2)[0]["tokens"] == [3]
+
+
 def test_load_function_accepts_importlib_colon_syntax(monkeypatch):
     import sys
     import types

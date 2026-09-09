@@ -1442,7 +1442,7 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 "--baseline-buffer-size",
                 type=int,
                 default=10240,
-                help="SPEAR SIL baseline buffer size metadata.",
+                help="Number of historical group rewards retained for the SPEAR p50 baseline.",
             )
             parser.add_argument(
                 "--trajectory-score-threshold",
@@ -1473,6 +1473,12 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 action="store_true",
                 default=False,
                 help="Require positive advantage for SPEAR SIL admission.",
+            )
+            parser.add_argument(
+                "--trajectory-tolerate-steps",
+                type=int,
+                default=10,
+                help="Maximum rollout-step age for SPEAR trajectories kept in the SIL buffer (capped at 10).",
             )
             return parser
 
