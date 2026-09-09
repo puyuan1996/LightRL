@@ -158,15 +158,54 @@ class RolloutDataSourceWithBuffer(RolloutDataSource):
     def __init__(self, args):
         super().__init__(args)
         self.buffer = []
+        self.buffer_max_size = getattr(args, "buffer_max_size", 1000)
+        self.buffer_enabled = getattr(args, "use_buffer", None)
+        if self.buffer_enabled is None:
+            self.buffer_enabled = getattr(args, "loss_type", "policy_loss") == "decoupled_policy_loss"
+        if getattr(args, "buffer_mode", "in_process") == "none":
+            self.buffer_enabled = False
+        self.current_policy_version = 0
+        self.total_added = 0
+        self.total_sampled = 0
+        if self.buffer_enabled:
+            from slime.utils.buffer_sampling_strategies import get_sampling_strategy
+
+            self.sampling_strategy = get_sampling_strategy(args, self.current_policy_version)
+            logger.info(
+                "Replay buffer enabled: max_size=%s strategy=%s",
+                self.buffer_max_size,
+                self.sampling_strategy.get_name(),
+            )
+        else:
+            self.sampling_strategy = None
+        self.trajectory_replay_enabled = bool(getattr(args, "enable_trajectory_replay", False))
         if self.args.buffer_filter_path is None:
             self.buffer_filter = pop_first
         else:
             self.buffer_filter = load_function(self.args.buffer_filter_path)
+        self.sil_buffer = None
+        if self.trajectory_replay_enabled:
+            try:
+                from slime.utils.sil_buffer import SILBuffer
+
+                self.sil_buffer = SILBuffer(
+                    buffer_size=getattr(args, "trajectory_buffer_size", 2048),
+                    score_threshold=getattr(args, "trajectory_score_threshold", 1.0),
+                    posadv_only=getattr(args, "enable_trajectory_posadv", False),
+                    weight_decay=getattr(args, "weight_decay_trajectory_replay", -1.0),
+                    seed=getattr(args, "seed", 42),
+                )
+                logger.info("SPEAR SIL buffer enabled: size=%s", getattr(args, "trajectory_buffer_size", 2048))
+            except Exception as exc:
+                logger.warning("SPEAR SIL buffer init failed; disabling SIL: %s", exc)
+                self.sil_buffer = None
 
     def get_samples(self, num_samples: int) -> list[list[Sample]]:
         """
         Return num_samples samples
         """
+        if self.buffer_enabled:
+            return super().get_samples(num_samples=num_samples)
 
         samples = self._get_samples_from_buffer(num_samples)
         num_samples -= len(samples)
@@ -181,7 +220,21 @@ class RolloutDataSourceWithBuffer(RolloutDataSource):
         if len(self.buffer) == 0 or num_samples == 0:
             return []
 
-        samples = self.buffer_filter(self.args, None, self.buffer, num_samples)
+        if self.sampling_strategy is not None:
+            if self.sampling_strategy.current_policy_version != self.current_policy_version:
+                self.sampling_strategy.current_policy_version = self.current_policy_version
+            samples = self.sampling_strategy.sample(self.buffer, num_samples)
+        else:
+            samples = self.buffer_filter(self.args, self.current_policy_version, self.buffer, num_samples)
+        self.total_sampled += len(samples)
+        return samples
+
+    def get_training_samples(self, num_samples: int) -> list[list[Sample]]:
+        if not self.buffer_enabled:
+            return self.get_samples(num_samples)
+        samples = self._get_samples_from_buffer(num_samples)
+        if len(samples) < num_samples:
+            logger.info("Replay buffer returned %d/%d requested training groups", len(samples), num_samples)
         return samples
 
     def add_samples(self, samples: list[list[Sample]]):
@@ -191,13 +244,94 @@ class RolloutDataSourceWithBuffer(RolloutDataSource):
         if not samples:
             return
         assert isinstance(samples, list), f"samples must be a list, got {type(samples)}"
-        assert isinstance(samples[0], list), f"the elements of samples must be list, got {type(samples[0])}"
+        if not isinstance(samples[0], list):
+            samples = _group_flat_samples_for_replay(samples, self.args.n_samples_per_prompt)
+        if self.sil_buffer is not None:
+            self._push_sil_candidates(samples)
+        if not self.buffer_enabled and not self.args.partial_rollout:
+            return
         for i in range(0, len(samples)):
             assert (
                 len(samples[i]) == self.args.n_samples_per_prompt
             ), f"the length of the elements of samples must be equal to n_samples_per_prompt, got {len(samples[i])} != {self.args.n_samples_per_prompt}"
             group = samples[i]  # type: ignore
+            group_is_complete = all(
+                getattr(sample, "response", None) not in (None, "")
+                for sample in group
+            )
+            if self.buffer_enabled and not group_is_complete:
+                continue
+            if self.buffer_enabled:
+                for sample in group:
+                    if sample.loss_mask is None and sample.response_length > 0:
+                        sample.loss_mask = [1] * sample.response_length
+            if self.buffer_enabled and not all(
+                sample.rollout_log_probs is not None
+                and len(sample.rollout_log_probs) == sample.response_length
+                and sample.loss_mask is not None
+                and len(sample.loss_mask) == sample.response_length
+                for sample in group
+            ):
+                continue
+            for sample in group:
+                policy_version = getattr(sample, "policy_version", None)
+                if policy_version is None or not isinstance(policy_version, int) or policy_version < 0:
+                    sample.policy_version = self.current_policy_version
+            if getattr(self.args, "enable_dynamic_sampling", False):
+                try:
+                    from slime.rollout.dynamic_sampling import select_admissible_groups
+
+                    admitted, _, _ = select_admissible_groups([group], self.args)
+                    if not admitted:
+                        continue
+                except Exception as exc:
+                    logger.warning("Dynamic sampling gate failed; admitting group: %s", exc)
             self.buffer.append(group)
+            self.total_added += 1
+        while self.buffer_enabled and len(self.buffer) > self.buffer_max_size:
+            self.buffer.pop(0)
+
+    def _push_sil_candidates(self, samples: list[list[Sample]]):
+        if self.sil_buffer is None:
+            return
+        try:
+            entries = []
+            for sample in _iter_sample_leaves(samples):
+                if sample.response_length == 0 or sample.tokens is None:
+                    continue
+                if sample.rollout_log_probs is None or len(sample.rollout_log_probs) != sample.response_length:
+                    continue
+                loss_mask = sample.loss_mask if sample.loss_mask is not None else [1] * sample.response_length
+                if len(loss_mask) != sample.response_length:
+                    continue
+                reward_value = float(sample.get_reward_value(self.args)) if sample.reward is not None else 0.0
+                policy_version = getattr(sample, "policy_version", None)
+                try:
+                    policy_version = int(policy_version)
+                except (TypeError, ValueError):
+                    policy_version = self.current_policy_version
+                if policy_version < 0:
+                    policy_version = self.current_policy_version
+                entries.append(
+                    {
+                        "tokens": sample.tokens,
+                        "response_length": sample.response_length,
+                        "loss_mask": loss_mask,
+                        "rollout_log_probs": sample.rollout_log_probs,
+                        "policy_version": policy_version,
+                        "reward": reward_value,
+                        "advantage": reward_value,
+                    }
+                )
+            if entries:
+                self.sil_buffer.push(entries, current_step=self.total_added)
+        except Exception as exc:
+            logger.warning("SPEAR SIL candidate push failed: %s", exc)
+
+    def update_policy_version(self, version: int):
+        self.current_policy_version = version
+        if self.sampling_strategy is not None:
+            self.sampling_strategy.current_policy_version = version
 
     # TODO remove
     def update_metadata(self, metadata: dict):
@@ -210,9 +344,68 @@ class RolloutDataSourceWithBuffer(RolloutDataSource):
     def get_buffer_length(self):
         return len(self.buffer)
 
+    def save(self, rollout_id):
+        """Persist dataset cursors and replay state together for resumable runs."""
+        super().save(rollout_id)
+        if not getattr(self.args, "save", None):
+            return
+        path = Path(self.args.save) / "rollout" / f"replay_buffer_state_{rollout_id}.pt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        state = {
+            "schema_version": "lightrl_rollout_replay_v1",
+            "buffer": list(self.buffer),
+            "buffer_max_size": self.buffer_max_size,
+            "current_policy_version": self.current_policy_version,
+            "total_added": self.total_added,
+            "total_sampled": self.total_sampled,
+            "sil_buffer": self.sil_buffer.state_dict() if self.sil_buffer is not None else None,
+        }
+        torch.save(state, path)
+
+    def load(self, rollout_id=None):
+        """Restore replay state when a checkpoint contains one."""
+        super().load(rollout_id)
+        if getattr(self.args, "load", None) is None:
+            return
+        if rollout_id is None:
+            return
+        path = Path(self.args.load) / "rollout" / f"replay_buffer_state_{rollout_id}.pt"
+        if not path.is_file():
+            logger.info("Replay buffer checkpoint does not exist: %s", path)
+            return
+        state = torch.load(path, map_location="cpu", weights_only=False)
+        if not isinstance(state, dict):
+            raise TypeError(f"Expected replay state dict, got {type(state).__name__}")
+        self.buffer = list(state.get("buffer") or [])[-self.buffer_max_size :]
+        self.current_policy_version = int(state.get("current_policy_version", 0))
+        self.total_added = int(state.get("total_added", len(self.buffer)))
+        self.total_sampled = int(state.get("total_sampled", 0))
+        sil_state = state.get("sil_buffer")
+        if self.sil_buffer is not None and isinstance(sil_state, dict):
+            self.sil_buffer.load_state_dict(sil_state)
+
 
 def pop_first(args, rollout_id, buffer: list[list[Sample]], num_samples: int) -> list[list[Sample]]:
     num_to_pop = min(len(buffer), num_samples)
     samples = buffer[:num_to_pop]
     del buffer[:num_to_pop]
     return samples
+
+
+def _group_flat_samples_for_replay(samples: list[Sample], group_size: int) -> list[list[Sample]]:
+    groups = []
+    for start in range(0, len(samples), group_size):
+        group = samples[start : start + group_size]
+        if len(group) == group_size:
+            groups.append(group)
+    return groups
+
+
+def _iter_sample_leaves(samples):
+    """Yield Sample leaves from possibly nested rollout sample containers."""
+    if isinstance(samples, Sample):
+        yield samples
+        return
+    if isinstance(samples, (list, tuple)):
+        for item in samples:
+            yield from _iter_sample_leaves(item)

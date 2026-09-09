@@ -1,6 +1,6 @@
 # OpenClaw Terminal Latent World Model v2
 
-当前实现把 SETA turn 轨迹映射为 policy-hidden-conditioned latent transition，并用 action-conditioned AdaLN Transformer 预测环境反馈 latent。完整设计与命令见 [`agentic_rl/docs/latent_world_model_guide_zh.md`](../../../agentic_rl/docs/latent_world_model_guide_zh.md)。
+当前实现把 SETA/tb2.1 turn 轨迹映射为 policy-hidden-conditioned latent transition，并用 action-conditioned AdaLN Transformer 预测环境反馈 latent。完整设计与命令见 [`docs/algorithms/lwm_offline_zh.md`](../../../docs/algorithms/lwm_offline_zh.md)。
 
 ## 主路径
 
@@ -13,17 +13,21 @@ traj.json / records.jsonl / replay.pt
   -> predicted feedback latent
 ```
 
-`modules.py` 中 action 不进入 self-attention token 序列，只产生每层 AdaLN shift/scale/residual gate。旧 concat-MLP 仅作为 `predictor_type=mlp` ablation。
+`modules.py` 中 action 不进入 self-attention token 序列，也不与 state 做特征拼接；默认
+AdaLN Transformer（以及 `predictor_type=mlp` 的轻量 FiLM/AdaLN 对照）只把 action
+映射为 shift/scale/residual gate。
 
 ## 模块
 
 | 文件 | 作用 |
 | --- | --- |
-| `seta_dataset.py` | 读取 SETA `traj.json`、records JSONL、replay `.pt` |
+| `seta_dataset.py` | 统一读取 tb2.1 ATIF `trajectory.json`、SETA `traj.json`、records JSONL、replay `.pt` |
 | `hidden_encoder.py` | 同一 causal forward 提取 prompt-end state 与 action-span hidden |
 | `modules.py` | shared latent、AdaLN predictor、SIGReg、contrast/value loss |
 | `replay_buffer.py` | 可选 DAPO world-model trajectory replay |
 | `train_latent.py` | 端到端训练、预测、checkpoint |
+| `stream_latent.py` | 流式（online-style）replay A/B：分 chunk 到达、等算力对照 |
+| `mpc.py` / `plan_mpc.py` | 同一 state 上的候选 action latent one-step MPC |
 | `metadata.py` | rollout 侧轻量 transition metadata |
 
 旧的 `build_dataset.py -> cache_text_hidden.py -> train_probe.py -> evaluate_probe.py` 路径继续保留，用于 v1 artifact 和 Stage-A ablation。
@@ -58,6 +62,24 @@ DAPO rollout 侧收集使用：
 --world-model-use-dapo-replay-buffer
 --world-model-replay-buffer-size 4096
 ```
+
+策略级 latent WM 对照可在 DAPO 命令中额外启用：
+
+```text
+--world-model-enable
+--world-model-backprop-to-llm
+--world-model-loss-coef 0.01
+--world-model-target-provider-path package.module:function
+```
+
+target provider 在每个 rollout 为样本附加冻结 WM 的 target latent；hook
+对 target detach，并从 policy response logits（或 provider 直接给出的
+`wm_pred_latents`）计算 aux loss。`wm/loss` 与
+`wm/policy_gradient_path` 会进入训练指标，便于与同 seed 的 DAPO-only
+对照统计 fresh transitions、optimizer steps 和 wall-clock。
+
+正式数据应来自 SETA `tool_calls[].result` 的 stdout/stderr/exit code；
+`capture-pane` 屏幕文本只保留为兼容旧 tb2.1 ATIF 的离线格式。
 
 ## 默认安全边界
 

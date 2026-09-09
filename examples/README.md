@@ -11,7 +11,7 @@ examples/
 │   ├── train_qwen3_8b_seta_dive_po.sh
 │   ├── train_qwen3_8b_mixed_dapo.sh
 │   ├── train_glm_5_1_seta_dapo.sh
-│   └── world_model/             # LWM/WIP 训练与 metadata smoke
+│   └── world_model/             # tb2.1 LWM 离线训练、MPC 与 rjob 提交
 ├── validation/                 # 不含站点拓扑的通用辅助文件
 └── evaluation/                 # 离线评估配方(机制在 tools/evaluation/)
 ```
@@ -33,7 +33,7 @@ harness 适配器)由 `tools/evaluation/` 与 `agentic_rl/harnesses/eval/`
 | `training/train_glm_5_1_seta_dapo.sh` | Camel-Agent | GLM-5.1 | SETA | DAPO |
 | `training/train.sh` | 由配置选择 | 由配置选择 | 由配置选择 | 由配置选择 |
 
-`training/world_model/` 中的流程仍处于 WIP，不属于稳定训练配方。
+`training/world_model/` 是独立实验流程，不会改变稳定 GRPO/DAPO 配方。
 
 先用 `--dry-run` 检查配置：
 

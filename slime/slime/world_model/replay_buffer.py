@@ -13,11 +13,11 @@ from .metadata import stable_hash
 class TrajectoryReplayBuffer:
     """Fixed-capacity replay buffer for DAPO-collected world-model records.
 
-    The public ``push(entries, current_step)`` / ``sample(n, current_step,
-    baseline_reward)`` shape follows the replay interface used by local PR #16.
-    Unlike the PR's SIL buffer, this buffer defaults to admitting both success
-    and failure transitions because latent dynamics need the full outcome
-    distribution.
+    The public contract is ``push(entries, current_step)`` /
+    ``sample(n, current_step, baseline_reward)``.  Unlike success-filtered
+    self-imitation (SIL) buffers, this buffer admits both success and failure
+    transitions by default because latent dynamics need the full outcome
+    distribution; pass ``score_threshold`` to opt into quality gating.
     """
 
     def __init__(

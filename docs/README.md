@@ -16,8 +16,9 @@
   `agentic_rl/algorithms/dive_po/rewards/dual_stream.py`（生产默认）。
 - [algorithms/dive_po_iclr2027_draft.md](algorithms/dive_po_iclr2027_draft.md)——
   DIVE-PO 论文草稿。
-- [algorithms/lwm_guide_zh.md](algorithms/lwm_guide_zh.md)——LWM(WIP，
-  实现位于 Slime 侧)。
+- [algorithms/lwm_offline_zh.md](algorithms/lwm_offline_zh.md)——LWM（Latent
+  World Model）离线验证:自包含的设计原理、使用指南与验证结果（实现位于
+  Slime 侧 `slime/slime/world_model/`）。
 
 ## 使用
 

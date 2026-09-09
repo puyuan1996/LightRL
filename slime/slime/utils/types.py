@@ -23,6 +23,10 @@ class Sample:
     reward: float | dict[str, Any] | None = None
     loss_mask: list[int] | None = None
     weight_versions: list[str] = field(default_factory=list)
+    # Policy revision that generated this trajectory.  Replay samplers use it
+    # to enforce staleness limits; ``None`` keeps old serialized samples
+    # backward compatible and is filled by the rollout data source.
+    policy_version: int | None = None
     rollout_log_probs: list[float] | None = None  # Log probabilities from rollout engine
     rollout_routed_experts: list[list[int]] | None = None  # Routed experts from rollout engine
     remove_sample: bool = False

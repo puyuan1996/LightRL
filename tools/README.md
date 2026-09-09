@@ -20,5 +20,5 @@ bash tools/analysis/run_case_study.sh runs/training/<RUN_ID>
 ```
 
 评测入口及参数见 [`docs/evaluation/README.md`](../docs/evaluation/README.md)；
-LWM 评测工具仍处于开发阶段，使用前阅读
-[`docs/algorithms/lwm_guide_zh.md`](../docs/algorithms/lwm_guide_zh.md)。
+LWM 离线验证的设计与命令见
+[`docs/algorithms/lwm_offline_zh.md`](../docs/algorithms/lwm_offline_zh.md)。

@@ -168,10 +168,12 @@ async def generate(
 
         _finalize_sample_metadata(
             samples,
+            args=args,
             plan=plan,
             clients=clients,
             loop=loop,
             trajectory_uncertainty=trajectory_uncertainty,
+            status=status,
             eval_details=eval_details,
             eval_error=eval_error,
         )

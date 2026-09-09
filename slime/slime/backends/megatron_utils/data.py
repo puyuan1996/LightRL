@@ -563,6 +563,17 @@ def log_rollout_data(
                 "group_indices",
                 "teacher_topk_log_probs",
                 "teacher_topk_indices",
+                "sil_precomputed_advantages",
+                "sil_reward_baseline",
+                # Payload fields for the world-model aux hook (dicts / nested
+                # latent lists), not loggable metrics.
+                "metadata",
+                "wm_metadata",
+                "wm_pred_latents",
+                "wm_target_latents",
+                "wm_state_latents",
+                "wm_action_latents",
+                "wm_target_mask",
             ]:
                 continue
             # Upload per sample mean for each rollout value

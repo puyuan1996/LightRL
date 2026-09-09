@@ -100,6 +100,7 @@ from agentic_rl.rollout.environment_factory import (
     _normalize_tau2_conversation_mode,
 )
 from agentic_rl.rollout.runner import create_agent_runner, normalize_harness_option
+from slime.world_model.metadata import attach_terminal_world_model_metadata
 
 from agentic_rl.env import (
     env_bool as _env_bool,
@@ -1216,10 +1217,12 @@ def _inject_exploration_bonuses(
 def _finalize_sample_metadata(
     samples: List[Sample],
     *,
+    args: Any,
     plan: _RunPlan,
     clients: _TurnClients,
     loop: _TurnLoopResult,
     trajectory_uncertainty: dict[str, Any] | None,
+    status: Any,
     eval_details: dict[str, Any] | None,
     eval_error: str | None,
 ) -> None:
@@ -1269,6 +1272,18 @@ def _finalize_sample_metadata(
         if eval_error is not None:
             s.metadata["evaluation_failed"] = True
             s.metadata["evaluation_error"] = eval_error
+    # Records are opt-in and remain separate from reward/advantage fields. The
+    # additive loss hook consumes only explicit precomputed latent tensors.
+    attach_terminal_world_model_metadata(
+        args=args,
+        samples=samples,
+        turn_records=loop.turn_records,
+        task_meta=plan.task_meta,
+        run_ctx=run_ctx,
+        status=status,
+        eval_details=eval_details,
+        eval_error=eval_error,
+    )
 
 
 # ── Failure specimen (except path) ──────────────────────────────────────────

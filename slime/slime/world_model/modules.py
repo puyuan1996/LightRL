@@ -36,6 +36,8 @@ class SIGReg(nn.Module):
         self.register_buffer("weights", weights * window)
 
     def forward(self, proj: torch.Tensor) -> torch.Tensor:
+        """Isotropy statistic over random projections; 0 for batches < 2 rows."""
+
         if proj.dim() == 2:
             proj = proj.unsqueeze(0)
         if proj.size(-2) < 2:
@@ -83,14 +85,21 @@ class StableProjector(nn.Module):
 
 
 class ActionConditionedPredictor(nn.Module):
-    """Legacy concat-MLP predictor kept for checkpoint compatibility/ablation."""
+    """Lightweight action-conditioned MLP without token or feature concat.
+
+    The action is converted to FiLM/AdaLN parameters and only modulates the
+    state stream.  Keeping this small predictor as an ablation avoids making
+    the ``mlp`` option a loophole around the same action-conditioning contract
+    used by the transformer predictor.
+    """
 
     def __init__(self, latent_dim: int, hidden_dim: int | None = None) -> None:
         super().__init__()
         hidden_dim = hidden_dim or latent_dim * 4
+        self.state_norm = nn.LayerNorm(latent_dim, elementwise_affine=False)
+        self.action_to_adaln = nn.Sequential(nn.SiLU(), nn.Linear(latent_dim, latent_dim * 2))
         self.net = nn.Sequential(
-            nn.LayerNorm(latent_dim * 2),
-            nn.Linear(latent_dim * 2, hidden_dim),
+            nn.Linear(latent_dim, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
@@ -99,7 +108,8 @@ class ActionConditionedPredictor(nn.Module):
         )
 
     def forward(self, state_latent: torch.Tensor, action_latent: torch.Tensor) -> torch.Tensor:
-        pred = self.net(torch.cat([state_latent, action_latent], dim=-1))
+        shift, scale = self.action_to_adaln(action_latent).chunk(2, dim=-1)
+        pred = self.net(_modulate(self.state_norm(state_latent), shift, scale))
         return F.normalize(pred, dim=-1)
 
 
@@ -181,6 +191,8 @@ class ActionConditionedTransformerPredictor(nn.Module):
         self.output = nn.Linear(latent_dim, latent_dim)
 
     def forward(self, state_latent: torch.Tensor, action_latent: torch.Tensor) -> torch.Tensor:
+        """Predict per-turn next-state latents; turn self-attention is causal."""
+
         squeeze_turn = state_latent.dim() == 2
         if squeeze_turn:
             state_latent = state_latent.unsqueeze(1)
@@ -307,6 +319,30 @@ class TextLatentWorldModel(nn.Module):
         target_mask: torch.Tensor | None = None,
         next_state_mask: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor | None]:
+        """Project raw hiddens into the shared latent space and predict.
+
+        Hidden inputs may be pre-pooled ``(B, D)`` or token-level ``(B, T, D)``
+        rows reduced with their matching mask.  ``value`` and ``uncertainty``
+        are read from the *predicted* latent, so candidate quality reflects
+        the modeled consequence rather than the current state alone.
+
+        Args:
+            state_hidden: Current-state hiddens from the policy encoder.
+            action_hidden: Action hiddens with the same batch size.
+            target_hidden: Optional environment-feedback hiddens (JEPA target).
+            next_state_hidden: Optional successor-state hiddens for alignment.
+            state_mask: Token mask for ``state_hidden`` when 3-D.
+            action_mask: Token mask for ``action_hidden`` when 3-D.
+            target_mask: Token mask for ``target_hidden`` when 3-D.
+            next_state_mask: Token mask for ``next_state_hidden`` when 3-D.
+
+        Returns:
+            Dict with ``state_latent``, ``action_latent``, ``pred_latent``;
+            ``target_latent``/``next_state_latent`` are None when the matching
+            input is absent, and ``value``/``uncertainty`` are None when the
+            respective head is disabled.
+        """
+
         state_feat = _masked_mean(state_hidden, state_mask)
         action_feat = _masked_mean(action_hidden, action_mask)
         state_latent = self.shared_projector(self.state_adapter(state_feat))
@@ -353,6 +389,44 @@ class TextLatentWorldModel(nn.Module):
         alignment_coef: float = 0.1,
         value_coef: float = 0.0,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        """Combine the latent prediction objective with gated auxiliary losses.
+
+        Term gating:
+
+        - prediction loss: always on; ``pred_loss_type`` selects mse /
+          smooth_l1 / cosine, and the target branch is detached when
+          ``config.stop_grad_target``.
+        - SIGReg: always computed on the state latents, scaled by
+          ``sigreg_coef``.
+        - action contrast: only with batch size > 1 and
+          ``action_contrast_coef != 0``; roll-shifted actions act as negatives.
+        - alignment: only when ``next_state_hidden`` is given and
+          ``alignment_coef != 0``; ``has_next`` restricts it to real
+          successors when provided.
+        - value: only when ``reward`` is given, the value head exists, and
+          ``value_coef != 0``; ``reward_mask`` limits the regression to rows
+          with observed rewards.
+
+        Args:
+            state_hidden: Per-transition state hiddens, ``(B, D)`` or ``(B, T, D)``.
+            action_hidden: Action hiddens matching the batch.
+            target_hidden: Environment-feedback hiddens (prediction target).
+            next_state_hidden: Optional successor-state hiddens.
+            has_next: Optional bool mask of rows with a real successor.
+            reward: Optional return targets for the value head.
+            reward_mask: Optional mask marking rows with observed rewards.
+            pred_loss_type: ``mse`` | ``smooth_l1`` | ``cosine``.
+            sigreg_coef: Weight of the SIGReg manifold regularizer.
+            action_contrast_coef: Weight of the shuffled-action contrast term.
+            alignment_coef: Weight of the next-state alignment term.
+            value_coef: Weight of the value regression term; 0 disables it.
+
+        Returns:
+            ``(total_loss, metrics)``; metrics are detached ``wm/``-keyed term
+            values plus diagnostics (effective rank, action delta, value mask
+            count) for guardrail monitoring.
+        """
+
         out = self(
             state_hidden=state_hidden,
             action_hidden=action_hidden,

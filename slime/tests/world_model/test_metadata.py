@@ -1,3 +1,5 @@
+import sys
+import types
 from types import SimpleNamespace
 
 from slime.world_model.metadata import attach_terminal_world_model_metadata, is_world_model_enabled
@@ -58,6 +60,31 @@ def test_attach_terminal_world_model_metadata_enabled():
     assert sample.train_metadata["world_model"] == wm
 
 
+def test_metadata_uses_raw_tool_result_fields_without_screen_capture():
+    sample = _sample()
+    attach_terminal_world_model_metadata(
+        args=SimpleNamespace(world_model_enable=True, world_model_metadata_max_chars=128),
+        samples=[sample],
+        turn_records=[
+            {
+                "turn_idx": 0,
+                "context_messages": [],
+                "assistant_output": "run",
+                "tool_calls": [
+                    {
+                        "tool_name": "bash",
+                        "result": {"stdout": "/tmp", "stderr": "", "exit_code": 0},
+                    }
+                ],
+            }
+        ],
+        task_meta={},
+        run_ctx=SimpleNamespace(),
+        status=SimpleNamespace(value="completed"),
+    )
+    assert sample.metadata["world_model"]["next_observation_text"] == "stdout=/tmp\nstderr=\nexit_code=0"
+
+
 def test_context_text_preserves_tail_for_long_common_prefix():
     sample = _sample()
     long_system = "common-prefix-" * 200
@@ -109,3 +136,37 @@ def test_attach_terminal_world_model_metadata_normalizes_non_dict_metadata():
 
     assert isinstance(sample.metadata, dict)
     assert sample.metadata["world_model"]["action_text"] == "run"
+
+
+def test_target_provider_attaches_frozen_latent_targets(monkeypatch):
+    module = types.ModuleType("test_target_provider")
+
+    def provider(**kwargs):
+        assert len(kwargs["samples"]) == 1
+        return [[0.25, -0.5]]
+
+    module.provider = provider
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    sample = _sample()
+    attach_terminal_world_model_metadata(
+        args=SimpleNamespace(
+            world_model_enable=True,
+            world_model_metadata_max_chars=128,
+            world_model_target_provider_path="test_target_provider.provider",
+        ),
+        samples=[sample],
+        turn_records=[
+            {
+                "turn_idx": 0,
+                "context_messages": [{"role": "user", "content": "hi"}],
+                "assistant_output": "run",
+                "tool_calls": [{"tool_name": "bash", "result": "/tmp"}],
+            }
+        ],
+        task_meta={},
+        run_ctx=SimpleNamespace(),
+        status=SimpleNamespace(value="completed"),
+    )
+
+    assert sample.metadata["world_model"]["target_latents"] == [0.25, -0.5]
+    assert sample.train_metadata["world_model"]["target_latents"] == [0.25, -0.5]
