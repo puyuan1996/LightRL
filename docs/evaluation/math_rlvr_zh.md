@@ -77,7 +77,28 @@ Pass@k_cap ≈ 1 - (1 - p * (1 - t)) ** k
 cap 或敏感性曲线。zero-variance group 不伪造 advantage，应记录并按训练器策略
 跳过或过滤。
 
-## 4. 代码结构与入口
+## 4. 训练指标持久化与曲线
+
+运行期间三类结构化记录追加写入 `<run_dir>/logs/metrics.jsonl`（不受 train.log
+轮转影响）：
+
+| schema | 来源 | 内容 |
+|---|---|---|
+| `terminal_rl.rollout_metrics.v1` | 每次训练 rollout | `raw_reward`、`truncated`、`response_lengths`、logprob 等 |
+| `terminal_rl.eval_dataset_metrics.v1` | 每次 in-training eval | 按数据集的 `reward`、`truncated_ratio`、`aborted_ratio`、response_len |
+| `terminal_rl.actor_update_metrics.v1` | 每次 actor update | loss、grad norm（pre/effective）、`train_rollout_logprob_abs_diff`、entropy、ppo_kl |
+
+绘制训练 reward（AIME2025 训练集）与 OOD eval reward（AIME2024 holdout）曲线：
+
+```bash
+python tools/analysis/plot_math_rlvr_curves.py --run-dir /path/to/runs/training/<run_id>
+```
+
+输出 `math_rlvr_curves.png`（train reward / eval reward / 截断率 / logprob 差四联图）
+与 `math_rlvr_summary.json`；`--no-figs` 只出 summary、无需 matplotlib。结构化
+记录缺失的旧运行自动回退解析 `train.log`。
+
+## 5. 代码结构与入口
 
 | 路径 | 职责 |
 |---|---|
@@ -89,9 +110,10 @@ cap 或敏感性曲线。zero-variance group 不伪造 advantage，应记录并�
 | `tools/evaluation/eval_math.py` | OpenAI-compatible endpoint 评测入口 |
 | `tools/evaluation/run_math_base_evals.sh` | 四个核心数据集批量评测 |
 | `examples/training/train_qwen3_8b_dapo_math.sh` | Qwen3 DAPO 训练配方 |
+| `tools/analysis/plot_math_rlvr_curves.py` | 训练 reward / OOD eval reward / 截断 / logprob 差曲线 |
 | `local/rjob/`（本地 overlay） | 站点 scheduler submitter、payload、checkpoint 转换入口；不随公共仓库发布 |
 
-## 5. 本地与 RJob 使用
+## 6. 本地与 RJob 使用
 
 本地评测：
 
@@ -128,10 +150,11 @@ MODEL_PATH=/path/to/converted-hf MODEL=my-model DATASETS=aime-2024 \
 checkpoint 路径；所有结果需记录 verifier hash、数据 hash、seed、reward、cap 和
 评测清单。
 
-## 6. 验证与实验记录
+## 7. 验证与实验记录
 
 静态/冒烟验证覆盖 Python 编译、Shell 语法、RJob dry-run、extractor/verifier/
-scorer/stats 单元测试（`tests/tools/test_math_rlvr.py`）和 DAPO-Math-17k
+scorer/stats 单元测试（`tests/tools/test_math_rlvr.py`）、曲线汇总测试
+（`tests/tools/test_plot_math_rlvr_curves.py`）和 DAPO-Math-17k
 17,255 条唯一数据校验。
 
 基线结果、历次训练任务诊断、迭代决策和待办不随公共仓库发布，统一记录在未跟踪的

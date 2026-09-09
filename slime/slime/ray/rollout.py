@@ -1277,6 +1277,32 @@ def _log_eval_rollout_data(rollout_id, args, data, extra_metrics: dict[str, Any]
     log_dict["eval/step"] = step
     logging_utils.log(args, log_dict, step_key="eval/step")
 
+    # Persist per-dataset eval metrics to the durable JSONL so the OOD eval
+    # curve survives train.log rotation.
+    try:
+        from agentic_rl.misc.jsonl_sink import write_structured_metrics
+
+        records = []
+        for key in data.keys():
+            record = {
+                "schema": "terminal_rl.eval_dataset_metrics.v1",
+                "phase": "eval",
+                "role": "rollout_manager",
+                "rollout_id": rollout_id,
+                "global_step": step,
+                "dataset": key,
+                "reward": log_dict.get(f"eval/{key}"),
+            }
+            for metric_key, value in log_dict.items():
+                if metric_key.startswith(f"eval/{key}/"):
+                    record[metric_key.removeprefix(f"eval/{key}/")] = value
+                elif metric_key.startswith(f"eval/{key}-"):
+                    record[metric_key.removeprefix(f"eval/{key}-")] = value
+            records.append(record)
+        write_structured_metrics(records)
+    except Exception:
+        logger.debug("structured eval metrics sink unavailable", exc_info=True)
+
     return log_dict
 
 
