@@ -407,11 +407,15 @@ fi
 
 # ── Start Ray head ───────────────────────────────────────────────────
 _ray_num_cpus="${RAY_NUM_CPUS:-$(nproc)}"
+# Cap the plasma object store: the default (30% of shm/RAM) consumes
+# ~100-300 GiB of the pod's memory cgroup, which colocated GLM-5.1
+# workloads need for the engine/training CPU weight backups.
 log "ray start --head ..."
 ray start --head \
   --node-ip-address "${NODE_IP}" \
   --num-cpus "${_ray_num_cpus}" \
   --num-gpus "${NUM_GPUS}" \
+  --object-store-memory "${RAY_OBJECT_STORE_MEMORY:-8000000000}" \
   --disable-usage-stats \
   --dashboard-host=0.0.0.0 \
   --dashboard-port=8265 \

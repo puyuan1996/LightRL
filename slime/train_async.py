@@ -8,7 +8,7 @@ from slime.ray.placement_group import create_placement_groups, create_rollout_ma
 from slime.utils.arguments import parse_args
 from slime.utils.checkpoint_utils import run_checkpoint_action
 from slime.utils.logging_utils import configure_logger, init_tracking
-from slime.utils.misc import should_run_periodic_action, should_save_checkpoint
+from slime.utils.misc import should_run_eval, should_run_periodic_action, should_save_checkpoint
 from slime.utils.rollout_skip import is_skip_train_result
 
 logger = logging.getLogger(__name__)
@@ -270,7 +270,7 @@ def train(args):
         should_eval = (
             completed_step in explicit_eval_steps
             if args.eval_steps is not None
-            else should_run_periodic_action(rollout_id, args.eval_interval, num_rollout_per_epoch)
+            else should_run_eval(rollout_id, args.eval_interval, args.num_rollout)
         )
         if should_eval:
             _relay_pending_metrics(ray.get(rollout_manager.eval.remote(completed_step)))

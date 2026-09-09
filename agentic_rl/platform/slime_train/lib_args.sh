@@ -218,10 +218,17 @@ OPTIMIZER_ARGS=(
   --adam-beta1 0.9
   --adam-beta2 0.98
   --clip-grad 1.0
-  --optimizer-cpu-offload
-  --overlap-cpu-optimizer-d2h-h2d
-  --use-precision-aware-optimizer
 )
+if [[ "${OPTIMIZER_CPU_OFFLOAD:-1}" == "1" ]]; then
+  # The cpu-offload optimizer package (hybrid optimizer).  Skip it for LoRA
+  # smokes whose optimizer state is tiny: the hybrid path is heavier and has
+  # more collective surface during initialization.
+  OPTIMIZER_ARGS+=(
+    --optimizer-cpu-offload
+    --overlap-cpu-optimizer-d2h-h2d
+    --use-precision-aware-optimizer
+  )
+fi
 
 WANDB_MODE="${WANDB_MODE:-offline}"
 WANDB_ENABLE="${WANDB_ENABLE:-1}"

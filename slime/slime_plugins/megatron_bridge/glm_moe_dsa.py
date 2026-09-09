@@ -52,6 +52,86 @@ from megatron.bridge.models.hf_pretrained.causal_lm import PreTrainedCausalLM
 logger = logging.getLogger(__name__)
 
 
+class _GLMExpertAutoMapping(AutoMapping):
+    """Load one expert projection shard independently on every ETP rank.
+
+    The fork's generic ``AutoMapping`` gathers the complete HF tensor on ETP
+    rank 0 and scatters it.  GLM-5.1 has nearly 20k expert tensors; one slow
+    shared-storage read on rank 0 can therefore leave an already-enqueued
+    NCCL scatter outstanding for the whole process-group timeout.  Every rank
+    already opens the lazy HF tensor, so slicing locally removes that
+    serialization without changing the resulting Megatron shard.
+    """
+
+    def hf_to_megatron(self, hf_weights: torch.Tensor, megatron_module):
+        if self.tp_size == 1:
+            return hf_weights
+
+        # Match the generic mapping's expert-name normalization so grouped
+        # expert parameters such as ``weight15`` still provide shape metadata.
+        from megatron.bridge.models.conversion.utils import get_module_and_param_from_name
+
+        normalized_param = self._normalize_expert_param_name(self.megatron_param)
+        _, target_param = get_module_and_param_from_name(megatron_module, normalized_param)
+        if hf_weights is None:
+            raise ValueError("hf_weights should not be None for an expert projection")
+
+        # Expert down projections are row-parallel (dim 1); grouped/legacy
+        # variants can also expose a column-parallel projection, so infer the
+        # split from the local parameter shape rather than the class name.
+        if hf_weights.ndim == 1:
+            return hf_weights.to(device=target_param.device, dtype=target_param.dtype)
+        if hf_weights.ndim != 2 or target_param.ndim != 2:
+            raise ValueError(
+                f"Unsupported expert projection shapes: hf={tuple(hf_weights.shape)} "
+                f"target={tuple(target_param.shape)}"
+            )
+
+        if hf_weights.shape[0] == target_param.shape[0] * self.tp_size:
+            dim = 0
+        elif hf_weights.shape[1] == target_param.shape[1] * self.tp_size:
+            dim = 1
+        else:
+            raise ValueError(
+                f"Cannot infer expert TP split: hf={tuple(hf_weights.shape)} "
+                f"target={tuple(target_param.shape)} tp={self.tp_size}"
+            )
+
+        # Slice while still on CPU, then move only this rank's shard to CUDA.
+        shard = torch.chunk(hf_weights, self.tp_size, dim=dim)[self.tp_rank]
+        return shard.to(device=target_param.device, dtype=target_param.dtype)
+
+
+class _GLMExpertGatedMLPMapping(GatedMLPMapping):
+    """Gated expert load with local TP slicing instead of NCCL scatter."""
+
+    def hf_to_megatron(self, hf_weights, megatron_module):
+        if self.tp_size == 1:
+            return torch.cat([hf_weights["gate"], hf_weights["up"]], dim=0)
+
+        from megatron.bridge.models.conversion.utils import get_module_and_param_from_name
+
+        normalized_param = self._normalize_expert_param_name(self.megatron_param)
+        _, target_param = get_module_and_param_from_name(megatron_module, normalized_param)
+        gate = hf_weights["gate"]
+        up = hf_weights["up"]
+        if gate.shape != up.shape or gate.ndim != 2 or target_param.ndim != 2:
+            raise ValueError(
+                f"Unsupported gated expert shapes: gate={tuple(gate.shape)} "
+                f"up={tuple(up.shape)} target={tuple(target_param.shape)}"
+            )
+        if gate.shape[0] != target_param.shape[0] * self.tp_size // 2:
+            raise ValueError(
+                f"Cannot infer gated expert TP split: gate={tuple(gate.shape)} "
+                f"target={tuple(target_param.shape)} tp={self.tp_size}"
+            )
+
+        gate_shard = torch.chunk(gate, self.tp_size, dim=0)[self.tp_rank]
+        up_shard = torch.chunk(up, self.tp_size, dim=0)[self.tp_rank]
+        shard = torch.cat([gate_shard, up_shard], dim=0)
+        return shard.to(device=target_param.device, dtype=target_param.dtype)
+
+
 class GlmMoeDsaForCausalLM:  # noqa: D401 - placeholder, never instantiated
     """Dispatch-key placeholder for transformers builds without GLM-5."""
 
@@ -260,6 +340,17 @@ class GLMMoEDSABridge(MegatronModelBridge):
         provider = DeepSeekV3ModelProvider(**configs)
         return provider
 
+    def _is_adapter_param_name(self, param_name: str) -> bool:
+        # slime's Megatron LoRA marks adapter params as ``slime_lora_A`` /
+        # ``slime_lora_B``; the fork's default only knows ``.adapter.``.
+        # Adapter params start fresh (they are absent from the HF checkpoint)
+        # and must be excluded from conversion tasks — otherwise they leave
+        # None holes in the task list that crash
+        # ``load_weights_hf_to_megatron`` with
+        # ``AttributeError: 'NoneType' object has no attribute
+        # 'megatron_module'``.
+        return super()._is_adapter_param_name(param_name) or ".slime_lora_" in param_name
+
     def mapping_registry(self) -> MegatronMappingRegistry:
         param_mappings = {
             # Embed
@@ -305,7 +396,12 @@ class GLMMoEDSABridge(MegatronModelBridge):
             "decoder.layers.*.mlp.experts.local_experts.*.linear_fc2.weight": "model.layers.*.mlp.experts.*.down_proj.weight",
         }
 
-        mapping_list = [AutoMapping(megatron_param=k, hf_param=v) for k, v in param_mappings.items()]
+        mapping_list = [
+            _GLMExpertAutoMapping(megatron_param=k, hf_param=v)
+            if ".mlp.experts." in k and "linear_fc2" in k
+            else AutoMapping(megatron_param=k, hf_param=v)
+            for k, v in param_mappings.items()
+        ]
 
         # Attention (non-MLA fallback: combined QKV)
         mapping_list.extend(
@@ -340,12 +436,12 @@ class GLMMoEDSABridge(MegatronModelBridge):
         # MoE expert weights (per-expert format: experts.N.gate_proj / up_proj)
         mapping_list.extend(
             [
-                GatedMLPMapping(
+                _GLMExpertGatedMLPMapping(
                     megatron_param="decoder.layers.*.mlp.experts.linear_fc1.weight*",
                     gate="model.layers.*.mlp.experts.*.gate_proj.weight",
                     up="model.layers.*.mlp.experts.*.up_proj.weight",
                 ),
-                GatedMLPMapping(
+                _GLMExpertGatedMLPMapping(
                     megatron_param="decoder.layers.*.mlp.experts.local_experts.*.linear_fc1.weight",
                     gate="model.layers.*.mlp.experts.*.gate_proj.weight",
                     up="model.layers.*.mlp.experts.*.up_proj.weight",
@@ -415,12 +511,12 @@ class GLMMoEDSABridge(MegatronModelBridge):
                             gate=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.shared_experts.gate_proj.weight",
                             up=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.shared_experts.up_proj.weight",
                         ),
-                        GatedMLPMapping(
+                        _GLMExpertGatedMLPMapping(
                             megatron_param=f"mtp.layers.{mtp_layer}.{layer_prefix}.mlp.experts.linear_fc1.weight*",
                             gate=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.experts.*.gate_proj.weight",
                             up=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.experts.*.up_proj.weight",
                         ),
-                        GatedMLPMapping(
+                        _GLMExpertGatedMLPMapping(
                             megatron_param=f"mtp.layers.{mtp_layer}.{layer_prefix}.mlp.experts.local_experts.*.linear_fc1.weight",
                             gate=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.experts.*.gate_proj.weight",
                             up=f"model.layers.{mtp_layer + num_transformer_layers}.mlp.experts.*.up_proj.weight",

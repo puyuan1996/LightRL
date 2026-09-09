@@ -98,6 +98,26 @@ def should_run_periodic_action(
     return (step % interval == 0) or (num_rollout_per_epoch is not None and step % num_rollout_per_epoch == 0)
 
 
+def should_run_eval(
+    rollout_id: int,
+    interval: int | None,
+    num_rollout: int | None = None,
+) -> bool:
+    """Return whether evaluation should run at this completed rollout.
+
+    Evaluation cadence is intentionally independent of epoch boundaries.  Small
+    datasets can have very short epochs, and evaluating at every boundary can
+    dominate training cost even when a larger ``eval_interval`` was requested.
+    The final rollout remains an evaluation point so a run always reports a
+    terminal metric.
+    """
+    if interval is None:
+        return False
+    if num_rollout is not None and rollout_id == num_rollout - 1:
+        return True
+    return (rollout_id + 1) % interval == 0
+
+
 def should_save_checkpoint(
     rollout_id: int,
     interval: int | None,
