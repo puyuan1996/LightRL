@@ -636,7 +636,15 @@ class MegatronTrainRayActor(TrainRayActor):
                 ray.get(self.rollout_manager.clear_num_new_engines.remote())
 
         offload_context = torch_memory_saver.disable() if self.args.offload_train else nullcontext()
-        lora_context = merged_megatron_lora(self.model) if getattr(self.args, "use_megatron_lora", False) else nullcontext()
+        # With the weights backuper enabled, `_backup_model_weights` already
+        # stores merged weights (its backup() runs under merged_megatron_lora),
+        # so the updater's pinned-CPU copies are pre-merged.  Re-merging the
+        # live model here is redundant and, when the model is asleep
+        # (offload_train), crashes on torch_memory_saver-paused tensors.
+        lora_merge_needed = getattr(self.args, "use_megatron_lora", False) and not getattr(
+            self.args, "enable_weights_backuper", False
+        )
+        lora_context = merged_megatron_lora(self.model) if lora_merge_needed else nullcontext()
         with offload_context, lora_context:
             print_memory("before update_weights")
             self.weight_updater.update_weights()

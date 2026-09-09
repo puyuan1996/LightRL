@@ -124,6 +124,11 @@ def named_params_and_buffers(
     else:
         ans = _named_params_and_buffers_vanilla(model)
 
+    # Adapter params (slime_lora_A/B) are not part of the engine weight set:
+    # their effect is merged into the base weights before the update, and the
+    # name-based HF converters raise on them.
+    ans = ((name, tensor) for name, tensor in ans if ".slime_lora_" not in name)
+
     if translate_gpu_to_cpu:
         ans = ((name, _maybe_get_cpu_backup(tensor)) for name, tensor in ans)
 

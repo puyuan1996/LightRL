@@ -19,33 +19,43 @@ if [[ -z "${MATH_DATA_ROOT:-}" ]]; then
 fi
 TRAIN_DATASET="${TRAIN_DATASET:-aime-2025}"
 REWARD_TYPE="${REWARD_TYPE:-math}"
-# 8192 truncates ~91% of AIME-style long-CoT rollouts (v8 measurement); the
-# DAPO recipe uses 20480 and the slime reference uses 16384 for eval.  16384
-# is the largest cap that stayed within memory on 4xH200 with dynamic
-# batching; 32768 OOMed in the actor log-prob forward (retry10).
-RESPONSE_CAP="${RESPONSE_CAP:-16384}"
+# DAPO paper: 16,384 expected tokens plus a 4,096-token soft-punish cache,
+# hence a 20,480-token generation cap.
+RESPONSE_CAP="${RESPONSE_CAP:-20480}"
 # Use the rollout engine's logprobs as the PPO old policy (PPO-bypass).  The
 # Megatron old-policy recomputation disagreed with SGLang by ~8 nats/token in
 # v8, which poisons the IS ratio; bypassing it also skips one full forward.
 USE_ROLLOUT_LOGPROBS="${USE_ROLLOUT_LOGPROBS:-0}"
 if [[ -z "${ROLLOUT_BATCH_SIZE:-}" ]]; then
   if [[ "${TRAIN_DATASET}" == "dapo" || "${TRAIN_DATASET}" == "dapo-math-17k" ]]; then
-    ROLLOUT_BATCH_SIZE=256
+    # DAPO paper: 512 prompts per rollout.  AIME's 30-row dataset uses the
+    # small-dataset fallback below to avoid an empty floor-divided epoch.
+    ROLLOUT_BATCH_SIZE=512
   else
-    # AIME has only 30 prompts.  Four prompts x four samples gives a
-    # sufficiently large GRPO group while still allowing several updates per
-    # epoch; callers with more memory can override this explicitly.
+    # AIME has only 30 prompts. Four prompts x 16 samples keeps the paper's
+    # group size while still allowing several updates per epoch; callers with
+    # more memory can override this explicitly.
     ROLLOUT_BATCH_SIZE=4
   fi
 fi
-N_SAMPLES="${N_SAMPLES:-4}"
+N_SAMPLES="${N_SAMPLES:-16}"
 NUM_EPOCHS="${NUM_EPOCHS:-10}"
 NUM_ROLLOUT="${NUM_ROLLOUT:-}"
-GLOBAL_BATCH_SIZE="${GLOBAL_BATCH_SIZE:-$((ROLLOUT_BATCH_SIZE * N_SAMPLES))}"
+if [[ -z "${GLOBAL_BATCH_SIZE:-}" ]]; then
+  if [[ "${TRAIN_DATASET}" == "dapo" || "${TRAIN_DATASET}" == "dapo-math-17k" ]]; then
+    # 8,192 sampled responses / 512-token minibatch = 16 updates per rollout.
+    GLOBAL_BATCH_SIZE=512
+  else
+    # AIME fallback keeps a valid small-dataset epoch (4 prompts x 16 samples).
+    GLOBAL_BATCH_SIZE=$((ROLLOUT_BATCH_SIZE * N_SAMPLES))
+  fi
+fi
 EVAL_DATASETS="${EVAL_DATASETS:-aime-2025,aime-2024}"
-EVAL_N_SAMPLES="${EVAL_N_SAMPLES:-8}"
-EVAL_INTERVAL="${EVAL_INTERVAL:-5}"
-EVAL_TOP_P="${EVAL_TOP_P:-1.0}"
+EVAL_N_SAMPLES="${EVAL_N_SAMPLES:-1}"
+# Evaluation is deliberately sparse; the training loop no longer adds an
+# implicit eval at every short epoch boundary.
+EVAL_INTERVAL="${EVAL_INTERVAL:-20}"
+EVAL_TOP_P="${EVAL_TOP_P:-0.7}"
 EVAL_ROLLOUT_MAX_CONCURRENCY="${EVAL_ROLLOUT_MAX_CONCURRENCY:-8}"
 SGLANG_SERVER_CONCURRENCY="${SGLANG_SERVER_CONCURRENCY:-64}"
 USE_FAULT_TOLERANCE="${USE_FAULT_TOLERANCE:-1}"
@@ -85,7 +95,7 @@ RECOMPUTE_METHOD="${RECOMPUTE_METHOD:-uniform}"
 RECOMPUTE_NUM_LAYERS="${RECOMPUTE_NUM_LAYERS:-1}"
 LR="${LR:-1e-6}"
 LR_DECAY_STYLE="${LR_DECAY_STYLE:-constant}"
-LR_WARMUP_ITERS="${LR_WARMUP_ITERS:-10}"
+LR_WARMUP_ITERS="${LR_WARMUP_ITERS:-20}"
 CLIP_GRAD="${CLIP_GRAD:-1.0}"
 NUM_STEPS_PER_ROLLOUT="${NUM_STEPS_PER_ROLLOUT:-1}"
 OVER_SAMPLING_BATCH_SIZE="${OVER_SAMPLING_BATCH_SIZE:-$((ROLLOUT_BATCH_SIZE * 2))}"
@@ -108,6 +118,25 @@ SLIME_DIR="${SLIME_DIR:-${REPO_ROOT}/slime}"
 TRAIN_PYTHON="${TRAIN_PYTHON:-python3}"
 RUN_ID="${RUN_ID:-math-dapo-${TRAIN_DATASET}-seed${SEED}-$(date +%Y%m%d-%H%M%S)}"
 RUN_DIR="${RUN_DIR:-${REPO_ROOT}/runs/training/${RUN_ID}}"
+# Persist evaluation trajectories by default.  The scope remains eval-only so
+# training rollouts do not multiply disk usage; callers can set DUMP_DETAILS=
+# explicitly to choose another location.
+if [[ -z "${DUMP_DETAILS}" ]]; then
+  DUMP_DETAILS="${RUN_DIR}/eval_trajectories"
+fi
+
+# DAPO overlong reward shaping: 20,480 generation tokens with a 4,096-token
+# soft-punish cache implies an expected length of 16,384.
+ALGO="${ALGO:-dapo}"
+DAPO_OVERLONG_BUFFER_ENABLE="${DAPO_OVERLONG_BUFFER_ENABLE:-1}"
+DAPO_MAX_RESPONSE_LEN="${DAPO_MAX_RESPONSE_LEN:-${RESPONSE_CAP}}"
+DAPO_OVERLONG_BUFFER_LEN="${DAPO_OVERLONG_BUFFER_LEN:-4096}"
+DAPO_OVERLONG_PENALTY_FACTOR="${DAPO_OVERLONG_PENALTY_FACTOR:-1.0}"
+(( DAPO_MAX_RESPONSE_LEN > 0 && DAPO_OVERLONG_BUFFER_LEN > 0 && DAPO_OVERLONG_BUFFER_LEN <= DAPO_MAX_RESPONSE_LEN )) || {
+  echo "[math-dapo] invalid DAPO overlong shaping lengths" >&2
+  exit 2
+}
+export ALGO DAPO_OVERLONG_BUFFER_ENABLE DAPO_MAX_RESPONSE_LEN DAPO_OVERLONG_BUFFER_LEN DAPO_OVERLONG_PENALTY_FACTOR
 
 dataset_path() {
   case "$1" in
@@ -164,7 +193,7 @@ CMD=("${TRAIN_PYTHON}" -u "${SLIME_DIR}/train_async.py"
   --calculate-per-token-loss --eval-interval "${EVAL_INTERVAL}"
   --n-samples-per-eval-prompt "${EVAL_N_SAMPLES}" --eval-max-response-len "${RESPONSE_CAP}"
   --eval-input-key prompt --eval-label-key label --eval-reward-key score
-  --eval-top-p "${EVAL_TOP_P}" --train-backend "${TRAIN_BACKEND}"
+  --eval-top-p "${EVAL_TOP_P}" --log-passrate --train-backend "${TRAIN_BACKEND}"
   --attention-backend "${MODEL_ATTENTION_BACKEND}"
   --transformer-impl "${MODEL_TRANSFORMER_IMPL}"
   --num-layers "${MODEL_NUM_LAYERS}" --vocab-size "${MODEL_VOCAB_SIZE}" --hidden-size "${MODEL_HIDDEN_SIZE}"
@@ -261,9 +290,15 @@ payload = {
     "apply_chat_template": sys.argv[23] == "1", "rollout_shuffle": sys.argv[24] == "1",
     "balance_data": sys.argv[25] == "1", "use_rollout_logprobs": sys.argv[26] == "1",
     "dump_details": sys.argv[27] or None, "debug_rollout_data_scope": sys.argv[28],
+    "eval_interval": int(sys.argv[29]), "eval_n_samples": int(sys.argv[30]),
+    "eval_top_p": float(sys.argv[31]), "eval_pass_k": 1,
+    # Megatron Adam uses decoupled weight decay by default (AdamW mode).
+    "optimizer": "adam", "decoupled_weight_decay": True, "lr_warmup_rollouts": int(sys.argv[32]),
+    "dapo_overlong": {"max_response_len": int(sys.argv[33]), "expected_len": int(sys.argv[34]),
+                       "buffer_len": int(sys.argv[35]), "penalty_factor": float(sys.argv[36])},
 }
 path.write_text(json.dumps(payload, indent=2) + "\n")
-' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${N_SAMPLES}" "${GLOBAL_BATCH_SIZE}" "${NUM_EPOCHS}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}" "${NUM_STEPS_PER_ROLLOUT}" "${OVER_SAMPLING_BATCH_SIZE}" "slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std" "${DYNAMIC_SAMPLING_MAX_GROUPS}" "${USE_DYNAMIC_BATCH_SIZE}" "${MAX_TOKENS_PER_GPU}" "${APPLY_CHAT_TEMPLATE}" "${ROLLOUT_SHUFFLE}" "${BALANCE_DATA}" "${USE_ROLLOUT_LOGPROBS}" "${DUMP_DETAILS}" "${DEBUG_ROLLOUT_DATA_SCOPE}"
+' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${N_SAMPLES}" "${GLOBAL_BATCH_SIZE}" "${NUM_EPOCHS}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}" "${NUM_STEPS_PER_ROLLOUT}" "${OVER_SAMPLING_BATCH_SIZE}" "slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std" "${DYNAMIC_SAMPLING_MAX_GROUPS}" "${USE_DYNAMIC_BATCH_SIZE}" "${MAX_TOKENS_PER_GPU}" "${APPLY_CHAT_TEMPLATE}" "${ROLLOUT_SHUFFLE}" "${BALANCE_DATA}" "${USE_ROLLOUT_LOGPROBS}" "${DUMP_DETAILS}" "${DEBUG_ROLLOUT_DATA_SCOPE}" "${EVAL_INTERVAL}" "${EVAL_N_SAMPLES}" "${EVAL_TOP_P}" "${LR_WARMUP_ITERS}" "${DAPO_MAX_RESPONSE_LEN}" "$((DAPO_MAX_RESPONSE_LEN - DAPO_OVERLONG_BUFFER_LEN))" "${DAPO_OVERLONG_BUFFER_LEN}" "${DAPO_OVERLONG_PENALTY_FACTOR}"
 export MATH_RLVR_REWARD_TYPE="${REWARD_TYPE}" MATH_RLVR_RESPONSE_CAP="${RESPONSE_CAP}"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then

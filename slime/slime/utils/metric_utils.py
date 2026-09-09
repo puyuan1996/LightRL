@@ -17,7 +17,11 @@ def compute_pass_rate(
     num_groups: int | None = None,
 ):
     if group_size == 1:
-        return {}
+        # For one sample per prompt, pass@1 is simply the mean exact-match
+        # success rate.  Keep this explicit so low-cost smoke evaluations still
+        # emit a useful pass-rate metric instead of an empty dictionary.
+        values = np.asarray(flat_rewards)
+        return {"pass@1": float(np.mean(values == 1))} if len(values) else {"pass@1": 0.0}
 
     if num_groups is None:
         num_groups = len(flat_rewards) // group_size
