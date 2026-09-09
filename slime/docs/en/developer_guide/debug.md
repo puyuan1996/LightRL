@@ -44,7 +44,12 @@ Specifically, slime currently provides the following parameters for separate deb
 
 3.  `--save-debug-rollout-data /your/saved/debug/data_{rollout_id}.pt`
 
-    When enabled, the results of each rollout will be saved. This can be used in conjunction with `--debug-rollout-only`. Note that the data is saved using the format: `args.save_debug_rollout_data.format(rollout_id=rollout_id)`.
+    When enabled, evaluation rollouts are saved by default (training rollouts are
+    not saved). This can be used in conjunction with `--debug-rollout-only`.
+    The data is saved using the format:
+    `args.save_debug_rollout_data.format(rollout_id=rollout_id)`.
+    Use `--debug-rollout-data-scope train` to save training rollouts, or `both`
+    to save both kinds.
 
 4.  `--load-debug-rollout-data /your/saved/debug/data_{rollout_id}.pt`
 

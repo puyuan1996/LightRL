@@ -1320,6 +1320,15 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 ),
             )
             parser.add_argument(
+                "--debug-rollout-data-scope",
+                choices=("eval", "train", "both"),
+                default="eval",
+                help=(
+                    "Which rollout samples to save with --save-debug-rollout-data: "
+                    "eval (default), train, or both."
+                ),
+            )
+            parser.add_argument(
                 "--load-debug-rollout-data",
                 type=str,
                 default=None,

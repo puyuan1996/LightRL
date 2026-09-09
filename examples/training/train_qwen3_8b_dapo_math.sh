@@ -95,6 +95,15 @@ ROLLOUT_SHUFFLE="${ROLLOUT_SHUFFLE:-1}"
 BALANCE_DATA="${BALANCE_DATA:-1}"
 USE_DYNAMIC_BATCH_SIZE="${USE_DYNAMIC_BATCH_SIZE:-1}"
 APPLY_CHAT_TEMPLATE="${APPLY_CHAT_TEMPLATE:-1}"
+# Debug rollout dumps are opt-in.  When enabled, save evaluation samples by
+# default; set DEBUG_ROLLOUT_DATA_SCOPE=train or both when training samples are
+# also needed for a forensic run.
+DUMP_DETAILS="${DUMP_DETAILS:-}"
+DEBUG_ROLLOUT_DATA_SCOPE="${DEBUG_ROLLOUT_DATA_SCOPE:-eval}"
+case "${DEBUG_ROLLOUT_DATA_SCOPE}" in
+  eval|train|both) ;;
+  *) echo "[math-dapo] invalid DEBUG_ROLLOUT_DATA_SCOPE=${DEBUG_ROLLOUT_DATA_SCOPE} (expected eval, train, or both)" >&2; exit 2 ;;
+esac
 SLIME_DIR="${SLIME_DIR:-${REPO_ROOT}/slime}"
 TRAIN_PYTHON="${TRAIN_PYTHON:-python3}"
 RUN_ID="${RUN_ID:-math-dapo-${TRAIN_DATASET}-seed${SEED}-$(date +%Y%m%d-%H%M%S)}"
@@ -206,6 +215,9 @@ fi
 if [[ "${USE_ROLLOUT_LOGPROBS}" == "1" ]]; then
   CMD+=(--use-rollout-logprobs)
 fi
+if [[ -n "${DUMP_DETAILS}" ]]; then
+  CMD+=(--dump-details "${DUMP_DETAILS}" --debug-rollout-data-scope "${DEBUG_ROLLOUT_DATA_SCOPE}")
+fi
 if (( OVER_SAMPLING_BATCH_SIZE > ROLLOUT_BATCH_SIZE )); then
   CMD+=(--over-sampling-batch-size "${OVER_SAMPLING_BATCH_SIZE}"
     --dynamic-sampling-filter-path slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std
@@ -248,9 +260,10 @@ payload = {
     "use_dynamic_batch_size": sys.argv[21] == "1", "max_tokens_per_gpu": int(sys.argv[22]),
     "apply_chat_template": sys.argv[23] == "1", "rollout_shuffle": sys.argv[24] == "1",
     "balance_data": sys.argv[25] == "1", "use_rollout_logprobs": sys.argv[26] == "1",
+    "dump_details": sys.argv[27] or None, "debug_rollout_data_scope": sys.argv[28],
 }
 path.write_text(json.dumps(payload, indent=2) + "\n")
-' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${N_SAMPLES}" "${GLOBAL_BATCH_SIZE}" "${NUM_EPOCHS}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}" "${NUM_STEPS_PER_ROLLOUT}" "${OVER_SAMPLING_BATCH_SIZE}" "slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std" "${DYNAMIC_SAMPLING_MAX_GROUPS}" "${USE_DYNAMIC_BATCH_SIZE}" "${MAX_TOKENS_PER_GPU}" "${APPLY_CHAT_TEMPLATE}" "${ROLLOUT_SHUFFLE}" "${BALANCE_DATA}" "${USE_ROLLOUT_LOGPROBS}"
+' "${RUN_DIR}/config/math_rlvr.json" "${TRAIN_DATA}" "${ROW_COUNT}" "${ROLLOUT_BATCH_SIZE}" "${N_SAMPLES}" "${GLOBAL_BATCH_SIZE}" "${NUM_EPOCHS}" "${NUM_ROLLOUT}" "${EVAL_DATASETS}" "${REWARD_TYPE}" "${RESPONSE_CAP}" "${SEED}" "${TENSOR_MODEL_PARALLEL_SIZE}" "${SEQUENCE_PARALLEL}" "${RECOMPUTE_GRANULARITY}" "${LR}" "${NUM_STEPS_PER_ROLLOUT}" "${OVER_SAMPLING_BATCH_SIZE}" "slime.rollout.filter_hub.dynamic_sampling_filters.check_reward_nonzero_std" "${DYNAMIC_SAMPLING_MAX_GROUPS}" "${USE_DYNAMIC_BATCH_SIZE}" "${MAX_TOKENS_PER_GPU}" "${APPLY_CHAT_TEMPLATE}" "${ROLLOUT_SHUFFLE}" "${BALANCE_DATA}" "${USE_ROLLOUT_LOGPROBS}" "${DUMP_DETAILS}" "${DEBUG_ROLLOUT_DATA_SCOPE}"
 export MATH_RLVR_REWARD_TYPE="${REWARD_TYPE}" MATH_RLVR_RESPONSE_CAP="${RESPONSE_CAP}"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then

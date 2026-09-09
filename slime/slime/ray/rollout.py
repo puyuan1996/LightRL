@@ -68,6 +68,25 @@ def _env_flag(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _should_save_debug_rollout_data(scope: str, *, evaluation: bool) -> bool:
+    """Return whether a debug rollout dump should include this rollout.
+
+    Eval-only is intentionally the default: evaluation samples are useful for
+    post-hoc capability analysis, while saving every training rollout can
+    consume substantial storage during a long run.
+    """
+    normalized_scope = str(scope or "eval").strip().lower()
+    if normalized_scope not in {"eval", "train", "both"}:
+        raise ValueError(
+            f"Unsupported debug rollout data scope {scope!r}; expected one of eval, train, both"
+        )
+    if normalized_scope == "both":
+        return True
+    if normalized_scope == "eval":
+        return bool(evaluation)
+    return not evaluation
+
+
 def _loss_mask_sum(mask: Any) -> float:
     if isinstance(mask, torch.Tensor):
         return float(mask.sum().item())
@@ -412,6 +431,16 @@ class RolloutManager:
     def _save_debug_rollout_data(self, data, rollout_id, evaluation: bool):
         # TODO to be refactored (originally Buffer._set_data)
         if (path_template := self.args.save_debug_rollout_data) is not None:
+            if not _should_save_debug_rollout_data(
+                getattr(self.args, "debug_rollout_data_scope", "eval"), evaluation=evaluation
+            ):
+                logger.debug(
+                    "Skip debug rollout dump for rollout_id=%s (evaluation=%s, scope=%s)",
+                    rollout_id,
+                    evaluation,
+                    getattr(self.args, "debug_rollout_data_scope", "eval"),
+                )
+                return
             path = Path(path_template.format(rollout_id=("eval_" if evaluation else "") + str(rollout_id)))
             logger.info(f"Save debug rollout data to {path}")
             path.parent.mkdir(parents=True, exist_ok=True)
