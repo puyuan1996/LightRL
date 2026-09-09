@@ -42,7 +42,12 @@ slime 支持将训练部分和推理部分分开进行调试，从而实现：
 
 2. `--save-debug-rollout-data /your/saved/debug/data_{rollout_id}.pt`
 
-   开启后，会保存每次 rollout 的结果，可以和 `--debug-rollout-only` 配合使用。注意保存的方式为 `args.save_debug_rollout_data.format(rollout_id=rollout_id)`。
+   开启后，会保存评测 rollout 的结果（默认不保存训练 rollout），可以和
+   `--debug-rollout-only` 配合使用。注意保存的方式为
+   `args.save_debug_rollout_data.format(rollout_id=rollout_id)`。
+
+   如需保存训练 rollout，增加 `--debug-rollout-data-scope train`；如需同时保存
+   两类 rollout，使用 `--debug-rollout-data-scope both`。
 
 3. `--load-debug-rollout-data /your/saved/debug/data_{rollout_id}.pt`
 

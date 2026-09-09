@@ -13,6 +13,16 @@ The evaluation stack has three deliberately separate layers:
    `BaseEvalHarness` data model. It does not share mutable rollout state with
    training harnesses.
 
+Math RLVR is a deliberately dependency-light benchmark package under
+`tools/evaluation/math_rlvr/`. Its data/extractor/verifier/scorer/stats modules
+are independent of the generic harness lifecycle; rescoring is implemented by
+the scorer module so online and offline policies cannot drift. The compatibility
+entrypoints `eval_math.py`, `prepare_math_data.py`, `rescore_math_eval.py` and
+`math_paired_stats.py` are safe to call from an RJob. Scheduler-facing Math RLVR
+submitters are operator-provided local overlays (commonly under
+`local/rjob/`) and read site-specific settings from the environment; they are
+not part of the public source tree.
+
 The canonical command is:
 
 ```bash

@@ -68,6 +68,25 @@ def _env_flag(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _should_save_debug_rollout_data(scope: str, *, evaluation: bool) -> bool:
+    """Return whether a debug rollout dump should include this rollout.
+
+    Eval-only is intentionally the default: evaluation samples are useful for
+    post-hoc capability analysis, while saving every training rollout can
+    consume substantial storage during a long run.
+    """
+    normalized_scope = str(scope or "eval").strip().lower()
+    if normalized_scope not in {"eval", "train", "both"}:
+        raise ValueError(
+            f"Unsupported debug rollout data scope {scope!r}; expected one of eval, train, both"
+        )
+    if normalized_scope == "both":
+        return True
+    if normalized_scope == "eval":
+        return bool(evaluation)
+    return not evaluation
+
+
 def _loss_mask_sum(mask: Any) -> float:
     if isinstance(mask, torch.Tensor):
         return float(mask.sum().item())
@@ -448,6 +467,16 @@ class RolloutManager:
     def _save_debug_rollout_data(self, data, rollout_id, evaluation: bool):
         # TODO to be refactored (originally Buffer._set_data)
         if (path_template := self.args.save_debug_rollout_data) is not None:
+            if not _should_save_debug_rollout_data(
+                getattr(self.args, "debug_rollout_data_scope", "eval"), evaluation=evaluation
+            ):
+                logger.debug(
+                    "Skip debug rollout dump for rollout_id=%s (evaluation=%s, scope=%s)",
+                    rollout_id,
+                    evaluation,
+                    getattr(self.args, "debug_rollout_data_scope", "eval"),
+                )
+                return
             path = Path(path_template.format(rollout_id=("eval_" if evaluation else "") + str(rollout_id)))
             logger.info(f"Save debug rollout data to {path}")
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -1312,6 +1341,32 @@ def _log_eval_rollout_data(rollout_id, args, data, extra_metrics: dict[str, Any]
     step = compute_rollout_step(args, rollout_id)
     log_dict["eval/step"] = step
     logging_utils.log(args, log_dict, step_key="eval/step")
+
+    # Persist per-dataset eval metrics to the durable JSONL so the OOD eval
+    # curve survives train.log rotation.
+    try:
+        from agentic_rl.misc.jsonl_sink import write_structured_metrics
+
+        records = []
+        for key in data.keys():
+            record = {
+                "schema": "terminal_rl.eval_dataset_metrics.v1",
+                "phase": "eval",
+                "role": "rollout_manager",
+                "rollout_id": rollout_id,
+                "global_step": step,
+                "dataset": key,
+                "reward": log_dict.get(f"eval/{key}"),
+            }
+            for metric_key, value in log_dict.items():
+                if metric_key.startswith(f"eval/{key}/"):
+                    record[metric_key.removeprefix(f"eval/{key}/")] = value
+                elif metric_key.startswith(f"eval/{key}-"):
+                    record[metric_key.removeprefix(f"eval/{key}-")] = value
+            records.append(record)
+        write_structured_metrics(records)
+    except Exception:
+        logger.debug("structured eval metrics sink unavailable", exc_info=True)
 
     return log_dict
 

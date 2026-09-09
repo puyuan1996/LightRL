@@ -245,6 +245,31 @@ def gather_log_data(
         reduced_log_dict["rollout/step"] = step
         logging_utils.log(args, reduced_log_dict, step_key="rollout/step")
 
+        # Persist rollout reward/length signals to the durable JSONL so the
+        # train reward curve survives train.log rotation.
+        if metric_name == "rollout":
+            try:
+                from agentic_rl.misc.jsonl_sink import write_structured_metrics
+
+                write_structured_metrics(
+                    [
+                        {
+                            "schema": "terminal_rl.rollout_metrics.v1",
+                            "phase": "rollout",
+                            "role": "actor",
+                            "rollout_id": rollout_id,
+                            "global_step": step,
+                            "metrics": {
+                                key.removeprefix(f"{metric_name}/"): value
+                                for key, value in reduced_log_dict.items()
+                                if key.startswith(f"{metric_name}/")
+                            },
+                        }
+                    ]
+                )
+            except Exception:
+                logger.debug("structured rollout metrics sink unavailable", exc_info=True)
+
         return reduced_log_dict
     else:
         dist.gather_object(

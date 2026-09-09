@@ -638,15 +638,27 @@ async def abort(args: Namespace, rollout_id: int) -> list[list[Sample]]:
     assert not state.aborted
     state.aborted = True
 
-    if parse(sglang_router.__version__) <= parse("0.2.1") or args.use_slime_router:
-        response = await get(f"http://{args.sglang_router_ip}:{args.sglang_router_port}/list_workers")
-        urls = response["urls"]
-    else:
-        response = await get(f"http://{args.sglang_router_ip}:{args.sglang_router_port}/workers")
-        urls = [worker["url"] for worker in response["workers"]]
+    # Aborting is cleanup: a worker can disappear while the router is
+    # recovering it.  Do not turn one dead endpoint into a fatal driver error.
+    try:
+        if parse(sglang_router.__version__) <= parse("0.2.1") or args.use_slime_router:
+            response = await get(f"http://{args.sglang_router_ip}:{args.sglang_router_port}/list_workers")
+            urls = response["urls"]
+        else:
+            response = await get(f"http://{args.sglang_router_ip}:{args.sglang_router_port}/workers")
+            urls = [worker["url"] for worker in response["workers"]]
+    except Exception as exc:
+        logger.warning("Unable to list rollout workers during abort; continuing cleanup: %r", exc)
+        urls = []
 
-    logger.info(f"Abort request for {urls}")
-    await asyncio.gather(*[post(f"{url}/abort_request", {"abort_all": True}) for url in urls])
+    async def _abort_worker(url: str) -> None:
+        try:
+            await post(f"{url}/abort_request", {"abort_all": True})
+        except Exception as exc:
+            logger.warning("Unable to abort rollout worker %s; it may already be dead: %r", url, exc)
+
+    logger.info("Abort request for %s", urls)
+    await asyncio.gather(*[_abort_worker(url) for url in urls])
 
     # make sure all the pending tasks are finished
     count = 0
