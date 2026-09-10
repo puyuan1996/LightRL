@@ -288,6 +288,12 @@ fi
 if [[ "${SLIME_USE_FAULT_TOLERANCE:-0}" == "1" ]]; then
   SGLANG_ARGS+=(--use-fault-tolerance)
 fi
+if [[ "${SAVE_EVAL_TRAJECTORIES:-0}" == "1" && -z "${SLIME_SAVE_DEBUG_ROLLOUT_DATA:-}" ]]; then
+  # Keep evaluation traces under the current run directory.  The rollout
+  # manager applies the eval-only scope, so training rollouts are not dumped.
+  SLIME_SAVE_DEBUG_ROLLOUT_DATA="${RUN_DIR}/metrics/traces/eval_{rollout_id}.pt"
+  export SLIME_SAVE_DEBUG_ROLLOUT_DATA
+fi
 if [[ -n "${SLIME_SAVE_DEBUG_ROLLOUT_DATA:-}" ]]; then
   SGLANG_ARGS+=(--save-debug-rollout-data "${SLIME_SAVE_DEBUG_ROLLOUT_DATA}")
 fi

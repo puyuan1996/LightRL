@@ -492,13 +492,14 @@ if [[ "${HARNESS_OPTION}" == "claude-code" ]]; then
     \"ANTHROPIC_API_URL\": \"${ANTHROPIC_API_URL}\""
 fi
 
-# SGLang behavior flags exported by the launcher (e.g. the GLM-5.1 smoke
-# script) must reach engine actors on EVERY node.  Ray merges the job-level
+# Behavior flags exported by the launcher (SGLang switches and NCCL
+# flight-recorder settings from e.g. the GLM-5.1 smoke script) must reach
+# engine and training actors on EVERY node.  Ray merges the job-level
 # runtime env into all actors, while an actor's own raylet env does not
 # propagate — without this passthrough, workers run with stock SGLang
 # defaults and deadlock against the head in mismatched collectives.
-SGLANG_PASSTHROUGH_JSON=""
-for _sgl_var in \
+EXTRA_ENV_PASSTHROUGH_JSON=""
+for _passthrough_var in \
   SGLANG_USE_MESSAGE_QUEUE_BROADCASTER \
   SGLANG_DISABLE_NSA_DP_ATTENTION \
   SGLANG_ONE_VISIBLE_DEVICE_PER_PROCESS \
@@ -509,12 +510,16 @@ for _sgl_var in \
   SGLANG_ATTENTION_BACKEND \
   SGLANG_CHUNKED_PREFILL_SIZE \
   SGLANG_MEM_FRACTION_STATIC \
-  LIGHTRL_SGLANG_SERVER_PYTHON; do
-  if [[ -n "${!_sgl_var:-}" ]]; then
-    SGLANG_PASSTHROUGH_JSON+=$'\n    '"\"${_sgl_var}\": \"${!_sgl_var}\","
+  LIGHTRL_SGLANG_SERVER_PYTHON \
+  MEGATRON_BRIDGE_LOAD_LOG_EVERY \
+  TORCH_NCCL_TRACE_BUFFER_SIZE \
+  TORCH_NCCL_DUMP_ON_TIMEOUT \
+  TORCH_NCCL_DEBUG_INFO_TEMP_FILE; do
+  if [[ -n "${!_passthrough_var:-}" ]]; then
+    EXTRA_ENV_PASSTHROUGH_JSON+=$'\n    '"\"${_passthrough_var}\": \"${!_passthrough_var}\","
   fi
 done
-unset _sgl_var
+unset _passthrough_var
 
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
@@ -545,7 +550,7 @@ RUNTIME_ENV_JSON="{
     \"SLIME_SAVE_DEBUG_ROLLOUT_DATA\": \"${SLIME_SAVE_DEBUG_ROLLOUT_DATA:-}\",
     \"MASTER_ADDR\": \"${MASTER_ADDR}\",
     \"SLIME_HOST_IP\": \"${SLIME_HOST_IP:-}\",
-    \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",${SGLANG_PASSTHROUGH_JSON}
+    \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",${EXTRA_ENV_PASSTHROUGH_JSON}
     \"USE_REMOTE_ENV\": \"${USE_REMOTE_ENV}\",
     \"ENV_SERVER_URL\": \"${ENV_SERVER_URL}\",
     \"ENV_HTTP_MAX_RETRIES\": \"${ENV_HTTP_MAX_RETRIES}\",

@@ -62,8 +62,8 @@ MLA nope/rope 维度拆分、DSA 索引器维度、routing scaling 2.5、MTP 关
   双份权重驻留；`recompute=full` + `mbs=1` 把激活压到极小；
 - `RolloutManager.offload()` 带重试与显式 `SLIME_RELEASE_MEMORY_TAGS`;
   launcher 对 `ray job status` 做重试，只有明确终态才 cleanup，dashboard
-  瞬断不再误杀集群；`SGLANG_*` 经 runtime env(`SGLANG_PASSTHROUGH_JSON`)
-  透传到所有 actor。
+  瞬断不再误杀集群；`SGLANG_*`/`TORCH_NCCL_*` 经 runtime
+  env(`EXTRA_ENV_PASSTHROUGH_JSON`)透传到所有 actor。
 
 16 GPU(TP16）是 colocate 训练的下限（12 卡无论如何放不下）,32 GPU(TP32）
 是舒适区；对应入口见下。

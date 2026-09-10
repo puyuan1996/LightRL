@@ -193,6 +193,8 @@ class RolloutDataSourceWithBuffer(RolloutDataSource):
                     score_threshold=getattr(args, "trajectory_score_threshold", 1.0),
                     posadv_only=getattr(args, "enable_trajectory_posadv", False),
                     weight_decay=getattr(args, "weight_decay_trajectory_replay", -1.0),
+                    baseline_buffer_size=getattr(args, "baseline_buffer_size", 10240),
+                    tolerate_steps=getattr(args, "trajectory_tolerate_steps", 10),
                     seed=getattr(args, "seed", 42),
                 )
                 logger.info("SPEAR SIL buffer enabled: size=%s", getattr(args, "trajectory_buffer_size", 2048))
@@ -296,6 +298,7 @@ class RolloutDataSourceWithBuffer(RolloutDataSource):
             return
         try:
             entries = []
+            group_rewards: dict[int, list[float]] = {}
             for sample in _iter_sample_leaves(samples):
                 if sample.response_length == 0 or sample.tokens is None:
                     continue
@@ -305,6 +308,9 @@ class RolloutDataSourceWithBuffer(RolloutDataSource):
                 if len(loss_mask) != sample.response_length:
                     continue
                 reward_value = float(sample.get_reward_value(self.args)) if sample.reward is not None else 0.0
+                group_index = getattr(sample, "group_index", None)
+                if group_index is not None:
+                    group_rewards.setdefault(int(group_index), []).append(reward_value)
                 policy_version = getattr(sample, "policy_version", None)
                 try:
                     policy_version = int(policy_version)
@@ -315,16 +321,43 @@ class RolloutDataSourceWithBuffer(RolloutDataSource):
                 entries.append(
                     {
                         "tokens": sample.tokens,
+                        "group_index": int(group_index) if group_index is not None else None,
                         "response_length": sample.response_length,
                         "loss_mask": loss_mask,
                         "rollout_log_probs": sample.rollout_log_probs,
                         "policy_version": policy_version,
                         "reward": reward_value,
+                        # The official implementation admits positive
+                        # group-relative advantages.  Keep this value on the
+                        # record so ``enable_trajectory_posadv`` has the same
+                        # meaning before the training-side GRPO pass runs.
                         "advantage": reward_value,
                     }
                 )
             if entries:
-                self.sil_buffer.push(entries, current_step=self.total_added)
+                mean_by_group = {
+                    key: sum(values) / len(values) for key, values in group_rewards.items() if values
+                }
+                for entry in entries:
+                    group_index = entry.get("group_index")
+                    if group_index in mean_by_group:
+                        entry["advantage"] = entry["reward"] - mean_by_group[group_index]
+                try:
+                    # Policy version advances once per rollout by the driver;
+                    # use it as the SPEAR age clock instead of the number of
+                    # groups admitted (which depends on batch size).
+                    sil_step = int(getattr(self, "current_policy_version", self.total_added))
+                    self.sil_buffer.push(
+                        entries,
+                        current_step=sil_step,
+                        group_rewards=mean_by_group.values(),
+                    )
+                except TypeError as exc:
+                    # Keep compatibility with custom/legacy SIL buffers that
+                    # only implement the original two-argument ``push`` API.
+                    if "group_rewards" not in str(exc):
+                        raise
+                    self.sil_buffer.push(entries, current_step=sil_step)
         except Exception as exc:
             logger.warning("SPEAR SIL candidate push failed: %s", exc)
 
