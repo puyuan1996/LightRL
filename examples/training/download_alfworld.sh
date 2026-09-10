@@ -9,7 +9,7 @@ mkdir -p "${OUT_DIR}"
 python3 -c 'import alfworld' 2>/dev/null || python3 -m pip install --upgrade --quiet alfworld
 export ALFWORLD_DATA="${OUT_DIR}"
 if command -v alfworld-download >/dev/null 2>&1; then
-  alfworld-download --data-dir "${OUT_DIR}"
+  (cd "${OUT_DIR}" && alfworld-download -f)
 else
   python3 - <<'PY'
 import alfworld
