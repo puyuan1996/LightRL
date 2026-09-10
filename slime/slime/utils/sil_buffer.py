@@ -176,11 +176,16 @@ class SILBuffer:
         self._trim_old(current_step)
         if len(self._buf) == 0:
             return []
-        raw = self._rng.sample(list(self._buf), min(int(n), len(self._buf)))
+        # Recalibration is itself an admission gate in SPEAR: when the
+        # historical p50 moves above a stored reward, that trajectory must not
+        # become a negative SIL target.  Shuffle the eligible pool first so a
+        # small request does not systematically favour FIFO entries.
+        candidates = list(self._buf)
         result = []
         if baseline_reward is None:
             baseline_reward = self.baseline_reward()
-        for entry in raw:
+        self._rng.shuffle(candidates)
+        for entry in candidates:
             e = dict(entry)
             if self.weight_decay == -1.0:
                 if baseline_reward is not None:
@@ -189,7 +194,11 @@ class SILBuffer:
                 # The reference implementation applies this coefficient once
                 # to the replay loss; it is not an additional age decay.
                 e["advantage"] = self.weight_decay * e["advantage"]
+            if self.posadv_only and e["advantage"] <= 0.0:
+                continue
             result.append(e)
+            if len(result) >= int(n):
+                break
         return result
 
     def __len__(self) -> int:

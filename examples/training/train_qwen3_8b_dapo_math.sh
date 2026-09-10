@@ -56,6 +56,13 @@ EVAL_N_SAMPLES="${EVAL_N_SAMPLES:-1}"
 # implicit eval at every short epoch boundary.
 EVAL_INTERVAL="${EVAL_INTERVAL:-20}"
 EVAL_TOP_P="${EVAL_TOP_P:-0.7}"
+ENABLE_TRAJECTORY_REPLAY="${ENABLE_TRAJECTORY_REPLAY:-1}"
+TRAJECTORY_BUFFER_SIZE="${TRAJECTORY_BUFFER_SIZE:-2048}"
+TRAJECTORY_SCORE_THRESHOLD="${TRAJECTORY_SCORE_THRESHOLD:-1}"
+TRAJECTORY_TOLERATE_STEPS="${TRAJECTORY_TOLERATE_STEPS:-5}"
+REPLAY_LOSS_COEF="${REPLAY_LOSS_COEF:-1}"
+MAX_REPLAY_LOSS_STEPS="${MAX_REPLAY_LOSS_STEPS:-300}"
+BASELINE_BUFFER_SIZE="${BASELINE_BUFFER_SIZE:-10240}"
 EVAL_ROLLOUT_MAX_CONCURRENCY="${EVAL_ROLLOUT_MAX_CONCURRENCY:-8}"
 SGLANG_SERVER_CONCURRENCY="${SGLANG_SERVER_CONCURRENCY:-64}"
 USE_FAULT_TOLERANCE="${USE_FAULT_TOLERANCE:-1}"
@@ -257,6 +264,16 @@ if [[ -n "${NUM_ROLLOUT}" ]]; then
   CMD+=(--num-rollout "${NUM_ROLLOUT}")
 else
   CMD+=(--num-epoch "${NUM_EPOCHS}")
+fi
+if [[ "${ENABLE_TRAJECTORY_REPLAY}" == "1" ]]; then
+  CMD+=(--enable-trajectory-replay --enable-trajectory-posadv
+    --trajectory-buffer-size "${TRAJECTORY_BUFFER_SIZE}"
+    --trajectory-score-threshold "${TRAJECTORY_SCORE_THRESHOLD}"
+    --trajectory-tolerate-steps "${TRAJECTORY_TOLERATE_STEPS}"
+    --replay-loss-coef "${REPLAY_LOSS_COEF}"
+    --max-replay-loss-steps "${MAX_REPLAY_LOSS_STEPS}"
+    --weight-decay-trajectory-replay -1
+    --baseline-buffer-size "${BASELINE_BUFFER_SIZE}")
 fi
 if [[ "${SEQUENCE_PARALLEL}" == "1" ]]; then
   CMD+=(--sequence-parallel)
